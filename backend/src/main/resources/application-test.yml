@@ -1,7 +1,12 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/payments_tracker_test
-    username: postgres
-    password: postgres
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;NON_KEYWORDS=VALUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    database-platform: org.hibernate.dialect.H2Dialect
   flyway:
-    enabled: true
+    enabled: false

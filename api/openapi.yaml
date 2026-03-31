@@ -67,6 +67,24 @@ paths:
       responses:
         '200':
           description: Paginated list of transactions
+          headers:
+            X-Total-Items:
+              description: Total number of items across all pages
+              schema:
+                type: integer
+                format: int64
+            X-Page:
+              description: Current page number (zero-based)
+              schema:
+                type: integer
+            X-Page-Size:
+              description: Number of items per page
+              schema:
+                type: integer
+            X-Total-Pages:
+              description: Total number of pages
+              schema:
+                type: integer
           content:
             application/json:
               schema:
