@@ -9,11 +9,11 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "csv_uploads")
+@Table(name = "file_uploads")
 @Getter
 @Setter
 @NoArgsConstructor
-public class CsvUpload {
+public class FileUpload {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -21,6 +21,9 @@ public class CsvUpload {
 
     @Column(nullable = false)
     private String filename;
+
+    @Column(name = "mime_type", length = 100)
+    private String mimeType;
 
     @Column(name = "uploaded_at")
     private LocalDateTime uploadedAt = LocalDateTime.now();

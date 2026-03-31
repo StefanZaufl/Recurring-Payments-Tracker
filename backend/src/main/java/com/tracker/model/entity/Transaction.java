@@ -23,7 +23,7 @@ public class Transaction {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "upload_id")
-    private CsvUpload upload;
+    private FileUpload upload;
 
     @Column(name = "booking_date", nullable = false)
     private LocalDate bookingDate;

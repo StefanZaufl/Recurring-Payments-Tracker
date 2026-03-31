@@ -131,10 +131,11 @@ echo "node_modules/\ntarget/\n.idea/\n*.iml\n.DS_Store\ndist/" > .gitignore
 ## Database Schema
 
 ```sql
--- Uploaded CSV files metadata
-CREATE TABLE csv_uploads (
+-- Uploaded file metadata
+CREATE TABLE file_uploads (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     filename VARCHAR(255) NOT NULL,
+    mime_type VARCHAR(100),
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     row_count INTEGER
 );
@@ -142,7 +143,7 @@ CREATE TABLE csv_uploads (
 -- Raw transactions from CSV
 CREATE TABLE transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    upload_id UUID REFERENCES csv_uploads(id) ON DELETE CASCADE,
+    upload_id UUID REFERENCES file_uploads(id) ON DELETE CASCADE,
     booking_date DATE NOT NULL,
     partner_name VARCHAR(255),
     partner_iban VARCHAR(34),
@@ -277,12 +278,12 @@ recurring-payments-tracker/
 │   │   │   │   ├── repository/
 │   │   │   │   │   ├── TransactionRepository.java
 │   │   │   │   │   ├── RecurringPaymentRepository.java
-│   │   │   │   │   └── CsvUploadRepository.java
+│   │   │   │   │   └── FileUploadRepository.java
 │   │   │   │   ├── model/
 │   │   │   │   │   ├── entity/
 │   │   │   │   │   │   ├── Transaction.java
 │   │   │   │   │   │   ├── RecurringPayment.java
-│   │   │   │   │   │   ├── CsvUpload.java
+│   │   │   │   │   │   ├── FileUpload.java
 │   │   │   │   │   │   └── Category.java
 │   │   │   │   │   └── dto/
 │   │   │   │   │       ├── UploadResponseDto.java
