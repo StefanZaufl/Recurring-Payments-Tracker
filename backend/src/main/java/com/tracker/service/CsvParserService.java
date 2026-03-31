@@ -4,6 +4,8 @@ import com.tracker.model.entity.Transaction;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -20,6 +22,7 @@ import java.util.List;
 @Service
 public class CsvParserService {
 
+    private static final Logger log = LoggerFactory.getLogger(CsvParserService.class);
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd.MM.yyyy");
 
     private static final String COL_BOOKING_DATE = "Buchungsdatum";
@@ -94,6 +97,7 @@ public class CsvParserService {
         String amountStr = getField(record, COL_AMOUNT);
 
         if (dateStr == null || dateStr.isEmpty() || amountStr == null || amountStr.isEmpty()) {
+            log.warn("Skipping row {}: missing required field (Buchungsdatum or Betrag)", record.getRecordNumber());
             return null;
         }
 
