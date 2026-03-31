@@ -7,7 +7,6 @@ import org.apache.commons.csv.CSVRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.io.*;
 import java.math.BigDecimal;
@@ -30,8 +29,7 @@ public class CsvParserService {
     private static final String COL_AMOUNT = "Betrag";
     private static final String COL_DETAILS = "Buchungs-Details";
 
-    public List<Transaction> parse(MultipartFile file) throws IOException {
-        byte[] bytes = file.getBytes();
+    public List<Transaction> parse(byte[] bytes) {
         Charset charset = detectCharset(bytes);
 
         CSVFormat format = CSVFormat.Builder.create()
@@ -55,6 +53,8 @@ public class CsvParserService {
                 }
             }
             return transactions;
+        } catch (IOException e) {
+            throw new CsvParseException("Failed to read CSV data: " + e.getMessage(), e);
         }
     }
 
@@ -123,7 +123,7 @@ public class CsvParserService {
             return LocalDate.parse(dateStr, DATE_FORMAT);
         } catch (DateTimeParseException e) {
             throw new CsvParseException(
-                    "Invalid date format at row " + recordNumber + ": '" + dateStr + "'. Expected DD.MM.YYYY");
+                    "Invalid date format at row " + recordNumber + ": '" + dateStr + "'. Expected DD.MM.YYYY", e);
         }
     }
 
@@ -137,13 +137,17 @@ public class CsvParserService {
             return new BigDecimal(normalized);
         } catch (NumberFormatException e) {
             throw new CsvParseException(
-                    "Invalid amount format at row " + recordNumber + ": '" + amountStr + "'. Expected European format (e.g. -12,99)");
+                    "Invalid amount format at row " + recordNumber + ": '" + amountStr + "'. Expected European format (e.g. -12,99)", e);
         }
     }
 
     public static class CsvParseException extends RuntimeException {
         public CsvParseException(String message) {
             super(message);
+        }
+
+        public CsvParseException(String message, Throwable cause) {
+            super(message, cause);
         }
     }
 }

@@ -19,16 +19,28 @@ public final class CsvMother {
 
     private CsvMother() {}
 
-    public static MockMultipartFile file(String... lines) {
-        return file(StandardCharsets.UTF_8, lines);
+    public static byte[] bytes(String... lines) {
+        return bytes(StandardCharsets.UTF_8, lines);
     }
 
-    public static MockMultipartFile file(Charset charset, String... lines) {
+    public static byte[] bytes(Charset charset, String... lines) {
         String csv = String.join("\n", lines) + "\n";
-        return new MockMultipartFile("file", "export.csv", "text/csv", csv.getBytes(charset));
+        return csv.getBytes(charset);
+    }
+
+    public static MockMultipartFile multipartFile(String... lines) {
+        return multipartFile(StandardCharsets.UTF_8, lines);
+    }
+
+    public static MockMultipartFile multipartFile(Charset charset, String... lines) {
+        return new MockMultipartFile("file", "export.csv", "text/csv", bytes(charset, lines));
+    }
+
+    public static byte[] validTwoRowBytes() {
+        return bytes(HEADER, NETFLIX_ROW, SALARY_ROW);
     }
 
     public static MockMultipartFile validTwoRowFile() {
-        return file(HEADER, NETFLIX_ROW, SALARY_ROW);
+        return multipartFile(HEADER, NETFLIX_ROW, SALARY_ROW);
     }
 }

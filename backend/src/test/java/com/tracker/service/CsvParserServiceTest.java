@@ -4,12 +4,9 @@ import com.tracker.model.entity.Transaction;
 import com.tracker.testutil.CsvMother;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.mock.web.MockMultipartFile;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.Charset;
-import java.time.LocalDate;
 import java.util.List;
 
 import static com.tracker.testutil.CsvMother.*;
@@ -33,10 +30,8 @@ class CsvParserServiceTest {
     }
 
     @Test
-    void parsesValidGermanBankCsv() throws IOException {
-        MockMultipartFile file = CsvMother.validTwoRowFile();
-
-        List<Transaction> result = parser.parse(file);
+    void parsesValidGermanBankCsv() {
+        List<Transaction> result = parser.parse(CsvMother.validTwoRowBytes());
 
         assertEquals(2, result.size());
 
@@ -54,20 +49,16 @@ class CsvParserServiceTest {
     }
 
     @Test
-    void handlesIso88591Encoding() throws IOException {
-        MockMultipartFile file = CsvMother.file(Charset.forName("ISO-8859-1"), HEADER, MUELLER_ROW);
-
-        List<Transaction> result = parser.parse(file);
+    void handlesIso88591Encoding() {
+        List<Transaction> result = parser.parse(CsvMother.bytes(Charset.forName("ISO-8859-1"), HEADER, MUELLER_ROW));
 
         assertEquals(1, result.size());
         assertEquals(MUELLER_BAKERY, result.get(0).getPartnerName());
     }
 
     @Test
-    void skipsRowsWithMissingBookingDateOrAmount() throws IOException {
-        MockMultipartFile file = CsvMother.file(HEADER, MISSING_DATE_ROW, MISSING_AMOUNT_ROW, VALID_ROW);
-
-        List<Transaction> result = parser.parse(file);
+    void skipsRowsWithMissingBookingDateOrAmount() {
+        List<Transaction> result = parser.parse(CsvMother.bytes(HEADER, MISSING_DATE_ROW, MISSING_AMOUNT_ROW, VALID_ROW));
 
         assertEquals(1, result.size());
         assertEquals(VALID_PARTNER, result.get(0).getPartnerName());
@@ -75,40 +66,36 @@ class CsvParserServiceTest {
 
     @Test
     void throwsOnMissingRequiredColumns() {
-        MockMultipartFile file = CsvMother.file(INVALID_HEADER, "01.01.2025;Test;-10,00");
+        byte[] csv = CsvMother.bytes(INVALID_HEADER, "01.01.2025;Test;-10,00");
 
-        assertThrows(CsvParserService.CsvParseException.class, () -> parser.parse(file));
+        assertThrows(CsvParserService.CsvParseException.class, () -> parser.parse(csv));
     }
 
     @Test
     void throwsOnInvalidDateFormat() {
-        MockMultipartFile file = CsvMother.file(HEADER, INVALID_DATE_ROW);
+        byte[] csv = CsvMother.bytes(HEADER, INVALID_DATE_ROW);
 
-        assertThrows(CsvParserService.CsvParseException.class, () -> parser.parse(file));
+        assertThrows(CsvParserService.CsvParseException.class, () -> parser.parse(csv));
     }
 
     @Test
     void throwsOnInvalidAmountFormat() {
-        MockMultipartFile file = CsvMother.file(HEADER, INVALID_AMOUNT_ROW);
+        byte[] csv = CsvMother.bytes(HEADER, INVALID_AMOUNT_ROW);
 
-        assertThrows(CsvParserService.CsvParseException.class, () -> parser.parse(file));
+        assertThrows(CsvParserService.CsvParseException.class, () -> parser.parse(csv));
     }
 
     @Test
-    void handlesNegativeAndPositiveAmounts() throws IOException {
-        MockMultipartFile file = CsvMother.file(HEADER, EXPENSE_ROW, INCOME_ROW);
-
-        List<Transaction> result = parser.parse(file);
+    void handlesNegativeAndPositiveAmounts() {
+        List<Transaction> result = parser.parse(CsvMother.bytes(HEADER, EXPENSE_ROW, INCOME_ROW));
 
         assertEquals(EXPENSE_AMOUNT, result.get(0).getAmount());
         assertEquals(LARGE_INCOME_AMOUNT, result.get(1).getAmount());
     }
 
     @Test
-    void handlesOptionalColumnsGracefully() throws IOException {
-        MockMultipartFile file = CsvMother.file("Buchungsdatum;Betrag", "15.01.2025;-12,99");
-
-        List<Transaction> result = parser.parse(file);
+    void handlesOptionalColumnsGracefully() {
+        List<Transaction> result = parser.parse(CsvMother.bytes("Buchungsdatum;Betrag", "15.01.2025;-12,99"));
 
         assertEquals(1, result.size());
         assertNull(result.get(0).getPartnerName());

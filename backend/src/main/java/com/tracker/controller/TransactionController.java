@@ -8,6 +8,7 @@ import com.tracker.model.entity.Transaction;
 import com.tracker.service.CsvParserService;
 import com.tracker.service.TransactionService;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -17,6 +18,11 @@ import java.util.UUID;
 
 @RestController
 public class TransactionController implements TransactionsApi {
+
+    static final String HEADER_TOTAL_ITEMS = "X-Total-Items";
+    static final String HEADER_PAGE = "X-Page";
+    static final String HEADER_PAGE_SIZE = "X-Page-Size";
+    static final String HEADER_TOTAL_PAGES = "X-Total-Pages";
 
     private final TransactionService transactionService;
     private final TransactionMapper transactionMapper;
@@ -29,13 +35,15 @@ public class TransactionController implements TransactionsApi {
     @Override
     public ResponseEntity<UploadResponse> uploadCsv(MultipartFile file) {
         try {
-            TransactionService.UploadResult result = transactionService.uploadCsv(file);
+            var request = new TransactionService.CsvUploadRequest(
+                    file.getOriginalFilename(), file.getContentType(), file.getBytes());
+            TransactionService.UploadResult result = transactionService.uploadCsv(request);
             UploadResponse response = new UploadResponse(result.uploadId(), result.transactionCount(), 0);
             return ResponseEntity.ok(response);
         } catch (CsvParserService.CsvParseException e) {
-            throw new CsvValidationException(e.getMessage());
+            throw new CsvValidationException(e.getMessage(), e);
         } catch (Exception e) {
-            throw new CsvValidationException("Failed to process CSV file: " + e.getMessage());
+            throw new CsvValidationException("Failed to process CSV file: " + e.getMessage(), e);
         }
     }
 
@@ -47,7 +55,14 @@ public class TransactionController implements TransactionsApi {
                 result.getTotalElements(),
                 result.getTotalPages()
         );
-        return ResponseEntity.ok(transactionPage);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HEADER_TOTAL_ITEMS, String.valueOf(result.getTotalElements()));
+        headers.set(HEADER_PAGE, String.valueOf(result.getNumber()));
+        headers.set(HEADER_PAGE_SIZE, String.valueOf(result.getSize()));
+        headers.set(HEADER_TOTAL_PAGES, String.valueOf(result.getTotalPages()));
+
+        return ResponseEntity.ok().headers(headers).body(transactionPage);
     }
 
     @Override
@@ -59,8 +74,8 @@ public class TransactionController implements TransactionsApi {
     }
 
     public static class CsvValidationException extends RuntimeException {
-        public CsvValidationException(String message) {
-            super(message);
+        public CsvValidationException(String message, Throwable cause) {
+            super(message, cause);
         }
     }
 }

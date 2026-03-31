@@ -20,6 +20,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
+import static com.tracker.controller.TransactionController.*;
 import static com.tracker.testutil.CsvMother.*;
 import static com.tracker.testutil.TransactionMother.*;
 import static org.hamcrest.Matchers.*;
@@ -80,7 +81,7 @@ class TransactionControllerTest {
 
     @Test
     void uploadCsv_missingRequiredColumn_returns400() throws Exception {
-        MockMultipartFile file = CsvMother.file(INVALID_HEADER, "01.01.2025;Test;-10,00");
+        MockMultipartFile file = CsvMother.multipartFile(INVALID_HEADER, "01.01.2025;Test;-10,00");
 
         mockMvc.perform(multipart(UPLOAD_URL).file(file))
                 .andExpect(status().isBadRequest())
@@ -89,7 +90,7 @@ class TransactionControllerTest {
 
     @Test
     void uploadCsv_invalidDate_returns400() throws Exception {
-        MockMultipartFile file = CsvMother.file(HEADER, INVALID_DATE_ROW);
+        MockMultipartFile file = CsvMother.multipartFile(HEADER, INVALID_DATE_ROW);
 
         mockMvc.perform(multipart(UPLOAD_URL).file(file))
                 .andExpect(status().isBadRequest())
@@ -105,7 +106,11 @@ class TransactionControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(2))
                 .andExpect(jsonPath("$.totalPages").value(1))
-                .andExpect(jsonPath("$.content", hasSize(2)));
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(header().string(HEADER_TOTAL_ITEMS, "2"))
+                .andExpect(header().string(HEADER_PAGE, "0"))
+                .andExpect(header().string(HEADER_PAGE_SIZE, "10"))
+                .andExpect(header().string(HEADER_TOTAL_PAGES, "1"));
     }
 
     @Test
@@ -126,7 +131,11 @@ class TransactionControllerTest {
                 .andExpect(jsonPath("$.content[0].partnerName").value(EMPLOYER))
                 .andExpect(jsonPath("$.content[0].amount").value(-30.00))
                 .andExpect(jsonPath("$.content[1].partnerName").value(SPOTIFY))
-                .andExpect(jsonPath("$.content[1].amount").value(-20.00));
+                .andExpect(jsonPath("$.content[1].amount").value(-20.00))
+                .andExpect(header().string(HEADER_TOTAL_ITEMS, String.valueOf(TOTAL_PAGING_ITEMS)))
+                .andExpect(header().string(HEADER_PAGE, "0"))
+                .andExpect(header().string(HEADER_PAGE_SIZE, String.valueOf(PAGE_SIZE_2)))
+                .andExpect(header().string(HEADER_TOTAL_PAGES, String.valueOf(EXPECTED_PAGES)));
 
         // Page 1: remaining item -> Jan
         mockMvc.perform(get(TRANSACTIONS_URL)
@@ -137,7 +146,11 @@ class TransactionControllerTest {
                 .andExpect(jsonPath("$.totalPages").value(EXPECTED_PAGES))
                 .andExpect(jsonPath("$.content", hasSize(1)))
                 .andExpect(jsonPath("$.content[0].partnerName").value(NETFLIX))
-                .andExpect(jsonPath("$.content[0].amount").value(-10.00));
+                .andExpect(jsonPath("$.content[0].amount").value(-10.00))
+                .andExpect(header().string(HEADER_TOTAL_ITEMS, String.valueOf(TOTAL_PAGING_ITEMS)))
+                .andExpect(header().string(HEADER_PAGE, "1"))
+                .andExpect(header().string(HEADER_PAGE_SIZE, String.valueOf(PAGE_SIZE_2)))
+                .andExpect(header().string(HEADER_TOTAL_PAGES, String.valueOf(EXPECTED_PAGES)));
     }
 
     @Test

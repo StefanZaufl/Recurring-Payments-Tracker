@@ -9,9 +9,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -33,12 +31,12 @@ public class TransactionService {
     }
 
     @Transactional
-    public UploadResult uploadCsv(MultipartFile file) throws IOException {
-        List<Transaction> transactions = csvParserService.parse(file);
+    public UploadResult uploadCsv(CsvUploadRequest request) {
+        List<Transaction> transactions = csvParserService.parse(request.content());
 
         FileUpload upload = new FileUpload();
-        upload.setFilename(file.getOriginalFilename());
-        upload.setMimeType(file.getContentType());
+        upload.setFilename(request.filename());
+        upload.setMimeType(request.mimeType());
         upload.setRowCount(transactions.size());
         upload = fileUploadRepository.save(upload);
 
@@ -60,6 +58,8 @@ public class TransactionService {
     public Optional<Transaction> getTransactionById(UUID id) {
         return transactionRepository.findById(id);
     }
+
+    public record CsvUploadRequest(String filename, String mimeType, byte[] content) {}
 
     public record UploadResult(UUID uploadId, int transactionCount) {}
 }
