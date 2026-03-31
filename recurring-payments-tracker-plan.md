@@ -44,154 +44,30 @@ A web application that analyzes bank CSV exports to identify recurring payments 
 | API | OpenAPI 3.0.3 (single source of truth), RESTful JSON |
 | API Code Generation | openapi-generator-maven-plugin (backend), @openapitools/openapi-generator-cli (frontend) |
 
-### Monorepo Setup
+### Monorepo Structure
 
-This project is structured as a monorepo with both frontend and backend in a single repository.
+This project is structured as a monorepo with the following top-level directories:
 
-**Root `package.json`** (for monorepo tooling):
-```json
-{
-  "name": "recurring-payments-tracker",
-  "private": true,
-  "workspaces": [
-    "frontend"
-  ],
-  "scripts": {
-    "frontend": "npm --workspace=frontend",
-    "frontend:start": "npm --workspace=frontend run start",
-    "frontend:build": "npm --workspace=frontend run build",
-    "backend:start": "cd backend && ./mvnw spring-boot:run",
-    "db:start": "docker-compose up -d db",
-    "dev": "concurrently \"npm run db:start\" \"npm run backend:start\" \"npm run frontend:start\""
-  },
-  "devDependencies": {
-    "concurrently": "^8.x"
-  }
-}
-```
+| Directory | Description |
+|-----------|-------------|
+| `api/` | OpenAPI 3.0.3 specification (`openapi.yaml`) — the single source of truth for all API endpoints and DTOs |
+| `backend/` | Spring Boot application (Maven). JPA entities, repositories, services, and controllers that implement the generated API interfaces. Flyway migrations manage the database schema. |
+| `frontend/` | Angular 19 application (npm workspace). Feature components for dashboard, file upload, recurring payments, and predictions. Services and models are generated from the OpenAPI spec. |
 
-**Directory layout:**
-```
-recurring-payments-tracker/
-├── package.json          # Root package.json for monorepo scripts
-├── package-lock.json
-├── .gitignore
-├── README.md
-├── docker-compose.yml
-├── api/                  # OpenAPI spec (single source of truth)
-│   └── openapi.yaml
-├── backend/              # Spring Boot application (Maven)
-│   ├── pom.xml
-│   └── src/
-└── frontend/             # Angular application (npm workspace)
-    ├── package.json
-    └── src/
-```
-
-**Initialize the monorepo:**
-```bash
-# 1. Create root directory
-mkdir recurring-payments-tracker && cd recurring-payments-tracker
-
-# 2. Initialize root package.json
-npm init -y
-npm pkg set private=true
-npm pkg set workspaces='["frontend"]'
-npm install -D concurrently
-
-# 3. Create backend with Spring Initializr
-# Visit https://start.spring.io or use:
-curl https://start.spring.io/starter.zip \
-  -d type=maven-project \
-  -d language=java \
-  -d bootVersion=3.4.4 \
-  -d baseDir=backend \
-  -d groupId=com.tracker \
-  -d artifactId=recurring-payments-tracker \
-  -d name=RecurringPaymentsTracker \
-  -d packageName=com.tracker \
-  -d javaVersion=24 \
-  -d dependencies=web,data-jpa,postgresql,flyway,lombok \
-  -o backend.zip && unzip backend.zip && rm backend.zip
-
-# 4. Create frontend with Angular CLI
-ng new frontend --style=css --routing=true --ssr=false
-cd frontend && npm install ng2-charts chart.js && cd ..
-
-# 5. Add Tailwind to Angular
-cd frontend
-npm install -D tailwindcss postcss autoprefixer
-npx tailwindcss init
-cd ..
-
-# 6. Initialize git
-git init
-echo "node_modules/\ntarget/\n.idea/\n*.iml\n.DS_Store\ndist/" > .gitignore
-```
+Root-level files: `package.json` (monorepo scripts), `docker-compose.yml` (PostgreSQL + services), `.gitignore`.
 
 ---
 
 ## Database Schema
 
-```sql
--- Uploaded file metadata
-CREATE TABLE file_uploads (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    filename VARCHAR(255) NOT NULL,
-    mime_type VARCHAR(100),
-    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    row_count INTEGER
-);
+See [`backend/src/main/resources/db/migration/`](backend/src/main/resources/db/migration/) for the Flyway migration files.
 
--- Raw transactions from CSV
-CREATE TABLE transactions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    upload_id UUID REFERENCES file_uploads(id) ON DELETE CASCADE,
-    booking_date DATE NOT NULL,
-    partner_name VARCHAR(255),
-    partner_iban VARCHAR(34),
-    amount DECIMAL(12,2) NOT NULL,
-    currency VARCHAR(3) DEFAULT 'EUR',
-    details TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Categories for grouping (must be created before recurring_payments)
-CREATE TABLE categories (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(100) UNIQUE NOT NULL,
-    color VARCHAR(7) -- Hex color for charts
-);
-
--- Detected recurring payment patterns
-CREATE TABLE recurring_payments (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL,
-    normalized_name VARCHAR(255),
-    category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
-    average_amount DECIMAL(12,2),
-    frequency VARCHAR(20), -- 'MONTHLY', 'QUARTERLY', 'YEARLY'
-    is_income BOOLEAN DEFAULT FALSE,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Link transactions to recurring payments
-CREATE TABLE transaction_recurring_link (
-    transaction_id UUID REFERENCES transactions(id) ON DELETE CASCADE,
-    recurring_payment_id UUID REFERENCES recurring_payments(id) ON DELETE CASCADE,
-    confidence_score DECIMAL(3,2), -- 0.00 to 1.00
-    PRIMARY KEY (transaction_id, recurring_payment_id)
-);
-
--- Index for performance
-CREATE INDEX idx_transactions_booking_date ON transactions(booking_date);
-CREATE INDEX idx_transactions_partner_name ON transactions(partner_name);
-CREATE INDEX idx_transactions_details ON transactions(details);
-CREATE INDEX idx_recurring_payments_name ON recurring_payments(normalized_name);
-CREATE INDEX idx_recurring_payments_category ON recurring_payments(category_id);
-```
+**Tables:**
+- `file_uploads` — Uploaded file metadata (filename, mime_type, row_count)
+- `transactions` — Raw transactions parsed from CSV (booking_date, partner_name, amount, details, etc.)
+- `categories` — Categories for grouping recurring payments (name, hex color)
+- `recurring_payments` — Detected recurring payment patterns (name, frequency, average_amount, is_income)
+- `transaction_recurring_link` — Links transactions to recurring payments with a confidence score
 
 ---
 
@@ -215,109 +91,9 @@ CREATE INDEX idx_recurring_payments_category ON recurring_payments(category_id);
 
 ### Code Generation
 
-**Backend (Maven):**
-```bash
-cd backend && mvn generate-sources
-# Generates Spring interfaces and DTOs in target/generated-sources/openapi
-# Controllers implement the generated API interfaces
-```
+**Backend (Maven):** `cd backend && mvn generate-sources` — generates Spring interfaces and DTOs in `target/generated-sources/openapi`. Controllers implement the generated API interfaces.
 
-**Frontend (npm):**
-```bash
-cd frontend && npm run api:generate
-# Generates Angular services and TypeScript models in src/app/api/generated/
-```
-
----
-
-## Project Structure
-
-```
-recurring-payments-tracker/
-├── package.json              # Root monorepo package.json
-├── package-lock.json
-├── .gitignore
-├── README.md
-├── docker-compose.yml
-├── api/
-│   └── openapi.yaml          # OpenAPI 3.0.3 spec (single source of truth)
-├── backend/
-│   ├── pom.xml               # Includes openapi-generator-maven-plugin
-│   ├── src/
-│   │   ├── main/
-│   │   │   ├── java/com/tracker/
-│   │   │   │   ├── RecurringPaymentsApplication.java
-│   │   │   │   ├── config/
-│   │   │   │   │   └── CorsConfig.java
-│   │   │   │   ├── controller/           # Implement generated API interfaces
-│   │   │   │   │   ├── TransactionController.java
-│   │   │   │   │   ├── RecurringPaymentController.java
-│   │   │   │   │   └── AnalyticsController.java
-│   │   │   │   ├── service/
-│   │   │   │   │   ├── CsvParserService.java
-│   │   │   │   │   ├── RecurringDetectionService.java
-│   │   │   │   │   ├── TransactionService.java
-│   │   │   │   │   └── AnalyticsService.java
-│   │   │   │   ├── repository/
-│   │   │   │   │   ├── TransactionRepository.java
-│   │   │   │   │   ├── RecurringPaymentRepository.java
-│   │   │   │   │   └── FileUploadRepository.java
-│   │   │   │   ├── model/entity/         # JPA entities (not generated)
-│   │   │   │   │   ├── Transaction.java
-│   │   │   │   │   ├── RecurringPayment.java
-│   │   │   │   │   ├── FileUpload.java
-│   │   │   │   │   └── Category.java
-│   │   │   │   └── util/
-│   │   │   │       ├── CsvParser.java
-│   │   │   │       └── StringSimilarity.java
-│   │   │   └── resources/
-│   │   │       ├── application.yml
-│   │   │       └── db/migration/ (Flyway)
-│   │   │           └── V1__initial_schema.sql
-│   │   └── test/
-│   ├── target/generated-sources/openapi/ # Generated: Spring API interfaces + DTOs
-│   │   └── com/tracker/api/
-│   │       ├── TransactionsApi.java
-│   │       ├── RecurringPaymentsApi.java
-│   │       ├── AnalyticsApi.java
-│   │       └── model/                    # Generated DTO classes
-│   └── Dockerfile
-├── frontend/
-│   ├── angular.json
-│   ├── package.json          # Includes api:generate script
-│   ├── tsconfig.json
-│   ├── tailwind.config.js
-│   ├── src/
-│   │   ├── main.ts
-│   │   ├── index.html
-│   │   ├── styles.css
-│   │   └── app/
-│   │       ├── app.component.ts
-│   │       ├── app.config.ts
-│   │       ├── app.routes.ts
-│   │       ├── api/generated/            # Generated: Angular services + models
-│   │       │   ├── api/
-│   │       │   │   ├── transactions.service.ts
-│   │       │   │   ├── recurringPayments.service.ts
-│   │       │   │   └── analytics.service.ts
-│   │       │   └── model/
-│   │       └── features/
-│   │           ├── file-upload/
-│   │           │   └── file-upload.component.ts
-│   │           ├── dashboard/
-│   │           │   ├── dashboard.component.ts
-│   │           │   ├── monthly-breakdown/
-│   │           │   │   └── monthly-breakdown.component.ts
-│   │           │   ├── category-pie-chart/
-│   │           │   │   └── category-pie-chart.component.ts
-│   │           │   └── monthly-surplus/
-│   │           │       └── monthly-surplus.component.ts
-│   │           ├── recurring-payments/
-│   │           │   └── recurring-payments-list.component.ts
-│   │           └── predictions/
-│   │               └── upcoming-payments.component.ts
-│   └── Dockerfile
-```
+**Frontend (npm):** `cd frontend && npm run api:generate` — generates Angular services and TypeScript models in `src/app/api/generated/`.
 
 ---
 
@@ -371,218 +147,41 @@ recurring-payments-tracker/
 ## Key Algorithms
 
 ### String Similarity for Matching
-```java
-// Use Jaro-Winkler similarity for partner name matching
-// Threshold: 0.85 for high confidence match
-public double similarity(String s1, String s2) {
-    // Normalize: lowercase, remove special chars, trim
-    // Apply Jaro-Winkler algorithm
-    // Return score 0.0 - 1.0
-}
-```
+- Use Jaro-Winkler similarity for partner name matching (threshold: 0.85)
+- Normalize strings: lowercase, remove special chars, trim
+- Returns score 0.0–1.0
 
 ### Interval Detection
-```java
-// Analyze gaps between transactions for same partner
-// If median gap ≈ 30 days → MONTHLY
-// If median gap ≈ 90 days → QUARTERLY  
-// If median gap ≈ 365 days → YEARLY
-public Frequency detectFrequency(List<LocalDate> dates) {
-    // Calculate day gaps between consecutive dates
-    // Find median gap
-    // Map to frequency enum
-}
-```
+- Analyze day gaps between consecutive transactions for the same partner
+- Median gap ~30 days -> MONTHLY
+- Median gap ~90 days -> QUARTERLY
+- Median gap ~365 days -> YEARLY
 
 ### Next Payment Prediction
-```java
-// Based on detected frequency and last payment date
-public LocalDate predictNext(LocalDate lastPayment, Frequency freq) {
-    return switch(freq) {
-        case MONTHLY -> lastPayment.plusMonths(1);
-        case QUARTERLY -> lastPayment.plusMonths(3);
-        case YEARLY -> lastPayment.plusYears(1);
-    };
-}
-```
+- Based on detected frequency and last payment date
+- MONTHLY: `lastPayment + 1 month`
+- QUARTERLY: `lastPayment + 3 months`
+- YEARLY: `lastPayment + 1 year`
 
 ---
 
 ## Configuration
 
-### application.yml
-```yaml
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/payments_tracker
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
-  jpa:
-    hibernate:
-      ddl-auto: validate
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-  flyway:
-    enabled: true
-  servlet:
-    multipart:
-      max-file-size: 10MB
-      max-request-size: 10MB
-
-server:
-  port: 8080
-```
-
-### docker-compose.yml
-```yaml
-version: '3.8'
-services:
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: payments_tracker
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-
-  backend:
-    build: ./backend
-    ports:
-      - "8080:8080"
-    environment:
-      DB_USERNAME: postgres
-      DB_PASSWORD: postgres
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/payments_tracker
-    depends_on:
-      - db
-
-  frontend:
-    build: ./frontend
-    ports:
-      - "3000:3000"
-    depends_on:
-      - backend
-
-volumes:
-  pgdata:
-```
-
----
-
-## Dependencies
-
-### Backend (pom.xml)
-```xml
-<properties>
-    <java.version>24</java.version>
-    <spring-boot.version>3.4.4</spring-boot.version>
-</properties>
-
-<dependencies>
-    <dependency>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-web</artifactId>
-    </dependency>
-    <dependency>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-data-jpa</artifactId>
-    </dependency>
-    <dependency>
-        <groupId>org.postgresql</groupId>
-        <artifactId>postgresql</artifactId>
-        <scope>runtime</scope>
-    </dependency>
-    <dependency>
-        <groupId>org.flywaydb</groupId>
-        <artifactId>flyway-core</artifactId>
-    </dependency>
-    <dependency>
-        <groupId>org.flywaydb</groupId>
-        <artifactId>flyway-database-postgresql</artifactId>
-    </dependency>
-    <dependency>
-        <groupId>org.apache.commons</groupId>
-        <artifactId>commons-csv</artifactId>
-        <version>1.12.0</version>
-    </dependency>
-    <dependency>
-        <groupId>org.apache.commons</groupId>
-        <artifactId>commons-text</artifactId>
-        <version>1.12.0</version>
-    </dependency>
-    <dependency>
-        <groupId>org.projectlombok</groupId>
-        <artifactId>lombok</artifactId>
-        <optional>true</optional>
-    </dependency>
-    <dependency>
-        <groupId>io.swagger.core.v3</groupId>
-        <artifactId>swagger-annotations</artifactId>
-        <version>2.2.28</version>
-    </dependency>
-    <dependency>
-        <groupId>org.openapitools</groupId>
-        <artifactId>jackson-databind-nullable</artifactId>
-        <version>0.2.6</version>
-    </dependency>
-    <dependency>
-        <groupId>jakarta.validation</groupId>
-        <artifactId>jakarta.validation-api</artifactId>
-    </dependency>
-</dependencies>
-```
-
-### Frontend (package.json)
-```json
-{
-  "dependencies": {
-    "@angular/core": "^19.x",
-    "@angular/common": "^19.x",
-    "@angular/router": "^19.x",
-    "@angular/forms": "^19.x",
-    "@angular/platform-browser": "^19.x",
-    "ng2-charts": "^6.x",
-    "chart.js": "^4.x",
-    "rxjs": "^7.x"
-  },
-  "devDependencies": {
-    "@angular/cli": "^19.x",
-    "@angular/compiler-cli": "^19.x",
-    "@openapitools/openapi-generator-cli": "^2.x",
-    "tailwindcss": "^3.x",
-    "typescript": "~5.6.x"
-  }
-}
-```
+- **Backend:** See [`backend/src/main/resources/application.yml`](backend/src/main/resources/application.yml) for Spring Boot, datasource, Flyway, and multipart upload config.
+- **Docker Compose:** See [`docker-compose.yml`](docker-compose.yml) for PostgreSQL, backend, and frontend service definitions.
+- **Backend dependencies:** See [`backend/pom.xml`](backend/pom.xml) (includes openapi-generator-maven-plugin).
+- **Frontend dependencies:** See [`frontend/package.json`](frontend/package.json) (includes @openapitools/openapi-generator-cli).
 
 ---
 
 ## Getting Started
 
-```bash
-# 1. Clone and install dependencies
-git clone <repo-url>
-cd recurring-payments-tracker
-npm install                    # Installs root + workspace dependencies
+1. **Install dependencies:** `npm install` (installs root + workspace dependencies)
+2. **Start PostgreSQL:** `npm run db:start`
+3. **Run backend:** `npm run backend:start`
+4. **Run frontend:** `npm run frontend:start`
+5. **Or run everything:** `npm run dev`
 
-# 2. Start PostgreSQL
-npm run db:start               # or: docker-compose up -d db
-
-# 3. Run backend (in separate terminal)
-npm run backend:start          # or: cd backend && ./mvnw spring-boot:run
-
-# 4. Run frontend (in separate terminal)
-npm run frontend:start         # or: cd frontend && ng serve
-
-# Or run everything together:
-npm run dev                    # Starts db, backend, and frontend concurrently
-```
-
-**Available npm scripts:**
 | Script | Description |
 |--------|-------------|
 | `npm run dev` | Start all services (db, backend, frontend) |
@@ -590,6 +189,8 @@ npm run dev                    # Starts db, backend, and frontend concurrently
 | `npm run backend:start` | Start Spring Boot backend |
 | `npm run frontend:start` | Start Angular dev server |
 | `npm run frontend:build` | Build Angular for production |
+| `cd frontend && npm run api:generate` | Regenerate frontend API code from OpenAPI spec |
+| `cd backend && mvn generate-sources` | Regenerate backend API interfaces from OpenAPI spec |
 
 ---
 
