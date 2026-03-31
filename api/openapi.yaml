@@ -1,0 +1,404 @@
+openapi: 3.0.3
+info:
+  title: RecurringTransactionsAPI
+  description: API for analyzing bank CSV exports, detecting recurring payments, and providing annual overview dashboards with predictions.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+paths:
+  /api/transactions/csv:
+    post:
+      operationId: uploadCsv
+      summary: Upload a bank CSV file
+      tags: [Transactions]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Upload successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadResponse'
+
+  /api/transactions:
+    get:
+      operationId: getTransactions
+      summary: List transactions with optional filters
+      tags: [Transactions]
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: text
+          in: query
+          description: Search in partner name and details (case-insensitive, partial match)
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Paginated list of transactions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionPage'
+
+  /api/transactions/{id}:
+    get:
+      operationId: getTransactionById
+      summary: Get a single transaction by ID
+      tags: [Transactions]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Transaction details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionDto'
+        '404':
+          description: Transaction not found
+
+  /api/recurring-payments:
+    get:
+      operationId: getRecurringPayments
+      summary: List all detected recurring payments
+      tags: [RecurringPayments]
+      responses:
+        '200':
+          description: List of recurring payments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RecurringPaymentDto'
+
+  /api/recurring-payments/{id}:
+    put:
+      operationId: updateRecurringPayment
+      summary: Update a recurring payment
+      tags: [RecurringPayments]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecurringPaymentUpdateRequest'
+      responses:
+        '200':
+          description: Updated recurring payment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringPaymentDto'
+        '404':
+          description: Recurring payment not found
+
+  /api/recurring-payments/{id}/transactions:
+    get:
+      operationId: getRecurringPaymentTransactions
+      summary: Get transactions linked to a recurring payment
+      tags: [RecurringPayments]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of linked transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TransactionDto'
+
+  /api/analytics/annual-overview:
+    get:
+      operationId: getAnnualOverview
+      summary: Get annual financial overview
+      tags: [Analytics]
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Annual overview data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnnualOverview'
+
+  /api/analytics/predictions:
+    get:
+      operationId: getPredictions
+      summary: Get upcoming payment predictions
+      tags: [Analytics]
+      parameters:
+        - name: months
+          in: query
+          schema:
+            type: integer
+            default: 6
+      responses:
+        '200':
+          description: Prediction data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PredictionResponse'
+
+components:
+  schemas:
+    UploadResponse:
+      type: object
+      required: [uploadId, transactionCount, recurringPaymentsDetected]
+      properties:
+        uploadId:
+          type: string
+          format: uuid
+        transactionCount:
+          type: integer
+        recurringPaymentsDetected:
+          type: integer
+
+    TransactionDto:
+      type: object
+      required: [id, bookingDate, amount]
+      properties:
+        id:
+          type: string
+          format: uuid
+        uploadId:
+          type: string
+          format: uuid
+        bookingDate:
+          type: string
+          format: date
+        partnerName:
+          type: string
+        partnerIban:
+          type: string
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+        details:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    TransactionPage:
+      type: object
+      required: [content, totalElements, totalPages]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionDto'
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+
+    Frequency:
+      type: string
+      enum: [MONTHLY, QUARTERLY, YEARLY]
+
+    RecurringPaymentDto:
+      type: object
+      required: [id, name, averageAmount, frequency, isIncome, isActive]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        categoryId:
+          type: string
+          format: uuid
+        categoryName:
+          type: string
+        averageAmount:
+          type: number
+          format: double
+        frequency:
+          $ref: '#/components/schemas/Frequency'
+        isIncome:
+          type: boolean
+        isActive:
+          type: boolean
+
+    RecurringPaymentUpdateRequest:
+      type: object
+      properties:
+        categoryId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        isActive:
+          type: boolean
+
+    AnnualOverview:
+      type: object
+      required: [totalIncome, totalExpenses, totalRecurringExpenses, monthlyBreakdown, byCategory, recurringPayments]
+      properties:
+        totalIncome:
+          type: number
+          format: double
+        totalExpenses:
+          type: number
+          format: double
+        totalRecurringExpenses:
+          type: number
+          format: double
+        monthlyBreakdown:
+          type: array
+          items:
+            $ref: '#/components/schemas/MonthlyBreakdown'
+        byCategory:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryBreakdown'
+        recurringPayments:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecurringPaymentSummary'
+
+    MonthlyBreakdown:
+      type: object
+      required: [month, income, expenses, surplus]
+      properties:
+        month:
+          type: integer
+        income:
+          type: number
+          format: double
+        expenses:
+          type: number
+          format: double
+        surplus:
+          type: number
+          format: double
+
+    CategoryBreakdown:
+      type: object
+      required: [category, total, percentage]
+      properties:
+        category:
+          type: string
+        total:
+          type: number
+          format: double
+        percentage:
+          type: number
+          format: double
+
+    RecurringPaymentSummary:
+      type: object
+      required: [name, monthlyAmount, annualAmount, category]
+      properties:
+        name:
+          type: string
+        monthlyAmount:
+          type: number
+          format: double
+        annualAmount:
+          type: number
+          format: double
+        category:
+          type: string
+
+    PredictionResponse:
+      type: object
+      required: [predictions, upcomingPayments]
+      properties:
+        predictions:
+          type: array
+          items:
+            $ref: '#/components/schemas/MonthlyPrediction'
+        upcomingPayments:
+          type: array
+          items:
+            $ref: '#/components/schemas/UpcomingPayment'
+
+    MonthlyPrediction:
+      type: object
+      required: [month, expectedIncome, expectedExpenses, expectedSurplus]
+      properties:
+        month:
+          type: string
+        expectedIncome:
+          type: number
+          format: double
+        expectedExpenses:
+          type: number
+          format: double
+        expectedSurplus:
+          type: number
+          format: double
+
+    UpcomingPayment:
+      type: object
+      required: [name, date, amount]
+      properties:
+        name:
+          type: string
+        date:
+          type: string
+        amount:
+          type: number
+          format: double

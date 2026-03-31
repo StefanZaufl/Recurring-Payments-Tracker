@@ -1,7 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { TransactionService } from '../../core/services/transaction.service';
-import { UploadResponse } from '../../models/transaction.model';
+import { TransactionsService, UploadResponse } from '../../api/generated';
 
 @Component({
   selector: 'app-file-upload',
@@ -51,7 +50,7 @@ export class FileUploadComponent {
   result: UploadResponse | null = null;
   error: string | null = null;
 
-  constructor(private transactionService: TransactionService) {}
+  constructor(private transactionsService: TransactionsService) {}
 
   onDragOver(event: DragEvent) {
     event.preventDefault();
@@ -75,7 +74,7 @@ export class FileUploadComponent {
     this.uploading = true;
     this.result = null;
     this.error = null;
-    this.transactionService.uploadCsv(file).subscribe({
+    this.transactionsService.uploadCsv(file).subscribe({
       next: (res) => {
         this.result = res;
         this.uploading = false;

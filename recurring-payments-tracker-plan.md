@@ -39,9 +39,10 @@ A web application that analyzes bank CSV exports to identify recurring payments 
 | Component | Technology |
 |-----------|------------|
 | Frontend | Angular 19+, Angular CLI, ng2-charts (Chart.js), Tailwind CSS |
-| Backend | Java 24+, Spring Boot 3.4.x, Maven |
+| Backend | Java 21+, Spring Boot 3.4.x, Maven |
 | Database | PostgreSQL 15+ |
-| API | RESTful JSON API |
+| API | OpenAPI 3.0.3 (single source of truth), RESTful JSON |
+| API Code Generation | openapi-generator-maven-plugin (backend), @openapitools/openapi-generator-cli (frontend) |
 
 ### Monorepo Setup
 
@@ -77,6 +78,8 @@ recurring-payments-tracker/
 ├── .gitignore
 ├── README.md
 ├── docker-compose.yml
+├── api/                  # OpenAPI spec (single source of truth)
+│   └── openapi.yaml
 ├── backend/              # Spring Boot application (Maven)
 │   ├── pom.xml
 │   └── src/
@@ -194,57 +197,35 @@ CREATE INDEX idx_recurring_payments_category ON recurring_payments(category_id);
 
 ## API Endpoints
 
-### CSV Upload
-```
-POST /api/transactions/csv
-Content-Type: multipart/form-data
-Body: file (CSV file)
-Response: { uploadId, transactionCount, recurringPaymentsDetected }
-```
+> **Single source of truth:** All API endpoints, request/response schemas, and DTOs are defined in [`api/openapi.yaml`](api/openapi.yaml).
+> Both backend (Spring interfaces + DTOs) and frontend (Angular services + models) are generated from this spec.
 
-### Transactions
-```
-GET /api/transactions
-Query params: ?from=2024-01-01&to=2024-12-31&text=Netflix&page=0&size=50
-  - from/to: date range filter
-  - text: search in partner_name and details (case-insensitive, partial match)
-  - page/size: pagination
-Response: { content: [...], totalElements, totalPages }
+### Summary
 
-GET /api/transactions/{id}
-Response: { transaction details }
-```
+| Method | Path | Operation | Tag |
+|--------|------|-----------|-----|
+| POST | `/api/transactions/csv` | uploadCsv | Transactions |
+| GET | `/api/transactions` | getTransactions | Transactions |
+| GET | `/api/transactions/{id}` | getTransactionById | Transactions |
+| GET | `/api/recurring-payments` | getRecurringPayments | RecurringPayments |
+| PUT | `/api/recurring-payments/{id}` | updateRecurringPayment | RecurringPayments |
+| GET | `/api/recurring-payments/{id}/transactions` | getRecurringPaymentTransactions | RecurringPayments |
+| GET | `/api/analytics/annual-overview` | getAnnualOverview | Analytics |
+| GET | `/api/analytics/predictions` | getPredictions | Analytics |
 
-### Recurring Payments
-```
-GET /api/recurring-payments
-Response: [{ id, name, categoryId, categoryName, averageAmount, frequency, isIncome, isActive }]
+### Code Generation
 
-PUT /api/recurring-payments/{id}
-Body: { categoryId, name, isActive }
-Response: { updated recurring payment }
-
-GET /api/recurring-payments/{id}/transactions
-Response: [{ linked transactions }]
+**Backend (Maven):**
+```bash
+cd backend && mvn generate-sources
+# Generates Spring interfaces and DTOs in target/generated-sources/openapi
+# Controllers implement the generated API interfaces
 ```
 
-### Analytics
-```
-GET /api/analytics/annual-overview?year=2024
-Response: {
-  totalIncome,
-  totalExpenses,
-  totalRecurringExpenses,
-  monthlyBreakdown: [{ month, income, expenses, surplus }],
-  byCategory: [{ category, total, percentage }],
-  recurringPayments: [{ name, monthlyAmount, annualAmount, category }]
-}
-
-GET /api/analytics/predictions?months=6
-Response: {
-  predictions: [{ month, expectedIncome, expectedExpenses, expectedSurplus }],
-  upcomingPayments: [{ name, date, amount }]
-}
+**Frontend (npm):**
+```bash
+cd frontend && npm run api:generate
+# Generates Angular services and TypeScript models in src/app/api/generated/
 ```
 
 ---
@@ -258,15 +239,17 @@ recurring-payments-tracker/
 ├── .gitignore
 ├── README.md
 ├── docker-compose.yml
+├── api/
+│   └── openapi.yaml          # OpenAPI 3.0.3 spec (single source of truth)
 ├── backend/
-│   ├── pom.xml
+│   ├── pom.xml               # Includes openapi-generator-maven-plugin
 │   ├── src/
 │   │   ├── main/
 │   │   │   ├── java/com/tracker/
 │   │   │   │   ├── RecurringPaymentsApplication.java
 │   │   │   │   ├── config/
 │   │   │   │   │   └── CorsConfig.java
-│   │   │   │   ├── controller/
+│   │   │   │   ├── controller/           # Implement generated API interfaces
 │   │   │   │   │   ├── TransactionController.java
 │   │   │   │   │   ├── RecurringPaymentController.java
 │   │   │   │   │   └── AnalyticsController.java
@@ -279,16 +262,11 @@ recurring-payments-tracker/
 │   │   │   │   │   ├── TransactionRepository.java
 │   │   │   │   │   ├── RecurringPaymentRepository.java
 │   │   │   │   │   └── FileUploadRepository.java
-│   │   │   │   ├── model/
-│   │   │   │   │   ├── entity/
-│   │   │   │   │   │   ├── Transaction.java
-│   │   │   │   │   │   ├── RecurringPayment.java
-│   │   │   │   │   │   ├── FileUpload.java
-│   │   │   │   │   │   └── Category.java
-│   │   │   │   │   └── dto/
-│   │   │   │   │       ├── UploadResponseDto.java
-│   │   │   │   │       ├── AnnualOverviewDto.java
-│   │   │   │   │       └── PredictionDto.java
+│   │   │   │   ├── model/entity/         # JPA entities (not generated)
+│   │   │   │   │   ├── Transaction.java
+│   │   │   │   │   ├── RecurringPayment.java
+│   │   │   │   │   ├── FileUpload.java
+│   │   │   │   │   └── Category.java
 │   │   │   │   └── util/
 │   │   │   │       ├── CsvParser.java
 │   │   │   │       └── StringSimilarity.java
@@ -297,10 +275,16 @@ recurring-payments-tracker/
 │   │   │       └── db/migration/ (Flyway)
 │   │   │           └── V1__initial_schema.sql
 │   │   └── test/
+│   ├── target/generated-sources/openapi/ # Generated: Spring API interfaces + DTOs
+│   │   └── com/tracker/api/
+│   │       ├── TransactionsApi.java
+│   │       ├── RecurringPaymentsApi.java
+│   │       ├── AnalyticsApi.java
+│   │       └── model/                    # Generated DTO classes
 │   └── Dockerfile
 ├── frontend/
 │   ├── angular.json
-│   ├── package.json          # Workspace package.json
+│   ├── package.json          # Includes api:generate script
 │   ├── tsconfig.json
 │   ├── tailwind.config.js
 │   ├── src/
@@ -311,16 +295,12 @@ recurring-payments-tracker/
 │   │       ├── app.component.ts
 │   │       ├── app.config.ts
 │   │       ├── app.routes.ts
-│   │       ├── core/
-│   │       │   └── services/
-│   │       │       ├── api.service.ts
-│   │       │       ├── transaction.service.ts
-│   │       │       ├── recurring-payment.service.ts
-│   │       │       └── analytics.service.ts
-│   │       ├── models/
-│   │       │   ├── transaction.model.ts
-│   │       │   ├── recurring-payment.model.ts
-│   │       │   └── analytics.model.ts
+│   │       ├── api/generated/            # Generated: Angular services + models
+│   │       │   ├── api/
+│   │       │   │   ├── transactions.service.ts
+│   │       │   │   ├── recurringPayments.service.ts
+│   │       │   │   └── analytics.service.ts
+│   │       │   └── model/
 │   │       └── features/
 │   │           ├── file-upload/
 │   │           │   └── file-upload.component.ts
@@ -349,6 +329,9 @@ recurring-payments-tracker/
 3. Set up entity classes and repositories
 4. Configure Docker Compose for PostgreSQL
 5. Initialize Angular project with Angular CLI + Tailwind
+6. Create OpenAPI 3.0.3 spec (`api/openapi.yaml`) as single source of truth
+7. Configure `openapi-generator-maven-plugin` for backend API interface + DTO generation
+8. Configure `@openapitools/openapi-generator-cli` for frontend Angular service + model generation
 
 ### Phase 2: CSV Import
 1. Implement CSV parser for German bank format
@@ -536,6 +519,20 @@ volumes:
         <artifactId>lombok</artifactId>
         <optional>true</optional>
     </dependency>
+    <dependency>
+        <groupId>io.swagger.core.v3</groupId>
+        <artifactId>swagger-annotations</artifactId>
+        <version>2.2.28</version>
+    </dependency>
+    <dependency>
+        <groupId>org.openapitools</groupId>
+        <artifactId>jackson-databind-nullable</artifactId>
+        <version>0.2.6</version>
+    </dependency>
+    <dependency>
+        <groupId>jakarta.validation</groupId>
+        <artifactId>jakarta.validation-api</artifactId>
+    </dependency>
 </dependencies>
 ```
 
@@ -555,6 +552,7 @@ volumes:
   "devDependencies": {
     "@angular/cli": "^19.x",
     "@angular/compiler-cli": "^19.x",
+    "@openapitools/openapi-generator-cli": "^2.x",
     "tailwindcss": "^3.x",
     "typescript": "~5.6.x"
   }
