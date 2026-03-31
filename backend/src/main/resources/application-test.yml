@@ -1,0 +1,7 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/payments_tracker_test
+    username: postgres
+    password: postgres
+  flyway:
+    enabled: true
