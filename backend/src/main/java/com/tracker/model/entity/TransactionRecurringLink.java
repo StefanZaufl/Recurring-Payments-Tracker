@@ -7,6 +7,7 @@ import lombok.Setter;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.util.Objects;
 import java.util.UUID;
 
 @Entity
@@ -36,5 +37,18 @@ public class TransactionRecurringLink {
     public static class TransactionRecurringLinkId implements Serializable {
         private UUID transaction;
         private UUID recurringPayment;
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            TransactionRecurringLinkId that = (TransactionRecurringLinkId) o;
+            return Objects.equals(transaction, that.transaction) && Objects.equals(recurringPayment, that.recurringPayment);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(transaction, recurringPayment);
+        }
     }
 }
