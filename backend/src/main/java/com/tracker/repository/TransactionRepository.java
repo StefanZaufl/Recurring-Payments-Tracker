@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @Repository
@@ -24,4 +25,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
             @Param("to") LocalDate to,
             @Param("text") String text,
             Pageable pageable);
+
+    List<Transaction> findByBookingDateBetween(LocalDate from, LocalDate to);
 }
