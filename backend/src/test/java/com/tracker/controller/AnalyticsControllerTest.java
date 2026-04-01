@@ -75,6 +75,14 @@ class AnalyticsControllerTest {
             RecurringPayment payment = seedRecurringPayment("Netflix", "MONTHLY",
                     new BigDecimal("-12.99"), false, category);
 
+            // Seed 12 monthly linked transactions for 2025 so recurring expenses total = 12 * 12.99 = 155.88
+            FileUpload upload = seedUpload();
+            for (int month = 1; month <= 12; month++) {
+                Transaction tx = seedTransaction(upload, LocalDate.of(2025, month, 15),
+                        "Netflix", new BigDecimal("-12.99"));
+                seedLink(tx, payment);
+            }
+
             mockMvc.perform(get("/api/analytics/annual-overview").param("year", "2025"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.totalRecurringExpenses").value(closeTo(155.88, 0.01)))

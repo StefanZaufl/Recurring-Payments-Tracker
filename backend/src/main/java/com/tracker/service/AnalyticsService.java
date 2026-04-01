@@ -39,24 +39,30 @@ public class AnalyticsService {
         List<Transaction> transactions = transactionRepository.findByBookingDateBetween(startOfYear, endOfYear);
         List<RecurringPayment> activePayments = recurringPaymentRepository.findByIsActiveTrue();
 
-        // Calculate monthly breakdown
+        // Presort transactions by month (index 0 = January, 11 = December)
+        List<List<Transaction>> transactionsByMonth = new ArrayList<>(12);
+        for (int i = 0; i < 12; i++) {
+            transactionsByMonth.add(new ArrayList<>());
+        }
+        for (Transaction tx : transactions) {
+            transactionsByMonth.get(tx.getBookingDate().getMonthValue() - 1).add(tx);
+        }
+
+        // Calculate monthly breakdown from presorted buckets
         List<MonthlyBreakdownResult> monthlyBreakdown = new ArrayList<>();
         for (int month = 1; month <= 12; month++) {
-            final int m = month;
-            List<Transaction> monthTransactions = transactions.stream()
-                    .filter(t -> t.getBookingDate().getMonthValue() == m)
-                    .toList();
+            List<Transaction> monthTransactions = transactionsByMonth.get(month - 1);
 
-            BigDecimal income = monthTransactions.stream()
-                    .map(Transaction::getAmount)
-                    .filter(a -> a.compareTo(BigDecimal.ZERO) > 0)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            BigDecimal expenses = monthTransactions.stream()
-                    .map(Transaction::getAmount)
-                    .filter(a -> a.compareTo(BigDecimal.ZERO) < 0)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add)
-                    .abs();
+            BigDecimal income = BigDecimal.ZERO;
+            BigDecimal expenses = BigDecimal.ZERO;
+            for (Transaction tx : monthTransactions) {
+                if (tx.getAmount().compareTo(BigDecimal.ZERO) > 0) {
+                    income = income.add(tx.getAmount());
+                } else if (tx.getAmount().compareTo(BigDecimal.ZERO) < 0) {
+                    expenses = expenses.add(tx.getAmount());
+                }
+            }
+            expenses = expenses.abs();
 
             monthlyBreakdown.add(new MonthlyBreakdownResult(month, income, expenses, income.subtract(expenses)));
         }
@@ -69,11 +75,19 @@ public class AnalyticsService {
                 .map(MonthlyBreakdownResult::expenses)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // Recurring expenses total (based on active recurring payments that are expenses)
-        BigDecimal totalRecurringExpenses = activePayments.stream()
-                .filter(p -> !Boolean.TRUE.equals(p.getIsIncome()))
-                .map(p -> annualizeAmount(p.getAverageAmount().abs(), p.getFrequency()))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // Recurring expenses total (from linked transactions within the year)
+        BigDecimal totalRecurringExpenses = BigDecimal.ZERO;
+        for (RecurringPayment payment : activePayments) {
+            if (Boolean.TRUE.equals(payment.getIsIncome())) continue;
+
+            List<TransactionRecurringLink> links = linkRepository.findByRecurringPaymentId(payment.getId());
+            for (TransactionRecurringLink link : links) {
+                LocalDate date = link.getTransaction().getBookingDate();
+                if (!date.isBefore(startOfYear) && !date.isAfter(endOfYear)) {
+                    totalRecurringExpenses = totalRecurringExpenses.add(link.getTransaction().getAmount().abs());
+                }
+            }
+        }
 
         // Category breakdown (expenses only, from recurring payments)
         Map<String, BigDecimal> categoryTotals = new LinkedHashMap<>();
