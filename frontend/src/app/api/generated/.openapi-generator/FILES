@@ -4,6 +4,7 @@ api.base.service.ts
 api.module.ts
 api/analytics.service.ts
 api/api.ts
+api/categories.service.ts
 api/recurringPayments.service.ts
 api/transactions.service.ts
 configuration.ts
@@ -12,6 +13,8 @@ git_push.sh
 index.ts
 model/annualOverview.ts
 model/categoryBreakdown.ts
+model/categoryDto.ts
+model/createCategoryRequest.ts
 model/frequency.ts
 model/models.ts
 model/monthlyBreakdown.ts
@@ -23,6 +26,7 @@ model/recurringPaymentUpdateRequest.ts
 model/transactionDto.ts
 model/transactionPage.ts
 model/upcomingPayment.ts
+model/updateCategoryRequest.ts
 model/uploadResponse.ts
 param.ts
 provide-api.ts

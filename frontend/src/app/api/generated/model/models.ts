@@ -1,5 +1,7 @@
 export * from './annualOverview';
 export * from './categoryBreakdown';
+export * from './categoryDto';
+export * from './createCategoryRequest';
 export * from './frequency';
 export * from './monthlyBreakdown';
 export * from './monthlyPrediction';
@@ -10,4 +12,5 @@ export * from './recurringPaymentUpdateRequest';
 export * from './transactionDto';
 export * from './transactionPage';
 export * from './upcomingPayment';
+export * from './updateCategoryRequest';
 export * from './uploadResponse';
