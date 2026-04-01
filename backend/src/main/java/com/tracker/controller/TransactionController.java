@@ -38,7 +38,7 @@ public class TransactionController implements TransactionsApi {
             var request = new TransactionService.CsvUploadRequest(
                     file.getOriginalFilename(), file.getContentType(), file.getBytes());
             TransactionService.UploadResult result = transactionService.uploadCsv(request);
-            UploadResponse response = new UploadResponse(result.uploadId(), result.transactionCount(), 0);
+            UploadResponse response = new UploadResponse(result.uploadId(), result.transactionCount(), result.recurringPaymentsDetected());
             return ResponseEntity.ok(response);
         } catch (CsvParserService.CsvParseException e) {
             throw new CsvValidationException(e.getMessage(), e);

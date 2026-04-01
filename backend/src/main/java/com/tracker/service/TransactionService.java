@@ -21,13 +21,16 @@ public class TransactionService {
     private final CsvParserService csvParserService;
     private final TransactionRepository transactionRepository;
     private final FileUploadRepository fileUploadRepository;
+    private final RecurringPaymentDetectionService detectionService;
 
     public TransactionService(CsvParserService csvParserService,
                               TransactionRepository transactionRepository,
-                              FileUploadRepository fileUploadRepository) {
+                              FileUploadRepository fileUploadRepository,
+                              RecurringPaymentDetectionService detectionService) {
         this.csvParserService = csvParserService;
         this.transactionRepository = transactionRepository;
         this.fileUploadRepository = fileUploadRepository;
+        this.detectionService = detectionService;
     }
 
     @Transactional
@@ -45,7 +48,9 @@ public class TransactionService {
         }
         transactionRepository.saveAll(transactions);
 
-        return new UploadResult(upload.getId(), transactions.size());
+        int recurringCount = detectionService.detectRecurringPayments().size();
+
+        return new UploadResult(upload.getId(), transactions.size(), recurringCount);
     }
 
     @Transactional(readOnly = true)
@@ -61,5 +66,5 @@ public class TransactionService {
 
     public record CsvUploadRequest(String filename, String mimeType, byte[] content) {}
 
-    public record UploadResult(UUID uploadId, int transactionCount) {}
+    public record UploadResult(UUID uploadId, int transactionCount, int recurringPaymentsDetected) {}
 }
