@@ -77,13 +77,15 @@ describe('UpcomingPaymentsComponent', () => {
     expect(el.textContent).toContain('Salary');
   });
 
-  it('should show empty state on API error', () => {
+  it('should show error state on API error', () => {
     analyticsService.getPredictions.mockReturnValue(throwError(() => new Error('fail')));
     fixture.detectChanges();
     const el: HTMLElement = fixture.nativeElement;
 
     expect(component.predictions).toBeNull();
-    expect(el.textContent).toContain('No predictions available');
+    expect(component.error).toBe('Failed to load predictions. Please try again.');
+    expect(el.textContent).toContain('Failed to load predictions');
+    expect(el.textContent).toContain('Try again');
   });
 
   it('should set loading to true while fetching', () => {

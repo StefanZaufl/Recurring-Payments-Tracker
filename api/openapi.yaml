@@ -32,6 +32,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UploadResponse'
+        '400':
+          description: Invalid CSV file
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/transactions:
     get:
@@ -111,6 +117,10 @@ paths:
                 $ref: '#/components/schemas/TransactionDto'
         '404':
           description: Transaction not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/recurring-payments:
     get:
@@ -154,6 +164,10 @@ paths:
                 $ref: '#/components/schemas/RecurringPaymentDto'
         '404':
           description: Recurring payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/recurring-payments/{id}/transactions:
     get:
@@ -210,6 +224,10 @@ paths:
                 $ref: '#/components/schemas/CategoryDto'
         '409':
           description: Category with this name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/categories/{id}:
     get:
@@ -232,6 +250,10 @@ paths:
                 $ref: '#/components/schemas/CategoryDto'
         '404':
           description: Category not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: updateCategory
       summary: Update an existing category
@@ -258,8 +280,16 @@ paths:
                 $ref: '#/components/schemas/CategoryDto'
         '404':
           description: Category not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: Category with this name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: deleteCategory
       summary: Delete a category
@@ -276,6 +306,10 @@ paths:
           description: Category deleted
         '404':
           description: Category not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/analytics/annual-overview:
     get:
@@ -317,6 +351,18 @@ paths:
 
 components:
   schemas:
+    ErrorResponse:
+      type: object
+      required: [status, message, timestamp]
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
     UploadResponse:
       type: object
       required: [uploadId, transactionCount, recurringPaymentsDetected]

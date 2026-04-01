@@ -18,8 +18,19 @@ import { PredictionResponse } from '../../api/generated/model/predictionResponse
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
 
+      <!-- Error state -->
+      <div *ngIf="!loading && error" class="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
+        <div class="flex items-center">
+          <svg class="h-5 w-5 text-red-400 mr-3" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+          </svg>
+          <p class="text-red-800 text-sm">{{ error }}</p>
+        </div>
+        <button (click)="loadData()" class="mt-3 text-sm text-red-700 underline hover:text-red-900">Try again</button>
+      </div>
+
       <!-- Empty state -->
-      <div *ngIf="!loading && !predictions" class="bg-white rounded-lg shadow p-8 text-center">
+      <div *ngIf="!loading && !error && !predictions" class="bg-white rounded-lg shadow p-8 text-center">
         <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                 d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
@@ -109,6 +120,7 @@ import { PredictionResponse } from '../../api/generated/model/predictionResponse
 })
 export class UpcomingPaymentsComponent implements OnInit {
   loading = false;
+  error: string | null = null;
   predictions: PredictionResponse | null = null;
 
   forecastChartData: ChartConfiguration<'bar'>['data'] = { labels: [], datasets: [] };
@@ -151,16 +163,18 @@ export class UpcomingPaymentsComponent implements OnInit {
     });
   }
 
-  private loadData(): void {
+  loadData(): void {
     this.loading = true;
+    this.error = null;
     this.analyticsService.getPredictions(6).subscribe({
       next: (data) => {
         this.predictions = data;
         this.buildForecastChart(data);
         this.loading = false;
       },
-      error: () => {
+      error: (err) => {
         this.predictions = null;
+        this.error = err.error?.message || 'Failed to load predictions. Please try again.';
         this.loading = false;
       }
     });

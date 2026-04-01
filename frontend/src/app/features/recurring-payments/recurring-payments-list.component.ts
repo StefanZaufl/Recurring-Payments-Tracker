@@ -36,8 +36,19 @@ import { forkJoin } from 'rxjs';
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
 
+      <!-- Error state -->
+      <div *ngIf="!loading && error" class="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
+        <div class="flex items-center">
+          <svg class="h-5 w-5 text-red-400 mr-3" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+          </svg>
+          <p class="text-red-800 text-sm">{{ error }}</p>
+        </div>
+        <button (click)="loadData()" class="mt-3 text-sm text-red-700 underline hover:text-red-900">Try again</button>
+      </div>
+
       <!-- Empty state -->
-      <div *ngIf="!loading && filteredPayments.length === 0" class="bg-white rounded-lg shadow p-8 text-center">
+      <div *ngIf="!loading && !error && filteredPayments.length === 0" class="bg-white rounded-lg shadow p-8 text-center">
         <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                 d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
@@ -132,6 +143,7 @@ export class RecurringPaymentsListComponent implements OnInit {
   filteredPayments: RecurringPaymentDto[] = [];
   categories: CategoryDto[] = [];
   loading = false;
+  error: string | null = null;
   showInactive = false;
   filterFrequency = '';
 
@@ -179,8 +191,9 @@ export class RecurringPaymentsListComponent implements OnInit {
     });
   }
 
-  private loadData(): void {
+  loadData(): void {
     this.loading = true;
+    this.error = null;
     forkJoin({
       payments: this.recurringPaymentsService.getRecurringPayments(),
       categories: this.categoriesService.getCategories()
@@ -191,7 +204,8 @@ export class RecurringPaymentsListComponent implements OnInit {
         this.applyFilter();
         this.loading = false;
       },
-      error: () => {
+      error: (err) => {
+        this.error = err.error?.message || 'Failed to load recurring payments. Please try again.';
         this.loading = false;
       }
     });

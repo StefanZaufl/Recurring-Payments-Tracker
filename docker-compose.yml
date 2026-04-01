@@ -3,31 +3,44 @@ services:
   db:
     image: postgres:15
     environment:
-      POSTGRES_DB: payments_tracker
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-payments_tracker}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   backend:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     ports:
-      - "8080:8080"
+      - "${BACKEND_PORT:-8080}:8080"
     environment:
-      DB_USERNAME: postgres
-      DB_PASSWORD: postgres
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/payments_tracker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-payments_tracker}
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      APP_CORS_ALLOWED_ORIGINS: http://localhost:${FRONTEND_PORT:-3000}
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    restart: unless-stopped
 
   frontend:
-    build: ./frontend
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-3000}:80"
     depends_on:
       - backend
+    restart: unless-stopped
 
 volumes:
   pgdata:

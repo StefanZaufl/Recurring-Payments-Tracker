@@ -33,8 +33,19 @@ import { AnnualOverview } from '../../api/generated/model/annualOverview';
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
 
+      <!-- Error state -->
+      <div *ngIf="!loading && error" class="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
+        <div class="flex items-center">
+          <svg class="h-5 w-5 text-red-400 mr-3" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+          </svg>
+          <p class="text-red-800 text-sm">{{ error }}</p>
+        </div>
+        <button (click)="loadData()" class="mt-3 text-sm text-red-700 underline hover:text-red-900">Try again</button>
+      </div>
+
       <!-- Empty state -->
-      <div *ngIf="!loading && !overview" class="bg-white rounded-lg shadow p-8 text-center">
+      <div *ngIf="!loading && !error && !overview" class="bg-white rounded-lg shadow p-8 text-center">
         <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                 d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
@@ -147,6 +158,7 @@ import { AnnualOverview } from '../../api/generated/model/annualOverview';
 export class DashboardComponent implements OnInit {
   selectedYear = new Date().getFullYear();
   loading = false;
+  error: string | null = null;
   overview: AnnualOverview | null = null;
 
   private readonly monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -198,8 +210,9 @@ export class DashboardComponent implements OnInit {
     return new Intl.NumberFormat('de-AT', { style: 'currency', currency: 'EUR' }).format(value);
   }
 
-  private loadData(): void {
+  loadData(): void {
     this.loading = true;
+    this.error = null;
     this.analyticsService.getAnnualOverview(this.selectedYear).subscribe({
       next: (data) => {
         this.overview = data;
@@ -207,8 +220,9 @@ export class DashboardComponent implements OnInit {
         this.buildPieChart(data);
         this.loading = false;
       },
-      error: () => {
+      error: (err) => {
         this.overview = null;
+        this.error = err.error?.message || 'Failed to load annual overview. Please try again.';
         this.loading = false;
       }
     });

@@ -98,14 +98,15 @@ describe('DashboardComponent', () => {
     expect(component.selectedYear).toBe(initialYear);
   });
 
-  it('should show empty state when API returns error', () => {
+  it('should show error state when API returns error', () => {
     analyticsService.getAnnualOverview.mockReturnValue(throwError(() => new Error('fail')));
     fixture.detectChanges();
     const el: HTMLElement = fixture.nativeElement;
 
     expect(component.overview).toBeNull();
-    expect(el.textContent).toContain('No data available');
-    expect(el.textContent).toContain('Upload a CSV file');
+    expect(component.error).toBe('Failed to load annual overview. Please try again.');
+    expect(el.textContent).toContain('Failed to load annual overview');
+    expect(el.textContent).toContain('Try again');
   });
 
   it('should set loading to true while fetching', () => {

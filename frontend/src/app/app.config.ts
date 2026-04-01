@@ -4,12 +4,13 @@ import { provideHttpClient } from '@angular/common/http';
 
 import { routes } from './app.routes';
 import { provideApi } from './api/generated';
+import { environment } from '../environments/environment';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
     provideHttpClient(),
-    provideApi('http://localhost:8080')
+    provideApi(environment.apiBaseUrl)
   ]
 };
