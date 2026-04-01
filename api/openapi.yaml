@@ -177,6 +177,106 @@ paths:
                 items:
                   $ref: '#/components/schemas/TransactionDto'
 
+  /api/categories:
+    get:
+      operationId: getCategories
+      summary: List all categories
+      tags: [Categories]
+      responses:
+        '200':
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategoryDto'
+    post:
+      operationId: createCategory
+      summary: Create a new category
+      tags: [Categories]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCategoryRequest'
+      responses:
+        '201':
+          description: Category created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryDto'
+        '409':
+          description: Category with this name already exists
+
+  /api/categories/{id}:
+    get:
+      operationId: getCategoryById
+      summary: Get a single category by ID
+      tags: [Categories]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Category details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryDto'
+        '404':
+          description: Category not found
+    put:
+      operationId: updateCategory
+      summary: Update an existing category
+      tags: [Categories]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCategoryRequest'
+      responses:
+        '200':
+          description: Updated category
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryDto'
+        '404':
+          description: Category not found
+        '409':
+          description: Category with this name already exists
+    delete:
+      operationId: deleteCategory
+      summary: Delete a category
+      tags: [Categories]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Category deleted
+        '404':
+          description: Category not found
+
   /api/analytics/annual-overview:
     get:
       operationId: getAnnualOverview
@@ -270,6 +370,35 @@ components:
           format: int64
         totalPages:
           type: integer
+
+    CategoryDto:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        color:
+          type: string
+
+    CreateCategoryRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        color:
+          type: string
+
+    UpdateCategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        color:
+          type: string
 
     Frequency:
       type: string
