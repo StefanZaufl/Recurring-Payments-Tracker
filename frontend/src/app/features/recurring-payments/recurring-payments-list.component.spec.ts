@@ -45,6 +45,7 @@ describe('RecurringPaymentsListComponent', () => {
     };
     const categoriesServiceMock = {
       getCategories: jest.fn().mockReturnValue(of(mockCategories)),
+      createCategory: jest.fn(),
     };
 
     await TestBed.configureTestingModule({
@@ -115,12 +116,10 @@ describe('RecurringPaymentsListComponent', () => {
     expect(component.filteredPayments.length).toBe(2);
   });
 
-  it('should render table rows for filtered payments', () => {
+  it('should render payment names', () => {
     fixture.detectChanges();
     const el: HTMLElement = fixture.nativeElement;
-    const rows = el.querySelectorAll('tbody tr');
 
-    expect(rows.length).toBe(3);
     expect(el.textContent).toContain('Netflix');
     expect(el.textContent).toContain('Salary');
     expect(el.textContent).toContain('Insurance');
@@ -161,15 +160,98 @@ describe('RecurringPaymentsListComponent', () => {
     expect(recurringService.updateRecurringPayment).toHaveBeenCalledWith('1', { isActive: false });
   });
 
-  it('should update category and call API', () => {
+  it('should open category dialog for a payment', () => {
+    fixture.detectChanges();
+    const netflix = component.filteredPayments.find(p => p.name === 'Netflix')!;
+
+    component.openCategoryDialog(netflix);
+
+    expect(component.dialogPayment).toBe(netflix);
+    expect(component.newCategoryName).toBe('');
+    expect(component.dialogError).toBeNull();
+  });
+
+  it('should close category dialog and reset state', () => {
+    fixture.detectChanges();
+    const netflix = component.filteredPayments.find(p => p.name === 'Netflix')!;
+    component.openCategoryDialog(netflix);
+    component.newCategoryName = 'test';
+    component.dialogError = 'some error';
+
+    component.closeCategoryDialog();
+
+    expect(component.dialogPayment).toBeNull();
+    expect(component.newCategoryName).toBe('');
+    expect(component.dialogError).toBeNull();
+  });
+
+  it('should select existing category via dialog', () => {
     fixture.detectChanges();
     const salary = component.payments.find(p => p.name === 'Salary')!;
     const updatedSalary = { ...salary, categoryId: 'cat-1', categoryName: 'Streaming' };
     recurringService.updateRecurringPayment.mockReturnValue(of(updatedSalary));
+    component.openCategoryDialog(salary);
 
-    component.updateCategory(salary, 'cat-1');
+    component.selectCategory('cat-1');
 
     expect(recurringService.updateRecurringPayment).toHaveBeenCalledWith('2', { categoryId: 'cat-1' });
+    expect(component.dialogPayment).toBeNull();
+  });
+
+  it('should select None category via dialog', () => {
+    fixture.detectChanges();
+    const netflix = component.payments.find(p => p.name === 'Netflix')!;
+    const updatedNetflix = { ...netflix, categoryId: undefined, categoryName: undefined };
+    recurringService.updateRecurringPayment.mockReturnValue(of(updatedNetflix));
+    component.openCategoryDialog(netflix);
+
+    component.selectCategory(null);
+
+    expect(recurringService.updateRecurringPayment).toHaveBeenCalledWith('1', { categoryId: undefined });
+    expect(component.dialogPayment).toBeNull();
+  });
+
+  it('should create new category and assign it', () => {
+    fixture.detectChanges();
+    const salary = component.payments.find(p => p.name === 'Salary')!;
+    const newCat: CategoryDto = { id: 'cat-3', name: 'Salary', color: undefined };
+    categoriesService.createCategory.mockReturnValue(of(newCat));
+    const updatedSalary = { ...salary, categoryId: 'cat-3', categoryName: 'Salary' };
+    recurringService.updateRecurringPayment.mockReturnValue(of(updatedSalary));
+
+    component.openCategoryDialog(salary);
+    component.newCategoryName = 'Salary';
+    component.createAndSelectCategory();
+
+    expect(categoriesService.createCategory).toHaveBeenCalledWith({ name: 'Salary' });
+    expect(component.categories.length).toBe(3);
+    expect(component.categories[2].name).toBe('Salary');
+  });
+
+  it('should show error when category creation fails', () => {
+    fixture.detectChanges();
+    const salary = component.payments.find(p => p.name === 'Salary')!;
+    categoriesService.createCategory.mockReturnValue(
+      throwError(() => ({ error: { message: 'Category already exists' } }))
+    );
+
+    component.openCategoryDialog(salary);
+    component.newCategoryName = 'Streaming';
+    component.createAndSelectCategory();
+
+    expect(component.dialogError).toBe('Category already exists');
+    expect(component.creatingCategory).toBe(false);
+  });
+
+  it('should not create category with empty name', () => {
+    fixture.detectChanges();
+    const salary = component.payments.find(p => p.name === 'Salary')!;
+    component.openCategoryDialog(salary);
+    component.newCategoryName = '   ';
+
+    component.createAndSelectCategory();
+
+    expect(categoriesService.createCategory).not.toHaveBeenCalled();
   });
 
   it('should show empty state when no payments', () => {
