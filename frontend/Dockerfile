@@ -1,12 +1,15 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 
-# Copy OpenAPI spec (needed for api:generate)
-COPY api/openapi.yaml /app/api/openapi.yaml
+# Install Java 21 (required by openapi-generator-cli)
+RUN apk add --no-cache openjdk21-jre-headless
+
+# Copy OpenAPI spec to match relative path used by api:generate (../api/openapi.yaml)
+COPY api/openapi.yaml /api/openapi.yaml
 
 # Install dependencies
 COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # Copy source and build
 COPY frontend/ .
