@@ -69,7 +69,7 @@ import { forkJoin } from 'rxjs';
         </div>
         <h3 class="text-base font-semibold text-white mb-1">No recurring payments found</h3>
         <p class="text-sm text-muted mb-5">Upload bank transactions to detect patterns.</p>
-        <a routerLink="/upload" class="btn-primary">Upload CSV</a>
+        <a routerLink="/configure" class="btn-primary">Upload CSV</a>
       </div>
 
       <!-- Mobile card view -->

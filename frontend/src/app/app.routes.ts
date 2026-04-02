@@ -11,8 +11,8 @@ export const routes: Routes = [
     loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent)
   },
   {
-    path: 'upload',
-    loadComponent: () => import('./features/file-upload/file-upload.component').then(m => m.FileUploadComponent)
+    path: 'configure',
+    loadComponent: () => import('./features/configure/configure.component').then(m => m.ConfigureComponent)
   },
   {
     path: 'recurring-payments',
