@@ -4,13 +4,16 @@ import com.tracker.model.entity.FileUpload;
 import com.tracker.model.entity.Transaction;
 import com.tracker.repository.FileUploadRepository;
 import com.tracker.repository.TransactionRepository;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -53,10 +56,33 @@ public class TransactionService {
         return new UploadResult(upload.getId(), transactions.size(), recurringCount);
     }
 
+    private static final java.util.Set<String> ALLOWED_SORT_FIELDS = java.util.Set.of("bookingDate", "partnerName", "amount");
+
     @Transactional(readOnly = true)
-    public Page<Transaction> getTransactions(LocalDate from, LocalDate to, String text, int page, int size) {
-        PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "bookingDate"));
-        return transactionRepository.findFiltered(from, to, text, pageRequest);
+    public Page<Transaction> getTransactions(LocalDate from, LocalDate to, String text, int page, int size, String sort, String sortDirection) {
+        String sortField = sort != null && ALLOWED_SORT_FIELDS.contains(sort) ? sort : "bookingDate";
+        Sort.Direction direction = "asc".equalsIgnoreCase(sortDirection) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        PageRequest pageRequest = PageRequest.of(page, size, Sort.by(direction, sortField));
+
+        Specification<Transaction> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (from != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("bookingDate"), from));
+            }
+            if (to != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("bookingDate"), to));
+            }
+            if (text != null && !text.isBlank()) {
+                String pattern = "%" + text.toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("partnerName")), pattern),
+                        cb.like(cb.lower(root.get("details")), pattern)
+                ));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        return transactionRepository.findAll(spec, pageRequest);
     }
 
     @Transactional(readOnly = true)

@@ -70,6 +70,20 @@ paths:
           schema:
             type: integer
             default: 50
+        - name: sort
+          in: query
+          description: Field to sort by
+          schema:
+            type: string
+            default: bookingDate
+            enum: [bookingDate, partnerName, amount]
+        - name: sortDirection
+          in: query
+          description: Sort direction
+          schema:
+            type: string
+            default: desc
+            enum: [asc, desc]
       responses:
         '200':
           description: Paginated list of transactions

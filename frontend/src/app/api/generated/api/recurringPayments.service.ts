@@ -17,6 +17,8 @@ import { Observable }                                        from 'rxjs';
 import { OpenApiHttpParams, QueryParamStyle } from '../query.params';
 
 // @ts-ignore
+import { ErrorResponse } from '../model/errorResponse';
+// @ts-ignore
 import { RecurringPaymentDto } from '../model/recurringPaymentDto';
 // @ts-ignore
 import { RecurringPaymentUpdateRequest } from '../model/recurringPaymentUpdateRequest';

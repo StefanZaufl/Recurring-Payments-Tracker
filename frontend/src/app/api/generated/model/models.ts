@@ -2,6 +2,7 @@ export * from './annualOverview';
 export * from './categoryBreakdown';
 export * from './categoryDto';
 export * from './createCategoryRequest';
+export * from './errorResponse';
 export * from './frequency';
 export * from './monthlyBreakdown';
 export * from './monthlyPrediction';
