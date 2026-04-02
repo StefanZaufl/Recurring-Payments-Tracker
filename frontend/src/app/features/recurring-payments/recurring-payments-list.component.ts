@@ -4,13 +4,15 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { RecurringPaymentsService, CategoriesService } from '../../api/generated';
 import { RecurringPaymentDto } from '../../api/generated/model/recurringPaymentDto';
+import { TransactionDto } from '../../api/generated/model/transactionDto';
 import { CategoryDto } from '../../api/generated/model/categoryDto';
 import { CategoryCreateComponent } from '../../shared/category-create.component';
+import { DateRangePickerComponent, DateRange } from '../../shared/date-range-picker.component';
 import { forkJoin } from 'rxjs';
 
 @Component({
   selector: 'app-recurring-payments-list',
-  imports: [CommonModule, FormsModule, RouterLink, CategoryCreateComponent],
+  imports: [CommonModule, FormsModule, RouterLink, CategoryCreateComponent, DateRangePickerComponent],
   template: `
     <div class="animate-fade-in">
       <!-- Header -->
@@ -81,8 +83,9 @@ import { forkJoin } from 'rxjs';
       <!-- Mobile card view -->
       <div *ngIf="!loading && filteredPayments.length > 0" class="sm:hidden space-y-3 animate-slide-up">
         <div *ngFor="let payment of filteredPayments"
-             class="glass-card p-4 transition-opacity"
-             [class.opacity-40]="!payment.isActive">
+             class="glass-card p-4 transition-opacity cursor-pointer"
+             [class.opacity-40]="!payment.isActive"
+             (click)="openTransactionsModal(payment)">
           <div class="flex items-start justify-between mb-3">
             <div class="flex-1 min-w-0">
               <p class="text-sm font-medium text-white truncate">{{ payment.name }}</p>
@@ -112,7 +115,7 @@ import { forkJoin } from 'rxjs';
           </div>
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
-              <button (click)="toggleActive(payment)"
+              <button (click)="toggleActive(payment); $event.stopPropagation()"
                       class="badge cursor-pointer transition-colors"
                       [ngClass]="{
                         'bg-accent-dim text-accent': payment.isActive,
@@ -120,7 +123,7 @@ import { forkJoin } from 'rxjs';
                       }">
                 {{ payment.isActive ? 'Active' : 'Inactive' }}
               </button>
-              <button (click)="openCategoryDialog(payment)"
+              <button (click)="openCategoryDialog(payment); $event.stopPropagation()"
                       class="badge cursor-pointer transition-colors hover:bg-card-hover"
                       [ngClass]="{
                         'bg-subtle text-muted': payment.categoryName,
@@ -152,11 +155,12 @@ import { forkJoin } from 'rxjs';
             </thead>
             <tbody class="divide-y divide-card-border">
               <tr *ngFor="let payment of filteredPayments"
-                  class="hover:bg-card-hover transition-colors"
-                  [class.opacity-40]="!payment.isActive">
+                  class="hover:bg-card-hover transition-colors cursor-pointer"
+                  [class.opacity-40]="!payment.isActive"
+                  (click)="openTransactionsModal(payment)">
                 <td class="table-cell font-medium text-white">{{ payment.name }}</td>
                 <td class="table-cell">
-                  <button (click)="openCategoryDialog(payment)"
+                  <button (click)="openCategoryDialog(payment); $event.stopPropagation()"
                           class="badge cursor-pointer transition-colors hover:bg-card-hover group"
                           [ngClass]="{
                             'bg-subtle text-muted': payment.categoryName,
@@ -193,7 +197,7 @@ import { forkJoin } from 'rxjs';
                   </span>
                 </td>
                 <td class="table-cell">
-                  <button (click)="toggleActive(payment)"
+                  <button (click)="toggleActive(payment); $event.stopPropagation()"
                           class="badge cursor-pointer transition-colors"
                           [ngClass]="{
                             'bg-accent-dim text-accent': payment.isActive,
@@ -266,6 +270,128 @@ import { forkJoin } from 'rxjs';
           </div>
         </div>
       </div>
+
+      <!-- Transactions modal backdrop -->
+      <div *ngIf="transactionsPayment"
+           class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+           (click)="closeTransactionsModal()">
+        <div class="glass-card w-full max-w-3xl p-0 animate-slide-up border-subtle max-h-[85vh] flex flex-col"
+             (click)="$event.stopPropagation()">
+
+          <!-- Header -->
+          <div class="flex items-center justify-between px-5 py-4 border-b border-card-border shrink-0">
+            <div class="min-w-0 flex-1">
+              <h3 class="text-sm font-semibold text-white">Transactions</h3>
+              <div class="flex items-center gap-2 mt-0.5">
+                <p class="text-xs text-muted truncate">{{ transactionsPayment.name }}</p>
+                <span class="badge text-[10px]"
+                      [ngClass]="{
+                        'bg-violet-dim text-violet': transactionsPayment.frequency === 'MONTHLY',
+                        'bg-amber-dim text-amber': transactionsPayment.frequency === 'QUARTERLY',
+                        'bg-sky-dim text-sky': transactionsPayment.frequency === 'YEARLY'
+                      }">
+                  {{ transactionsPayment.frequency }}
+                </span>
+              </div>
+            </div>
+            <button (click)="closeTransactionsModal()"
+                    class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-subtle text-muted hover:text-white transition-colors shrink-0 ml-3">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Filter bar -->
+          <div class="px-5 py-3 border-b border-card-border shrink-0 flex items-center justify-between gap-3">
+            <app-date-range-picker
+              [from]="txFilterFrom"
+              [to]="txFilterTo"
+              (rangeChanged)="onTxDateRangeChanged($event)">
+            </app-date-range-picker>
+            <span *ngIf="!transactionsLoading && !transactionsError" class="text-xs text-muted whitespace-nowrap">
+              {{ filteredTransactions.length }} transaction{{ filteredTransactions.length === 1 ? '' : 's' }}
+            </span>
+          </div>
+
+          <!-- Content area (scrollable) -->
+          <div class="overflow-y-auto flex-1 min-h-0">
+
+            <!-- Loading -->
+            <div *ngIf="transactionsLoading" class="flex flex-col items-center justify-center py-12 gap-3">
+              <div class="w-6 h-6 border-2 border-accent/30 border-t-accent rounded-full animate-spin"></div>
+              <span class="text-xs text-muted">Loading transactions...</span>
+            </div>
+
+            <!-- Error -->
+            <div *ngIf="!transactionsLoading && transactionsError" class="p-5">
+              <div class="flex items-start gap-3">
+                <div class="w-8 h-8 rounded-lg bg-coral-dim flex items-center justify-center shrink-0">
+                  <svg class="w-4 h-4 text-coral" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                  </svg>
+                </div>
+                <div>
+                  <p class="text-sm text-coral font-medium">{{ transactionsError }}</p>
+                  <button (click)="openTransactionsModal(transactionsPayment!)" class="mt-2 text-xs text-muted hover:text-white transition-colors">Try again</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Empty -->
+            <div *ngIf="!transactionsLoading && !transactionsError && filteredTransactions.length === 0" class="py-10 px-5 text-center">
+              <div class="w-12 h-12 rounded-xl bg-subtle flex items-center justify-center mx-auto mb-3">
+                <svg class="w-5 h-5 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                </svg>
+              </div>
+              <p class="text-sm text-muted">No transactions found{{ txFilterFrom || txFilterTo ? ' for this date range' : '' }}.</p>
+            </div>
+
+            <!-- Mobile transaction cards -->
+            <div *ngIf="!transactionsLoading && !transactionsError && filteredTransactions.length > 0" class="sm:hidden p-3 space-y-2">
+              <div *ngFor="let tx of filteredTransactions" class="bg-subtle rounded-xl p-3">
+                <div class="flex items-start justify-between gap-2 mb-1">
+                  <p class="text-sm font-medium text-white truncate min-w-0 flex-1">{{ tx.partnerName || 'Unknown' }}</p>
+                  <p class="font-mono text-sm font-semibold shrink-0"
+                     [class.text-accent]="tx.amount >= 0"
+                     [class.text-coral]="tx.amount < 0">
+                    {{ formatAmount(tx.amount) }}
+                  </p>
+                </div>
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-xs text-muted">{{ formatDate(tx.bookingDate) }}</span>
+                  <span *ngIf="tx.details" class="text-xs text-muted/60 truncate max-w-[50%] text-right">{{ tx.details }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Desktop transaction table -->
+            <table *ngIf="!transactionsLoading && !transactionsError && filteredTransactions.length > 0" class="min-w-full hidden sm:table">
+              <thead>
+                <tr class="border-b border-card-border">
+                  <th class="table-header">Date</th>
+                  <th class="table-header">Partner</th>
+                  <th class="table-header text-right">Amount</th>
+                  <th class="table-header">Details</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-card-border">
+                <tr *ngFor="let tx of filteredTransactions" class="hover:bg-card-hover transition-colors">
+                  <td class="table-cell text-muted whitespace-nowrap">{{ formatDate(tx.bookingDate) }}</td>
+                  <td class="table-cell font-medium text-white">{{ tx.partnerName || 'Unknown' }}</td>
+                  <td class="table-cell text-right font-mono text-xs font-medium whitespace-nowrap"
+                      [class.text-accent]="tx.amount >= 0"
+                      [class.text-coral]="tx.amount < 0">
+                    {{ formatAmount(tx.amount) }}
+                  </td>
+                  <td class="table-cell text-muted/70 max-w-xs truncate">{{ tx.details || '-' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   `
 })
@@ -281,6 +407,15 @@ export class RecurringPaymentsListComponent implements OnInit {
 
   // Category dialog state
   dialogPayment: RecurringPaymentDto | null = null;
+
+  // Transactions modal state
+  transactionsPayment: RecurringPaymentDto | null = null;
+  allTransactions: TransactionDto[] = [];
+  filteredTransactions: TransactionDto[] = [];
+  transactionsLoading = false;
+  transactionsError: string | null = null;
+  txFilterFrom: string | null = null;
+  txFilterTo: string | null = null;
 
   constructor(
     private recurringPaymentsService: RecurringPaymentsService,
@@ -355,6 +490,61 @@ export class RecurringPaymentsListComponent implements OnInit {
   onDialogCategoryCreated(category: CategoryDto): void {
     this.categories = [...this.categories, category];
     this.selectCategory(category.id);
+  }
+
+  openTransactionsModal(payment: RecurringPaymentDto): void {
+    this.transactionsPayment = payment;
+    this.transactionsLoading = true;
+    this.transactionsError = null;
+    this.txFilterFrom = null;
+    this.txFilterTo = null;
+    this.allTransactions = [];
+    this.filteredTransactions = [];
+
+    this.recurringPaymentsService.getRecurringPaymentTransactions(payment.id).subscribe({
+      next: (transactions) => {
+        this.allTransactions = transactions;
+        this.applyTransactionFilter();
+        this.transactionsLoading = false;
+      },
+      error: (err) => {
+        this.transactionsError = err.error?.message || 'Failed to load transactions.';
+        this.transactionsLoading = false;
+      }
+    });
+  }
+
+  closeTransactionsModal(): void {
+    this.transactionsPayment = null;
+    this.allTransactions = [];
+    this.filteredTransactions = [];
+    this.transactionsError = null;
+    this.txFilterFrom = null;
+    this.txFilterTo = null;
+  }
+
+  applyTransactionFilter(): void {
+    this.filteredTransactions = this.allTransactions.filter(tx => {
+      if (this.txFilterFrom && tx.bookingDate < this.txFilterFrom) return false;
+      if (this.txFilterTo && tx.bookingDate > this.txFilterTo) return false;
+      return true;
+    }).sort((a, b) => b.bookingDate.localeCompare(a.bookingDate));
+  }
+
+  onTxDateRangeChanged(range: DateRange): void {
+    this.txFilterFrom = range.from;
+    this.txFilterTo = range.to;
+    this.applyTransactionFilter();
+  }
+
+  formatAmount(amount: number): string {
+    const prefix = amount >= 0 ? '+' : '';
+    return prefix + new Intl.NumberFormat('de-AT', { style: 'currency', currency: 'EUR' }).format(amount);
+  }
+
+  formatDate(dateStr: string): string {
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('en', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   loadData(): void {

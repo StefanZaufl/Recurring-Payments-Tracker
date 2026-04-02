@@ -5,6 +5,7 @@ import { of, throwError } from 'rxjs';
 import { RecurringPaymentsListComponent } from './recurring-payments-list.component';
 import { RecurringPaymentsService, CategoriesService } from '../../api/generated';
 import { RecurringPaymentDto } from '../../api/generated/model/recurringPaymentDto';
+import { TransactionDto } from '../../api/generated/model/transactionDto';
 import { CategoryDto } from '../../api/generated/model/categoryDto';
 import { Frequency } from '../../api/generated/model/frequency';
 
@@ -32,6 +33,12 @@ const mockCategories: CategoryDto[] = [
   { id: 'cat-2', name: 'Insurance', color: '#00FF00' },
 ];
 
+const mockTransactions: TransactionDto[] = [
+  { id: 't1', bookingDate: '2026-01-15', partnerName: 'Netflix', amount: -12.99, currency: 'EUR' } as TransactionDto,
+  { id: 't2', bookingDate: '2026-02-15', partnerName: 'Netflix', amount: -12.99, currency: 'EUR' } as TransactionDto,
+  { id: 't3', bookingDate: '2026-03-15', partnerName: 'Netflix', amount: -13.99, currency: 'EUR' } as TransactionDto,
+];
+
 describe('RecurringPaymentsListComponent', () => {
   let component: RecurringPaymentsListComponent;
   let fixture: ComponentFixture<RecurringPaymentsListComponent>;
@@ -42,6 +49,7 @@ describe('RecurringPaymentsListComponent', () => {
     const recurringServiceMock = {
       getRecurringPayments: jest.fn().mockReturnValue(of(mockPayments)),
       updateRecurringPayment: jest.fn(),
+      getRecurringPaymentTransactions: jest.fn().mockReturnValue(of(mockTransactions)),
     };
     const categoriesServiceMock = {
       getCategories: jest.fn().mockReturnValue(of(mockCategories)),
@@ -265,5 +273,127 @@ describe('RecurringPaymentsListComponent', () => {
   it('should return absolute value from abs()', () => {
     expect(component.abs(-42)).toBe(42);
     expect(component.abs(42)).toBe(42);
+  });
+
+  // Transactions modal tests
+
+  it('should open transactions modal and load transactions', () => {
+    fixture.detectChanges();
+    const netflix = component.payments.find(p => p.name === 'Netflix')!;
+
+    component.openTransactionsModal(netflix);
+
+    expect(component.transactionsPayment).toBe(netflix);
+    expect(recurringService.getRecurringPaymentTransactions).toHaveBeenCalledWith('1');
+    expect(component.filteredTransactions.length).toBe(3);
+    expect(component.transactionsLoading).toBe(false);
+  });
+
+  it('should close transactions modal and reset state', () => {
+    fixture.detectChanges();
+    const netflix = component.payments.find(p => p.name === 'Netflix')!;
+    component.openTransactionsModal(netflix);
+
+    component.closeTransactionsModal();
+
+    expect(component.transactionsPayment).toBeNull();
+    expect(component.allTransactions).toEqual([]);
+    expect(component.filteredTransactions).toEqual([]);
+    expect(component.txFilterFrom).toBeNull();
+    expect(component.txFilterTo).toBeNull();
+    expect(component.transactionsError).toBeNull();
+  });
+
+  it('should filter transactions by date range', () => {
+    fixture.detectChanges();
+    const netflix = component.payments.find(p => p.name === 'Netflix')!;
+    component.openTransactionsModal(netflix);
+
+    component.txFilterFrom = '2026-02-01';
+    component.txFilterTo = '2026-02-28';
+    component.applyTransactionFilter();
+
+    expect(component.filteredTransactions.length).toBe(1);
+    expect(component.filteredTransactions[0].bookingDate).toBe('2026-02-15');
+  });
+
+  it('should show all transactions when date range is cleared', () => {
+    fixture.detectChanges();
+    const netflix = component.payments.find(p => p.name === 'Netflix')!;
+    component.openTransactionsModal(netflix);
+
+    component.txFilterFrom = '2026-02-01';
+    component.txFilterTo = '2026-02-28';
+    component.applyTransactionFilter();
+    expect(component.filteredTransactions.length).toBe(1);
+
+    component.onTxDateRangeChanged({ from: null, to: null, label: 'All time' });
+    expect(component.filteredTransactions.length).toBe(3);
+  });
+
+  it('should sort transactions by date descending', () => {
+    fixture.detectChanges();
+    const netflix = component.payments.find(p => p.name === 'Netflix')!;
+    component.openTransactionsModal(netflix);
+
+    expect(component.filteredTransactions[0].bookingDate).toBe('2026-03-15');
+    expect(component.filteredTransactions[1].bookingDate).toBe('2026-02-15');
+    expect(component.filteredTransactions[2].bookingDate).toBe('2026-01-15');
+  });
+
+  it('should handle API error when loading transactions', () => {
+    fixture.detectChanges();
+    recurringService.getRecurringPaymentTransactions.mockReturnValue(
+      throwError(() => ({ error: { message: 'Server error' } }))
+    );
+    const netflix = component.payments.find(p => p.name === 'Netflix')!;
+
+    component.openTransactionsModal(netflix);
+
+    expect(component.transactionsError).toBe('Server error');
+    expect(component.transactionsLoading).toBe(false);
+    expect(component.filteredTransactions).toEqual([]);
+  });
+
+  it('should handle empty transactions list', () => {
+    fixture.detectChanges();
+    recurringService.getRecurringPaymentTransactions.mockReturnValue(of([]));
+    const netflix = component.payments.find(p => p.name === 'Netflix')!;
+
+    component.openTransactionsModal(netflix);
+
+    expect(component.filteredTransactions).toEqual([]);
+    expect(component.transactionsLoading).toBe(false);
+    expect(component.transactionsError).toBeNull();
+  });
+
+  it('should format transaction amounts correctly', () => {
+    const positive = component.formatAmount(12.99);
+    expect(positive).toContain('+');
+    expect(positive).toContain('12');
+
+    const negative = component.formatAmount(-12.99);
+    expect(negative).not.toMatch(/^\+/);
+    expect(negative).toContain('12');
+  });
+
+  it('should format transaction dates correctly', () => {
+    const formatted = component.formatDate('2026-03-15');
+    expect(formatted).toContain('15');
+    expect(formatted).toContain('Mar');
+    expect(formatted).toContain('2026');
+  });
+
+  it('should update date filter and refilter on date range change', () => {
+    fixture.detectChanges();
+    const netflix = component.payments.find(p => p.name === 'Netflix')!;
+    component.openTransactionsModal(netflix);
+
+    component.onTxDateRangeChanged({ from: '2026-01-01', to: '2026-01-31', label: 'January' });
+
+    expect(component.txFilterFrom).toBe('2026-01-01');
+    expect(component.txFilterTo).toBe('2026-01-31');
+    expect(component.filteredTransactions.length).toBe(1);
+    expect(component.filteredTransactions[0].bookingDate).toBe('2026-01-15');
   });
 });
