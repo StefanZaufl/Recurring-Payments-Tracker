@@ -70,10 +70,10 @@ describe('DashboardComponent', () => {
     fixture.detectChanges();
     const el: HTMLElement = fixture.nativeElement;
 
-    expect(el.textContent).toContain('Total Income');
-    expect(el.textContent).toContain('Total Expenses');
-    expect(el.textContent).toContain('Recurring Expenses');
-    expect(el.textContent).toContain('Annual Surplus');
+    expect(el.textContent).toContain('Income');
+    expect(el.textContent).toContain('Expenses');
+    expect(el.textContent).toContain('Recurring');
+    expect(el.textContent).toContain('Surplus');
   });
 
   it('should show recurring payments table', () => {
@@ -98,19 +98,18 @@ describe('DashboardComponent', () => {
     expect(component.selectedYear).toBe(initialYear);
   });
 
-  it('should show empty state when API returns error', () => {
+  it('should show error state when API returns error', () => {
     analyticsService.getAnnualOverview.mockReturnValue(throwError(() => new Error('fail')));
     fixture.detectChanges();
     const el: HTMLElement = fixture.nativeElement;
 
     expect(component.overview).toBeNull();
-    expect(el.textContent).toContain('No data available');
-    expect(el.textContent).toContain('Upload a CSV file');
+    expect(component.error).toBe('Failed to load annual overview. Please try again.');
+    expect(el.textContent).toContain('Failed to load annual overview');
+    expect(el.textContent).toContain('Try again');
   });
 
   it('should set loading to true while fetching', () => {
-    // Before detectChanges, ngOnInit hasn't run yet
-    // Verify loading starts as false and component creates correctly
     expect(component.loading).toBe(false);
     expect(component.overview).toBeNull();
   });
@@ -145,7 +144,7 @@ describe('DashboardComponent', () => {
     fixture.detectChanges();
     const el: HTMLElement = fixture.nativeElement;
 
-    expect(el.textContent).toContain('No categorized recurring payments yet');
+    expect(el.textContent).toContain('No categorized');
   });
 
   it('should show empty recurring payments message when none exist', () => {

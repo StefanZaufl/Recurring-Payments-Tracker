@@ -5,7 +5,6 @@ import com.tracker.api.model.CategoryDto;
 import com.tracker.api.model.CreateCategoryRequest;
 import com.tracker.api.model.UpdateCategoryRequest;
 import com.tracker.service.CategoryService;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,29 +33,21 @@ public class CategoryController implements CategoriesApi {
         return categoryService.getById(id)
                 .map(categoryMapper::toDto)
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + id));
     }
 
     @Override
     public ResponseEntity<CategoryDto> createCategory(CreateCategoryRequest request) {
-        try {
-            var category = categoryService.create(request.getName(), request.getColor());
-            return ResponseEntity.status(HttpStatus.CREATED).body(categoryMapper.toDto(category));
-        } catch (DataIntegrityViolationException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).build();
-        }
+        var category = categoryService.create(request.getName(), request.getColor());
+        return ResponseEntity.status(HttpStatus.CREATED).body(categoryMapper.toDto(category));
     }
 
     @Override
     public ResponseEntity<CategoryDto> updateCategory(UUID id, UpdateCategoryRequest request) {
-        try {
-            return categoryService.update(id, request.getName(), request.getColor())
-                    .map(categoryMapper::toDto)
-                    .map(ResponseEntity::ok)
-                    .orElse(ResponseEntity.notFound().build());
-        } catch (DataIntegrityViolationException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).build();
-        }
+        return categoryService.update(id, request.getName(), request.getColor())
+                .map(categoryMapper::toDto)
+                .map(ResponseEntity::ok)
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + id));
     }
 
     @Override
@@ -64,6 +55,6 @@ public class CategoryController implements CategoriesApi {
         if (categoryService.delete(id)) {
             return ResponseEntity.noContent().build();
         }
-        return ResponseEntity.notFound().build();
+        throw new ResourceNotFoundException("Category not found: " + id);
     }
 }

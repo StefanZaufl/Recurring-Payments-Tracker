@@ -1,46 +1,112 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { TransactionsService, UploadResponse } from '../../api/generated';
 
 @Component({
   selector: 'app-file-upload',
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink],
   template: `
-    <div class="max-w-xl mx-auto">
-      <h1 class="text-2xl font-bold text-gray-900 mb-6">Upload Bank CSV</h1>
-      <div
-        class="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-blue-400 transition-colors"
-        [class.border-blue-400]="isDragging"
-        (dragover)="onDragOver($event)"
-        (dragleave)="isDragging = false"
-        (drop)="onDrop($event)">
-        <div class="text-gray-500">
-          <p class="text-lg mb-2">Drag & drop your CSV file here</p>
-          <p class="text-sm mb-4">or</p>
-          <label class="cursor-pointer bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-            Browse Files
-            <input type="file" accept=".csv" class="hidden" (change)="onFileSelected($event)" />
-          </label>
-        </div>
+    <div class="animate-fade-in">
+      <div class="mb-6 sm:mb-8">
+        <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Upload</h1>
+        <p class="text-sm text-muted mt-0.5">Import your bank CSV export</p>
       </div>
 
-      @if (uploading) {
-        <div class="mt-6 text-center text-gray-600">Uploading...</div>
-      }
+      <div class="max-w-lg mx-auto">
+        <!-- Drop zone -->
+        <div
+          class="glass-card p-10 sm:p-14 text-center cursor-pointer group transition-all duration-300"
+          [class.border-accent]="isDragging"
+          [class.bg-accent-dim]="isDragging"
+          [class.scale-105]="isDragging"
+          (dragover)="onDragOver($event)"
+          (dragleave)="isDragging = false"
+          (drop)="onDrop($event)"
+          (click)="fileInput.click()">
 
-      @if (result) {
-        <div class="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
-          <h3 class="text-green-800 font-semibold">Upload Successful</h3>
-          <p class="text-green-700 text-sm mt-1">{{ result.transactionCount }} transactions imported</p>
-          <p class="text-green-700 text-sm">{{ result.recurringPaymentsDetected }} recurring payments detected</p>
-        </div>
-      }
+          <input #fileInput type="file" accept=".csv" class="hidden" (change)="onFileSelected($event)" />
 
-      @if (error) {
-        <div class="mt-6 bg-red-50 border border-red-200 rounded-lg p-4">
-          <p class="text-red-800">{{ error }}</p>
+          <div class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 transition-colors duration-300 bg-accent-dim">
+            <svg class="w-7 h-7 transition-colors duration-300 text-accent"
+                 fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+          </div>
+
+          <p class="text-sm font-medium text-white mb-1.5">
+            {{ isDragging ? 'Drop your file here' : 'Drag & drop your CSV file' }}
+          </p>
+          <p class="text-xs text-muted mb-5">or click to browse</p>
+
+          <div class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-subtle text-xs text-muted">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+            </svg>
+            .csv files only
+          </div>
         </div>
-      }
+
+        <!-- Uploading state -->
+        @if (uploading) {
+          <div class="glass-card p-5 mt-4 animate-slide-up">
+            <div class="flex items-center gap-3">
+              <div class="w-5 h-5 border-2 border-accent/30 border-t-accent rounded-full animate-spin shrink-0"></div>
+              <span class="text-sm text-muted">Uploading and processing...</span>
+            </div>
+          </div>
+        }
+
+        <!-- Success state -->
+        @if (result) {
+          <div class="glass-card p-5 mt-4 border-accent/20 animate-slide-up">
+            <div class="flex items-start gap-3">
+              <div class="w-8 h-8 rounded-lg bg-accent-dim flex items-center justify-center shrink-0">
+                <svg class="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              </div>
+              <div>
+                <p class="text-sm font-medium text-accent mb-1">Upload successful</p>
+                <p class="text-xs text-muted">
+                  <span class="font-mono text-white">{{ result.transactionCount }}</span> transactions imported
+                </p>
+                <p class="text-xs text-muted">
+                  <span class="font-mono text-white">{{ result.recurringPaymentsDetected }}</span> recurring payments detected
+                </p>
+                <a routerLink="/dashboard" class="inline-flex items-center gap-1 mt-3 text-xs text-accent hover:text-accent/80 transition-colors">
+                  View dashboard
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+          </div>
+        }
+
+        <!-- Error state -->
+        @if (error) {
+          <div class="glass-card p-5 mt-4 border-coral/20 animate-slide-up">
+            <div class="flex items-start gap-3">
+              <div class="w-8 h-8 rounded-lg bg-coral-dim flex items-center justify-center shrink-0">
+                <svg class="w-4 h-4 text-coral" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                </svg>
+              </div>
+              <p class="text-sm text-coral">{{ error }}</p>
+            </div>
+          </div>
+        }
+
+        <!-- Format info -->
+        <div class="mt-6 px-1">
+          <p class="text-[11px] text-muted/60 leading-relaxed">
+            Accepts semicolon-delimited CSV with columns: Buchungsdatum, Partnername, Betrag.
+            European date (DD.MM.YYYY) and number formats (-12,99).
+          </p>
+        </div>
+      </div>
     </div>
   `
 })

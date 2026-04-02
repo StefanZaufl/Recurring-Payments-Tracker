@@ -10,77 +10,97 @@ import { AnnualOverview } from '../../api/generated/model/annualOverview';
   selector: 'app-dashboard',
   imports: [CommonModule, RouterLink, BaseChartDirective],
   template: `
-    <div>
-      <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold text-gray-900">Annual Overview</h1>
-        <div class="flex items-center gap-2">
+    <div class="animate-fade-in">
+      <!-- Header row -->
+      <div class="flex items-center justify-between mb-6 sm:mb-8">
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Dashboard</h1>
+          <p class="text-sm text-muted mt-0.5">Annual financial overview</p>
+        </div>
+        <div class="flex items-center gap-1.5 sm:gap-2">
           <button (click)="changeYear(-1)"
-                  class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-            &larr;
+                  class="w-9 h-9 flex items-center justify-center rounded-xl bg-card border border-card-border text-muted hover:text-white hover:border-subtle transition-all">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
           </button>
-          <span class="px-3 py-1.5 text-sm font-semibold text-gray-900 bg-white border border-gray-300 rounded-md min-w-[5rem] text-center">
+          <span class="px-4 py-2 text-sm font-mono font-semibold text-white bg-card border border-card-border rounded-xl min-w-[5.5rem] text-center">
             {{ selectedYear }}
           </span>
           <button (click)="changeYear(1)"
-                  class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-            &rarr;
+                  class="w-9 h-9 flex items-center justify-center rounded-xl bg-card border border-card-border text-muted hover:text-white hover:border-subtle transition-all">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+            </svg>
           </button>
         </div>
       </div>
 
       <!-- Loading -->
-      <div *ngIf="loading" class="flex justify-center py-12">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div *ngIf="loading" class="flex flex-col items-center justify-center py-20 gap-3">
+        <div class="w-8 h-8 border-2 border-accent/30 border-t-accent rounded-full animate-spin"></div>
+        <span class="text-sm text-muted">Loading data...</span>
       </div>
 
-      <!-- Empty state -->
-      <div *ngIf="!loading && !overview" class="bg-white rounded-lg shadow p-8 text-center">
-        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-        </svg>
-        <h3 class="mt-2 text-sm font-semibold text-gray-900">No data available</h3>
-        <p class="mt-1 text-sm text-gray-500">Upload a CSV file to see your annual overview.</p>
-        <div class="mt-4">
-          <a routerLink="/upload"
-             class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-500">
-            Upload CSV
-          </a>
+      <!-- Error state -->
+      <div *ngIf="!loading && error" class="glass-card p-6 border-coral/20 animate-slide-up">
+        <div class="flex items-start gap-3">
+          <div class="w-8 h-8 rounded-lg bg-coral-dim flex items-center justify-center shrink-0 mt-0.5">
+            <svg class="w-4 h-4 text-coral" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            </svg>
+          </div>
+          <div>
+            <p class="text-sm text-coral font-medium">{{ error }}</p>
+            <button (click)="loadData()" class="mt-2 text-xs text-muted hover:text-white transition-colors">Try again</button>
+          </div>
         </div>
       </div>
 
+      <!-- Empty state -->
+      <div *ngIf="!loading && !error && !overview" class="glass-card p-10 sm:p-16 text-center animate-slide-up">
+        <div class="w-16 h-16 rounded-2xl bg-accent-dim flex items-center justify-center mx-auto mb-5">
+          <svg class="w-7 h-7 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+          </svg>
+        </div>
+        <h3 class="text-base font-semibold text-white mb-1">No data for {{ selectedYear }}</h3>
+        <p class="text-sm text-muted mb-5">Upload a CSV to see your annual overview.</p>
+        <a routerLink="/upload" class="btn-primary">Upload CSV</a>
+      </div>
+
       <!-- Dashboard content -->
-      <div *ngIf="!loading && overview">
+      <div *ngIf="!loading && overview" class="animate-slide-up">
         <!-- Summary cards -->
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-          <div class="bg-white rounded-lg shadow p-5">
-            <p class="text-sm font-medium text-gray-500">Total Income</p>
-            <p class="mt-1 text-2xl font-bold text-green-600">{{ formatCurrency(overview.totalIncome) }}</p>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+          <div class="glass-card p-4 sm:p-5 min-w-0 group hover:border-accent/30 transition-colors">
+            <p class="stat-label mb-2">Income</p>
+            <p class="stat-value text-accent">{{ formatCurrency(overview.totalIncome) }}</p>
           </div>
-          <div class="bg-white rounded-lg shadow p-5">
-            <p class="text-sm font-medium text-gray-500">Total Expenses</p>
-            <p class="mt-1 text-2xl font-bold text-red-600">{{ formatCurrency(overview.totalExpenses) }}</p>
+          <div class="glass-card p-4 sm:p-5 min-w-0 group hover:border-coral/30 transition-colors">
+            <p class="stat-label mb-2">Expenses</p>
+            <p class="stat-value text-coral">{{ formatCurrency(overview.totalExpenses) }}</p>
           </div>
-          <div class="bg-white rounded-lg shadow p-5">
-            <p class="text-sm font-medium text-gray-500">Recurring Expenses</p>
-            <p class="mt-1 text-2xl font-bold text-orange-600">{{ formatCurrency(overview.totalRecurringExpenses) }}</p>
+          <div class="glass-card p-4 sm:p-5 min-w-0 group hover:border-amber/30 transition-colors">
+            <p class="stat-label mb-2">Recurring</p>
+            <p class="stat-value text-amber">{{ formatCurrency(overview.totalRecurringExpenses) }}</p>
           </div>
-          <div class="bg-white rounded-lg shadow p-5">
-            <p class="text-sm font-medium text-gray-500">Annual Surplus</p>
-            <p class="mt-1 text-2xl font-bold"
-               [class.text-green-600]="overview.totalIncome - overview.totalExpenses >= 0"
-               [class.text-red-600]="overview.totalIncome - overview.totalExpenses < 0">
+          <div class="glass-card p-4 sm:p-5 min-w-0 group transition-colors">
+            <p class="stat-label mb-2">Surplus</p>
+            <p class="stat-value"
+               [class.text-accent]="overview.totalIncome - overview.totalExpenses >= 0"
+               [class.text-coral]="overview.totalIncome - overview.totalExpenses < 0">
               {{ formatCurrency(overview.totalIncome - overview.totalExpenses) }}
             </p>
           </div>
         </div>
 
         <!-- Charts row -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          <!-- Monthly income vs expenses bar chart -->
-          <div class="lg:col-span-2 bg-white rounded-lg shadow p-5">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">Monthly Income vs Expenses</h2>
-            <div class="h-72">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 mb-6 sm:mb-8">
+          <!-- Monthly bar chart -->
+          <div class="lg:col-span-2 glass-card p-4 sm:p-5">
+            <h2 class="text-sm font-semibold text-white mb-4">Monthly Income vs Expenses</h2>
+            <div class="h-56 sm:h-72">
               <canvas baseChart
                       [datasets]="barChartData.datasets"
                       [labels]="barChartData.labels"
@@ -90,10 +110,10 @@ import { AnnualOverview } from '../../api/generated/model/annualOverview';
             </div>
           </div>
 
-          <!-- Category pie chart -->
-          <div class="bg-white rounded-lg shadow p-5">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">Spending by Category</h2>
-            <div *ngIf="overview.byCategory.length > 0" class="h-72 flex items-center justify-center">
+          <!-- Category doughnut -->
+          <div class="glass-card p-4 sm:p-5">
+            <h2 class="text-sm font-semibold text-white mb-4">By Category</h2>
+            <div *ngIf="overview.byCategory.length > 0" class="h-56 sm:h-72 flex items-center justify-center">
               <canvas baseChart
                       [datasets]="pieChartData.datasets"
                       [labels]="pieChartData.labels"
@@ -101,40 +121,40 @@ import { AnnualOverview } from '../../api/generated/model/annualOverview';
                       type="doughnut">
               </canvas>
             </div>
-            <div *ngIf="overview.byCategory.length === 0" class="h-72 flex items-center justify-center">
-              <p class="text-sm text-gray-500">No categorized recurring payments yet.</p>
+            <div *ngIf="overview.byCategory.length === 0" class="h-56 sm:h-72 flex items-center justify-center">
+              <p class="text-sm text-muted text-center">No categorized<br>recurring payments yet.</p>
             </div>
           </div>
         </div>
 
         <!-- Recurring payments table -->
-        <div class="bg-white rounded-lg shadow">
-          <div class="px-5 py-4 border-b border-gray-200">
-            <h2 class="text-lg font-semibold text-gray-900">Recurring Payments Summary</h2>
+        <div class="glass-card overflow-hidden">
+          <div class="px-4 sm:px-5 py-4 border-b border-card-border flex items-center justify-between">
+            <h2 class="text-sm font-semibold text-white">Recurring Payments</h2>
+            <span class="text-xs text-muted font-mono">{{ overview.recurringPayments.length }} items</span>
           </div>
-          <div *ngIf="overview.recurringPayments.length === 0" class="p-5">
-            <p class="text-sm text-gray-500">No recurring payments detected. Upload bank transactions to detect patterns.</p>
+          <div *ngIf="overview.recurringPayments.length === 0" class="p-6 text-center">
+            <p class="text-sm text-muted">No recurring payments detected for this year.</p>
           </div>
           <div *ngIf="overview.recurringPayments.length > 0" class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                  <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                  <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Monthly</th>
-                  <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Annual</th>
+            <table class="min-w-full">
+              <thead>
+                <tr class="border-b border-card-border">
+                  <th class="table-header">Name</th>
+                  <th class="table-header">Category</th>
+                  <th class="table-header text-right">Monthly</th>
+                  <th class="table-header text-right">Annual</th>
                 </tr>
               </thead>
-              <tbody class="bg-white divide-y divide-gray-200">
-                <tr *ngFor="let payment of overview.recurringPayments" class="hover:bg-gray-50">
-                  <td class="px-5 py-3 text-sm font-medium text-gray-900">{{ payment.name }}</td>
-                  <td class="px-5 py-3 text-sm text-gray-500">
-                    <span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
-                      {{ payment.category }}
-                    </span>
+              <tbody class="divide-y divide-card-border">
+                <tr *ngFor="let payment of overview.recurringPayments"
+                    class="hover:bg-card-hover transition-colors">
+                  <td class="table-cell font-medium text-white">{{ payment.name }}</td>
+                  <td class="table-cell">
+                    <span class="badge bg-subtle text-muted">{{ payment.category }}</span>
                   </td>
-                  <td class="px-5 py-3 text-sm text-right text-red-600 font-medium">{{ formatCurrency(payment.monthlyAmount) }}</td>
-                  <td class="px-5 py-3 text-sm text-right text-red-600 font-medium">{{ formatCurrency(payment.annualAmount) }}</td>
+                  <td class="table-cell text-right font-mono text-coral text-xs">{{ formatCurrency(payment.monthlyAmount) }}</td>
+                  <td class="table-cell text-right font-mono text-coral text-xs">{{ formatCurrency(payment.annualAmount) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -147,6 +167,7 @@ import { AnnualOverview } from '../../api/generated/model/annualOverview';
 export class DashboardComponent implements OnInit {
   selectedYear = new Date().getFullYear();
   loading = false;
+  error: string | null = null;
   overview: AnnualOverview | null = null;
 
   private readonly monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -157,13 +178,23 @@ export class DashboardComponent implements OnInit {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: 'top' }
+      legend: {
+        position: 'top',
+        labels: { color: '#6b7194', font: { family: 'DM Sans', size: 11 }, boxWidth: 10, padding: 16 }
+      }
     },
     scales: {
+      x: {
+        grid: { color: 'rgba(42,45,62,0.5)' },
+        ticks: { color: '#6b7194', font: { family: 'DM Sans', size: 10 } }
+      },
       y: {
         beginAtZero: true,
+        grid: { color: 'rgba(42,45,62,0.5)' },
         ticks: {
-          callback: (value) => `€${value}`
+          color: '#6b7194',
+          font: { family: 'JetBrains Mono', size: 10 },
+          callback: (value) => `${value}`
         }
       }
     }
@@ -173,14 +204,18 @@ export class DashboardComponent implements OnInit {
   pieChartOptions: ChartConfiguration<'doughnut'>['options'] = {
     responsive: true,
     maintainAspectRatio: false,
+    cutout: '65%',
     plugins: {
-      legend: { position: 'bottom', labels: { boxWidth: 12, padding: 16 } }
+      legend: {
+        position: 'bottom',
+        labels: { color: '#6b7194', font: { family: 'DM Sans', size: 11 }, boxWidth: 10, padding: 12 }
+      }
     }
   };
 
   private readonly categoryColors = [
-    '#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6',
-    '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1'
+    '#22c55e', '#f87171', '#38bdf8', '#fbbf24', '#a78bfa',
+    '#f472b6', '#06b6d4', '#84cc16', '#fb923c', '#818cf8'
   ];
 
   constructor(private analyticsService: AnalyticsService) {}
@@ -198,8 +233,9 @@ export class DashboardComponent implements OnInit {
     return new Intl.NumberFormat('de-AT', { style: 'currency', currency: 'EUR' }).format(value);
   }
 
-  private loadData(): void {
+  loadData(): void {
     this.loading = true;
+    this.error = null;
     this.analyticsService.getAnnualOverview(this.selectedYear).subscribe({
       next: (data) => {
         this.overview = data;
@@ -207,8 +243,9 @@ export class DashboardComponent implements OnInit {
         this.buildPieChart(data);
         this.loading = false;
       },
-      error: () => {
+      error: (err) => {
         this.overview = null;
+        this.error = err.error?.message || 'Failed to load annual overview. Please try again.';
         this.loading = false;
       }
     });
@@ -221,12 +258,16 @@ export class DashboardComponent implements OnInit {
         {
           label: 'Income',
           data: data.monthlyBreakdown.map(m => m.income),
-          backgroundColor: '#10B981'
+          backgroundColor: 'rgba(34,197,94,0.7)',
+          borderRadius: 4,
+          borderSkipped: false,
         },
         {
           label: 'Expenses',
           data: data.monthlyBreakdown.map(m => m.expenses),
-          backgroundColor: '#EF4444'
+          backgroundColor: 'rgba(248,113,113,0.7)',
+          borderRadius: 4,
+          borderSkipped: false,
         }
       ]
     };
@@ -237,7 +278,9 @@ export class DashboardComponent implements OnInit {
       labels: data.byCategory.map(c => c.category),
       datasets: [{
         data: data.byCategory.map(c => c.total),
-        backgroundColor: data.byCategory.map((_, i) => this.categoryColors[i % this.categoryColors.length])
+        backgroundColor: data.byCategory.map((_, i) => this.categoryColors[i % this.categoryColors.length]),
+        borderColor: '#181a23',
+        borderWidth: 2,
       }]
     };
   }

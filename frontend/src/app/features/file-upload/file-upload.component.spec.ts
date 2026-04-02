@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { FileUploadComponent } from './file-upload.component';
@@ -24,6 +25,7 @@ describe('FileUploadComponent', () => {
     await TestBed.configureTestingModule({
       imports: [FileUploadComponent],
       providers: [
+        provideRouter([]),
         { provide: TransactionsService, useValue: transactionsServiceMock },
       ],
     })
@@ -44,8 +46,8 @@ describe('FileUploadComponent', () => {
 
   it('should render upload area', () => {
     const el: HTMLElement = fixture.nativeElement;
-    expect(el.textContent).toContain('Drag & drop your CSV file here');
-    expect(el.textContent).toContain('Browse Files');
+    expect(el.textContent).toContain('Drag & drop your CSV file');
+    expect(el.textContent).toContain('click to browse');
   });
 
   it('should not show result or error initially', () => {
@@ -71,9 +73,11 @@ describe('FileUploadComponent', () => {
     fixture.detectChanges();
     const el: HTMLElement = fixture.nativeElement;
 
-    expect(el.textContent).toContain('Upload Successful');
-    expect(el.textContent).toContain('42 transactions imported');
-    expect(el.textContent).toContain('5 recurring payments detected');
+    expect(el.textContent).toContain('Upload successful');
+    expect(el.textContent).toContain('42');
+    expect(el.textContent).toContain('transactions imported');
+    expect(el.textContent).toContain('5');
+    expect(el.textContent).toContain('recurring payments detected');
   });
 
   it('should show error message on upload failure', () => {

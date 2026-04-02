@@ -11,18 +11,26 @@ import { forkJoin } from 'rxjs';
   selector: 'app-recurring-payments-list',
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
-    <div>
-      <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold text-gray-900">Recurring Payments</h1>
-        <div class="flex items-center gap-3">
-          <label class="flex items-center gap-2 text-sm text-gray-600">
-            <input type="checkbox" [(ngModel)]="showInactive"
-                   class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                   (change)="applyFilter()">
+    <div class="animate-fade-in">
+      <!-- Header -->
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Recurring Payments</h1>
+          <p class="text-sm text-muted mt-0.5">Manage detected payment patterns</p>
+        </div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <label class="flex items-center gap-2 text-xs text-muted cursor-pointer select-none">
+            <div class="relative">
+              <input type="checkbox" [(ngModel)]="showInactive"
+                     class="sr-only peer"
+                     (change)="applyFilter()">
+              <div class="w-8 h-[18px] bg-subtle rounded-full peer-checked:bg-accent/30 transition-colors"></div>
+              <div class="absolute top-[3px] left-[3px] w-3 h-3 bg-muted rounded-full peer-checked:translate-x-3.5 peer-checked:bg-accent transition-all"></div>
+            </div>
             Show inactive
           </label>
           <select [(ngModel)]="filterFrequency" (change)="applyFilter()"
-                  class="text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                  class="text-xs bg-card border border-card-border rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-subtle">
             <option value="">All frequencies</option>
             <option value="MONTHLY">Monthly</option>
             <option value="QUARTERLY">Quarterly</option>
@@ -32,97 +40,239 @@ import { forkJoin } from 'rxjs';
       </div>
 
       <!-- Loading -->
-      <div *ngIf="loading" class="flex justify-center py-12">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div *ngIf="loading" class="flex flex-col items-center justify-center py-20 gap-3">
+        <div class="w-8 h-8 border-2 border-accent/30 border-t-accent rounded-full animate-spin"></div>
+        <span class="text-sm text-muted">Loading payments...</span>
       </div>
 
-      <!-- Empty state -->
-      <div *ngIf="!loading && filteredPayments.length === 0" class="bg-white rounded-lg shadow p-8 text-center">
-        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
-        </svg>
-        <h3 class="mt-2 text-sm font-semibold text-gray-900">No recurring payments found</h3>
-        <p class="mt-1 text-sm text-gray-500">Upload bank transactions to detect recurring payment patterns.</p>
-        <div class="mt-4">
-          <a routerLink="/upload"
-             class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-500">
-            Upload CSV
-          </a>
+      <!-- Error state -->
+      <div *ngIf="!loading && error" class="glass-card p-6 border-coral/20 animate-slide-up">
+        <div class="flex items-start gap-3">
+          <div class="w-8 h-8 rounded-lg bg-coral-dim flex items-center justify-center shrink-0">
+            <svg class="w-4 h-4 text-coral" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            </svg>
+          </div>
+          <div>
+            <p class="text-sm text-coral font-medium">{{ error }}</p>
+            <button (click)="loadData()" class="mt-2 text-xs text-muted hover:text-white transition-colors">Try again</button>
+          </div>
         </div>
       </div>
 
-      <!-- Payments table -->
-      <div *ngIf="!loading && filteredPayments.length > 0" class="bg-white rounded-lg shadow overflow-hidden">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Frequency</th>
-              <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-            </tr>
-          </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-            <tr *ngFor="let payment of filteredPayments"
-                class="hover:bg-gray-50"
-                [class.opacity-50]="!payment.isActive">
-              <td class="px-5 py-3 text-sm font-medium text-gray-900">{{ payment.name }}</td>
-              <td class="px-5 py-3 text-sm text-gray-500">
-                <span *ngIf="payment.categoryName"
-                      class="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">
-                  {{ payment.categoryName }}
-                </span>
-                <span *ngIf="!payment.categoryName" class="text-gray-400 text-xs">Uncategorized</span>
-              </td>
-              <td class="px-5 py-3 text-sm text-gray-500">
-                <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+      <!-- Empty state -->
+      <div *ngIf="!loading && !error && filteredPayments.length === 0" class="glass-card p-10 sm:p-16 text-center animate-slide-up">
+        <div class="w-16 h-16 rounded-2xl bg-violet-dim flex items-center justify-center mx-auto mb-5">
+          <svg class="w-7 h-7 text-violet" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
+          </svg>
+        </div>
+        <h3 class="text-base font-semibold text-white mb-1">No recurring payments found</h3>
+        <p class="text-sm text-muted mb-5">Upload bank transactions to detect patterns.</p>
+        <a routerLink="/upload" class="btn-primary">Upload CSV</a>
+      </div>
+
+      <!-- Mobile card view -->
+      <div *ngIf="!loading && filteredPayments.length > 0" class="sm:hidden space-y-3 animate-slide-up">
+        <div *ngFor="let payment of filteredPayments"
+             class="glass-card p-4 transition-opacity"
+             [class.opacity-40]="!payment.isActive">
+          <div class="flex items-start justify-between mb-3">
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-white truncate">{{ payment.name }}</p>
+              <div class="flex items-center gap-2 mt-1">
+                <span class="badge"
                       [ngClass]="{
-                        'bg-purple-50 text-purple-700': payment.frequency === 'MONTHLY',
-                        'bg-amber-50 text-amber-700': payment.frequency === 'QUARTERLY',
-                        'bg-teal-50 text-teal-700': payment.frequency === 'YEARLY'
+                        'bg-violet-dim text-violet': payment.frequency === 'MONTHLY',
+                        'bg-amber-dim text-amber': payment.frequency === 'QUARTERLY',
+                        'bg-sky-dim text-sky': payment.frequency === 'YEARLY'
                       }">
                   {{ payment.frequency }}
                 </span>
-              </td>
-              <td class="px-5 py-3 text-sm text-right font-medium"
-                  [class.text-green-600]="payment.isIncome"
-                  [class.text-red-600]="!payment.isIncome">
-                {{ payment.isIncome ? '+' : '-' }}{{ formatCurrency(abs(payment.averageAmount)) }}
-              </td>
-              <td class="px-5 py-3 text-sm">
-                <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+                <span class="badge"
                       [ngClass]="{
-                        'bg-green-50 text-green-700': payment.isIncome,
-                        'bg-red-50 text-red-700': !payment.isIncome
+                        'bg-accent-dim text-accent': payment.isIncome,
+                        'bg-coral-dim text-coral': !payment.isIncome
                       }">
                   {{ payment.isIncome ? 'Income' : 'Expense' }}
                 </span>
-              </td>
-              <td class="px-5 py-3 text-sm">
-                <button (click)="toggleActive(payment)"
-                        class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium cursor-pointer"
+              </div>
+            </div>
+            <p class="font-mono text-sm font-semibold shrink-0 ml-3"
+               [class.text-accent]="payment.isIncome"
+               [class.text-coral]="!payment.isIncome">
+              {{ payment.isIncome ? '+' : '-' }}{{ formatCurrency(abs(payment.averageAmount)) }}
+            </p>
+          </div>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <button (click)="toggleActive(payment)"
+                      class="badge cursor-pointer transition-colors"
+                      [ngClass]="{
+                        'bg-accent-dim text-accent': payment.isActive,
+                        'bg-subtle text-muted': !payment.isActive
+                      }">
+                {{ payment.isActive ? 'Active' : 'Inactive' }}
+              </button>
+              <button (click)="openCategoryDialog(payment)"
+                      class="badge cursor-pointer transition-colors hover:bg-card-hover"
+                      [ngClass]="{
+                        'bg-subtle text-muted': payment.categoryName,
+                        'bg-subtle text-muted/50': !payment.categoryName
+                      }">
+                {{ payment.categoryName || 'Uncategorized' }}
+                <svg class="w-3 h-3 ml-1 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop table view -->
+      <div *ngIf="!loading && filteredPayments.length > 0" class="hidden sm:block glass-card overflow-hidden animate-slide-up">
+        <div class="overflow-x-auto">
+          <table class="min-w-full">
+            <thead>
+              <tr class="border-b border-card-border">
+                <th class="table-header">Name</th>
+                <th class="table-header">Category</th>
+                <th class="table-header">Frequency</th>
+                <th class="table-header text-right">Amount</th>
+                <th class="table-header">Type</th>
+                <th class="table-header">Status</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-card-border">
+              <tr *ngFor="let payment of filteredPayments"
+                  class="hover:bg-card-hover transition-colors"
+                  [class.opacity-40]="!payment.isActive">
+                <td class="table-cell font-medium text-white">{{ payment.name }}</td>
+                <td class="table-cell">
+                  <button (click)="openCategoryDialog(payment)"
+                          class="badge cursor-pointer transition-colors hover:bg-card-hover group"
+                          [ngClass]="{
+                            'bg-subtle text-muted': payment.categoryName,
+                            'bg-subtle text-muted/50': !payment.categoryName
+                          }">
+                    {{ payment.categoryName || 'Uncategorized' }}
+                    <svg class="w-3 h-3 ml-1 inline-block opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                    </svg>
+                  </button>
+                </td>
+                <td class="table-cell">
+                  <span class="badge"
                         [ngClass]="{
-                          'bg-green-50 text-green-700': payment.isActive,
-                          'bg-gray-100 text-gray-500': !payment.isActive
+                          'bg-violet-dim text-violet': payment.frequency === 'MONTHLY',
+                          'bg-amber-dim text-amber': payment.frequency === 'QUARTERLY',
+                          'bg-sky-dim text-sky': payment.frequency === 'YEARLY'
                         }">
-                  {{ payment.isActive ? 'Active' : 'Inactive' }}
-                </button>
-              </td>
-              <td class="px-5 py-3 text-sm">
-                <select [ngModel]="payment.categoryId || ''"
-                        (ngModelChange)="updateCategory(payment, $event)"
-                        class="text-xs border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                  <option value="">None</option>
-                  <option *ngFor="let cat of categories" [value]="cat.id">{{ cat.name }}</option>
-                </select>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                    {{ payment.frequency }}
+                  </span>
+                </td>
+                <td class="table-cell text-right font-mono text-xs font-medium"
+                    [class.text-accent]="payment.isIncome"
+                    [class.text-coral]="!payment.isIncome">
+                  {{ payment.isIncome ? '+' : '-' }}{{ formatCurrency(abs(payment.averageAmount)) }}
+                </td>
+                <td class="table-cell">
+                  <span class="badge"
+                        [ngClass]="{
+                          'bg-accent-dim text-accent': payment.isIncome,
+                          'bg-coral-dim text-coral': !payment.isIncome
+                        }">
+                    {{ payment.isIncome ? 'Income' : 'Expense' }}
+                  </span>
+                </td>
+                <td class="table-cell">
+                  <button (click)="toggleActive(payment)"
+                          class="badge cursor-pointer transition-colors"
+                          [ngClass]="{
+                            'bg-accent-dim text-accent': payment.isActive,
+                            'bg-subtle text-muted': !payment.isActive
+                          }">
+                    {{ payment.isActive ? 'Active' : 'Inactive' }}
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Category dialog backdrop -->
+      <div *ngIf="dialogPayment"
+           class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+           (click)="closeCategoryDialog()">
+        <div class="glass-card w-full max-w-sm p-0 animate-slide-up border-subtle"
+             (click)="$event.stopPropagation()">
+          <!-- Dialog header -->
+          <div class="flex items-center justify-between px-5 py-4 border-b border-card-border">
+            <div class="min-w-0 flex-1">
+              <h3 class="text-sm font-semibold text-white">Set Category</h3>
+              <p class="text-xs text-muted truncate mt-0.5">{{ dialogPayment.name }}</p>
+            </div>
+            <button (click)="closeCategoryDialog()"
+                    class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-subtle text-muted hover:text-white transition-colors shrink-0 ml-3">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Existing categories -->
+          <div class="px-5 py-3 max-h-60 overflow-y-auto">
+            <p class="text-[11px] text-muted uppercase tracking-wider font-medium mb-2">Existing categories</p>
+
+            <!-- None option -->
+            <button (click)="selectCategory(null)"
+                    class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm text-left transition-colors mb-1"
+                    [ngClass]="{
+                      'bg-subtle text-white': !dialogPayment.categoryId,
+                      'text-muted hover:bg-card-hover hover:text-white': dialogPayment.categoryId
+                    }">
+              <span>None</span>
+              <svg *ngIf="!dialogPayment.categoryId" class="w-4 h-4 text-accent shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+            </button>
+
+            <button *ngFor="let cat of categories"
+                    (click)="selectCategory(cat.id)"
+                    class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm text-left transition-colors mb-1"
+                    [ngClass]="{
+                      'bg-subtle text-white': dialogPayment.categoryId === cat.id,
+                      'text-muted hover:bg-card-hover hover:text-white': dialogPayment.categoryId !== cat.id
+                    }">
+              <span>{{ cat.name }}</span>
+              <svg *ngIf="dialogPayment.categoryId === cat.id" class="w-4 h-4 text-accent shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Create new category -->
+          <div class="px-5 py-4 border-t border-card-border">
+            <p class="text-[11px] text-muted uppercase tracking-wider font-medium mb-2">Create new</p>
+            <div class="flex gap-2">
+              <input [(ngModel)]="newCategoryName"
+                     (keydown.enter)="createAndSelectCategory()"
+                     placeholder="Category name..."
+                     class="flex-1 text-sm bg-subtle border-0 rounded-xl px-3 py-2 text-white placeholder-muted/50 focus:outline-none focus:ring-1 focus:ring-accent/40">
+              <button (click)="createAndSelectCategory()"
+                      [disabled]="!newCategoryName.trim() || creatingCategory"
+                      class="px-3 py-2 bg-accent text-surface text-xs font-semibold rounded-xl transition-all
+                             hover:brightness-110 active:scale-[0.97]
+                             disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:brightness-100">
+                <span *ngIf="!creatingCategory">Add</span>
+                <div *ngIf="creatingCategory" class="w-3 h-3 border-2 border-surface/30 border-t-surface rounded-full animate-spin"></div>
+              </button>
+            </div>
+            <p *ngIf="dialogError" class="text-xs text-coral mt-2">{{ dialogError }}</p>
+          </div>
+        </div>
       </div>
     </div>
   `
@@ -132,8 +282,15 @@ export class RecurringPaymentsListComponent implements OnInit {
   filteredPayments: RecurringPaymentDto[] = [];
   categories: CategoryDto[] = [];
   loading = false;
+  error: string | null = null;
   showInactive = false;
   filterFrequency = '';
+
+  // Category dialog state
+  dialogPayment: RecurringPaymentDto | null = null;
+  newCategoryName = '';
+  creatingCategory = false;
+  dialogError: string | null = null;
 
   constructor(
     private recurringPaymentsService: RecurringPaymentsService,
@@ -179,8 +336,55 @@ export class RecurringPaymentsListComponent implements OnInit {
     });
   }
 
-  private loadData(): void {
+  openCategoryDialog(payment: RecurringPaymentDto): void {
+    this.dialogPayment = payment;
+    this.newCategoryName = '';
+    this.dialogError = null;
+  }
+
+  closeCategoryDialog(): void {
+    this.dialogPayment = null;
+    this.newCategoryName = '';
+    this.dialogError = null;
+  }
+
+  selectCategory(categoryId: string | null): void {
+    if (!this.dialogPayment) return;
+    const payment = this.dialogPayment;
+    this.recurringPaymentsService.updateRecurringPayment(payment.id, {
+      categoryId: categoryId || undefined
+    }).subscribe({
+      next: (updated) => {
+        Object.assign(payment, updated);
+        this.closeCategoryDialog();
+      }
+    });
+  }
+
+  createAndSelectCategory(): void {
+    const name = this.newCategoryName.trim();
+    if (!name || !this.dialogPayment) return;
+
+    this.creatingCategory = true;
+    this.dialogError = null;
+
+    this.categoriesService.createCategory({ name }).subscribe({
+      next: (created) => {
+        this.categories = [...this.categories, created];
+        this.creatingCategory = false;
+        this.newCategoryName = '';
+        this.selectCategory(created.id);
+      },
+      error: (err) => {
+        this.dialogError = err.error?.message || 'Failed to create category.';
+        this.creatingCategory = false;
+      }
+    });
+  }
+
+  loadData(): void {
     this.loading = true;
+    this.error = null;
     forkJoin({
       payments: this.recurringPaymentsService.getRecurringPayments(),
       categories: this.categoriesService.getCategories()
@@ -191,7 +395,8 @@ export class RecurringPaymentsListComponent implements OnInit {
         this.applyFilter();
         this.loading = false;
       },
-      error: () => {
+      error: (err) => {
+        this.error = err.error?.message || 'Failed to load recurring payments. Please try again.';
         this.loading = false;
       }
     });
