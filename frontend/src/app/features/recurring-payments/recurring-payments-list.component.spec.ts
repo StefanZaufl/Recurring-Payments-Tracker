@@ -116,6 +116,26 @@ describe('RecurringPaymentsListComponent', () => {
     expect(component.filteredPayments.length).toBe(2);
   });
 
+  it('should sort by amount (descending absolute) by default', () => {
+    fixture.detectChanges();
+
+    // Salary (3000), Insurance (150), Netflix (12.99) — sorted by abs amount desc
+    expect(component.filteredPayments[0].name).toBe('Salary');
+    expect(component.filteredPayments[1].name).toBe('Insurance');
+    expect(component.filteredPayments[2].name).toBe('Netflix');
+  });
+
+  it('should sort alphabetically when sortBy is name', () => {
+    fixture.detectChanges();
+
+    component.sortBy = 'name';
+    component.applyFilter();
+
+    expect(component.filteredPayments[0].name).toBe('Insurance');
+    expect(component.filteredPayments[1].name).toBe('Netflix');
+    expect(component.filteredPayments[2].name).toBe('Salary');
+  });
+
   it('should render payment names', () => {
     fixture.detectChanges();
     const el: HTMLElement = fixture.nativeElement;
@@ -167,22 +187,16 @@ describe('RecurringPaymentsListComponent', () => {
     component.openCategoryDialog(netflix);
 
     expect(component.dialogPayment).toBe(netflix);
-    expect(component.newCategoryName).toBe('');
-    expect(component.dialogError).toBeNull();
   });
 
   it('should close category dialog and reset state', () => {
     fixture.detectChanges();
     const netflix = component.filteredPayments.find(p => p.name === 'Netflix')!;
     component.openCategoryDialog(netflix);
-    component.newCategoryName = 'test';
-    component.dialogError = 'some error';
 
     component.closeCategoryDialog();
 
     expect(component.dialogPayment).toBeNull();
-    expect(component.newCategoryName).toBe('');
-    expect(component.dialogError).toBeNull();
   });
 
   it('should select existing category via dialog', () => {
@@ -211,47 +225,20 @@ describe('RecurringPaymentsListComponent', () => {
     expect(component.dialogPayment).toBeNull();
   });
 
-  it('should create new category and assign it', () => {
+  it('should add category and select it via onDialogCategoryCreated', () => {
     fixture.detectChanges();
     const salary = component.payments.find(p => p.name === 'Salary')!;
-    const newCat: CategoryDto = { id: 'cat-3', name: 'Salary', color: undefined };
-    categoriesService.createCategory.mockReturnValue(of(newCat));
+    const newCat: CategoryDto = { id: 'cat-3', name: 'Salary', color: '#a78bfa' };
     const updatedSalary = { ...salary, categoryId: 'cat-3', categoryName: 'Salary' };
     recurringService.updateRecurringPayment.mockReturnValue(of(updatedSalary));
 
     component.openCategoryDialog(salary);
-    component.newCategoryName = 'Salary';
-    component.createAndSelectCategory();
+    component.onDialogCategoryCreated(newCat);
 
-    expect(categoriesService.createCategory).toHaveBeenCalledWith({ name: 'Salary' });
     expect(component.categories.length).toBe(3);
     expect(component.categories[2].name).toBe('Salary');
-  });
-
-  it('should show error when category creation fails', () => {
-    fixture.detectChanges();
-    const salary = component.payments.find(p => p.name === 'Salary')!;
-    categoriesService.createCategory.mockReturnValue(
-      throwError(() => ({ error: { message: 'Category already exists' } }))
-    );
-
-    component.openCategoryDialog(salary);
-    component.newCategoryName = 'Streaming';
-    component.createAndSelectCategory();
-
-    expect(component.dialogError).toBe('Category already exists');
-    expect(component.creatingCategory).toBe(false);
-  });
-
-  it('should not create category with empty name', () => {
-    fixture.detectChanges();
-    const salary = component.payments.find(p => p.name === 'Salary')!;
-    component.openCategoryDialog(salary);
-    component.newCategoryName = '   ';
-
-    component.createAndSelectCategory();
-
-    expect(categoriesService.createCategory).not.toHaveBeenCalled();
+    expect(recurringService.updateRecurringPayment).toHaveBeenCalledWith('2', { categoryId: 'cat-3' });
+    expect(component.dialogPayment).toBeNull();
   });
 
   it('should show empty state when no payments', () => {

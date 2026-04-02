@@ -5,11 +5,12 @@ import { RouterLink } from '@angular/router';
 import { RecurringPaymentsService, CategoriesService } from '../../api/generated';
 import { RecurringPaymentDto } from '../../api/generated/model/recurringPaymentDto';
 import { CategoryDto } from '../../api/generated/model/categoryDto';
+import { CategoryCreateComponent } from '../../shared/category-create.component';
 import { forkJoin } from 'rxjs';
 
 @Component({
   selector: 'app-recurring-payments-list',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, CategoryCreateComponent],
   template: `
     <div class="animate-fade-in">
       <!-- Header -->
@@ -35,6 +36,11 @@ import { forkJoin } from 'rxjs';
             <option value="MONTHLY">Monthly</option>
             <option value="QUARTERLY">Quarterly</option>
             <option value="YEARLY">Yearly</option>
+          </select>
+          <select [(ngModel)]="sortBy" (change)="applyFilter()"
+                  class="text-xs bg-card border border-card-border rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-subtle">
+            <option value="amount">Sort by amount</option>
+            <option value="name">Sort by name</option>
           </select>
         </div>
       </div>
@@ -256,21 +262,7 @@ import { forkJoin } from 'rxjs';
           <!-- Create new category -->
           <div class="px-5 py-4 border-t border-card-border">
             <p class="text-[11px] text-muted uppercase tracking-wider font-medium mb-2">Create new</p>
-            <div class="flex gap-2">
-              <input [(ngModel)]="newCategoryName"
-                     (keydown.enter)="createAndSelectCategory()"
-                     placeholder="Category name..."
-                     class="flex-1 text-sm bg-subtle border-0 rounded-xl px-3 py-2 text-white placeholder-muted/50 focus:outline-none focus:ring-1 focus:ring-accent/40">
-              <button (click)="createAndSelectCategory()"
-                      [disabled]="!newCategoryName.trim() || creatingCategory"
-                      class="px-3 py-2 bg-accent text-surface text-xs font-semibold rounded-xl transition-all
-                             hover:brightness-110 active:scale-[0.97]
-                             disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:brightness-100">
-                <span *ngIf="!creatingCategory">Add</span>
-                <div *ngIf="creatingCategory" class="w-3 h-3 border-2 border-surface/30 border-t-surface rounded-full animate-spin"></div>
-              </button>
-            </div>
-            <p *ngIf="dialogError" class="text-xs text-coral mt-2">{{ dialogError }}</p>
+            <app-category-create (created)="onDialogCategoryCreated($event)"></app-category-create>
           </div>
         </div>
       </div>
@@ -285,12 +277,10 @@ export class RecurringPaymentsListComponent implements OnInit {
   error: string | null = null;
   showInactive = false;
   filterFrequency = '';
+  sortBy: 'amount' | 'name' = 'amount';
 
   // Category dialog state
   dialogPayment: RecurringPaymentDto | null = null;
-  newCategoryName = '';
-  creatingCategory = false;
-  dialogError: string | null = null;
 
   constructor(
     private recurringPaymentsService: RecurringPaymentsService,
@@ -315,6 +305,11 @@ export class RecurringPaymentsListComponent implements OnInit {
       if (this.filterFrequency && p.frequency !== this.filterFrequency) return false;
       return true;
     });
+    if (this.sortBy === 'amount') {
+      this.filteredPayments.sort((a, b) => Math.abs(b.averageAmount) - Math.abs(a.averageAmount));
+    } else {
+      this.filteredPayments.sort((a, b) => a.name.localeCompare(b.name));
+    }
   }
 
   toggleActive(payment: RecurringPaymentDto): void {
@@ -338,14 +333,10 @@ export class RecurringPaymentsListComponent implements OnInit {
 
   openCategoryDialog(payment: RecurringPaymentDto): void {
     this.dialogPayment = payment;
-    this.newCategoryName = '';
-    this.dialogError = null;
   }
 
   closeCategoryDialog(): void {
     this.dialogPayment = null;
-    this.newCategoryName = '';
-    this.dialogError = null;
   }
 
   selectCategory(categoryId: string | null): void {
@@ -361,25 +352,9 @@ export class RecurringPaymentsListComponent implements OnInit {
     });
   }
 
-  createAndSelectCategory(): void {
-    const name = this.newCategoryName.trim();
-    if (!name || !this.dialogPayment) return;
-
-    this.creatingCategory = true;
-    this.dialogError = null;
-
-    this.categoriesService.createCategory({ name }).subscribe({
-      next: (created) => {
-        this.categories = [...this.categories, created];
-        this.creatingCategory = false;
-        this.newCategoryName = '';
-        this.selectCategory(created.id);
-      },
-      error: (err) => {
-        this.dialogError = err.error?.message || 'Failed to create category.';
-        this.creatingCategory = false;
-      }
-    });
+  onDialogCategoryCreated(category: CategoryDto): void {
+    this.categories = [...this.categories, category];
+    this.selectCategory(category.id);
   }
 
   loadData(): void {

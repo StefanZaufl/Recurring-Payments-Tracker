@@ -246,54 +246,14 @@ describe('ConfigureComponent', () => {
     expect(el.textContent).toContain('No categories yet');
   });
 
-  it('should create a new category', () => {
-    const newCat: CategoryDto = { id: 'cat-3', name: 'Food', color: '#a78bfa' };
-    categoriesService.createCategory.mockReturnValue(of(newCat));
+  it('should add category to list when onCategoryCreated is called', () => {
     fixture.detectChanges();
+    const newCat: CategoryDto = { id: 'cat-3', name: 'Food', color: '#a78bfa' };
 
-    component.newCategoryName = 'Food';
-    component.newCategoryColor = '#a78bfa';
-    component.createCategory();
+    component.onCategoryCreated(newCat);
 
-    expect(categoriesService.createCategory).toHaveBeenCalledWith({ name: 'Food', color: '#a78bfa' });
     expect(component.categories.length).toBe(3);
     expect(component.categories[2].name).toBe('Food');
-    expect(component.newCategoryName).toBe('');
-    expect(component.creatingCategory).toBe(false);
-  });
-
-  it('should not create category with empty name', () => {
-    fixture.detectChanges();
-    component.newCategoryName = '   ';
-
-    component.createCategory();
-
-    expect(categoriesService.createCategory).not.toHaveBeenCalled();
-  });
-
-  it('should show error on create category failure', () => {
-    categoriesService.createCategory.mockReturnValue(
-      throwError(() => ({ error: { message: 'Category already exists' } }))
-    );
-    fixture.detectChanges();
-
-    component.newCategoryName = 'Streaming';
-    component.createCategory();
-
-    expect(component.createError).toBe('Category already exists');
-    expect(component.creatingCategory).toBe(false);
-  });
-
-  it('should show generic error on create category failure without message', () => {
-    categoriesService.createCategory.mockReturnValue(
-      throwError(() => ({ error: {} }))
-    );
-    fixture.detectChanges();
-
-    component.newCategoryName = 'Test';
-    component.createCategory();
-
-    expect(component.createError).toBe('Failed to create category.');
   });
 
   it('should start editing a category', () => {

@@ -5,12 +5,13 @@ import { RouterLink } from '@angular/router';
 import { TransactionsService, CategoriesService } from '../../api/generated';
 import { CategoryDto } from '../../api/generated/model/categoryDto';
 import { UploadResponse } from '../../api/generated/model/uploadResponse';
+import { CategoryCreateComponent } from '../../shared/category-create.component';
 
 @Component({
   selector: 'app-configure',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, CategoryCreateComponent],
   template: `
-    <div class="animate-fade-in">
+    <div class="animate-fade-in min-w-0 overflow-hidden">
       <div class="mb-6 sm:mb-8">
         <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Configure</h1>
         <p class="text-sm text-muted mt-0.5">Import data and manage categories</p>
@@ -30,10 +31,9 @@ import { UploadResponse } from '../../api/generated/model/uploadResponse';
 
           <div class="max-w-lg">
             <div
-              class="glass-card p-10 sm:p-14 text-center cursor-pointer group transition-all duration-300"
+              class="glass-card p-6 sm:p-14 text-center cursor-pointer group transition-all duration-300"
               [class.border-accent]="isDragging"
               [class.bg-accent-dim]="isDragging"
-              [class.scale-105]="isDragging"
               (dragover)="onDragOver($event)"
               (dragleave)="isDragging = false"
               (drop)="onDrop($event)"
@@ -160,25 +160,7 @@ import { UploadResponse } from '../../api/generated/model/uploadResponse';
 
           <!-- Create new category -->
           <div *ngIf="!categoriesLoading && !categoriesError" class="glass-card p-4 mb-4">
-            <div class="flex gap-2">
-              <input [(ngModel)]="newCategoryName"
-                     (keydown.enter)="createCategory()"
-                     placeholder="New category name..."
-                     class="flex-1 text-sm bg-subtle border-0 rounded-xl px-3 py-2.5 text-white placeholder-muted/50 focus:outline-none focus:ring-1 focus:ring-violet/40">
-              <input [(ngModel)]="newCategoryColor"
-                     type="color"
-                     class="w-10 h-10 rounded-xl bg-subtle border-0 cursor-pointer shrink-0"
-                     title="Pick a color">
-              <button (click)="createCategory()"
-                      [disabled]="!newCategoryName.trim() || creatingCategory"
-                      class="px-4 py-2.5 bg-violet text-white text-xs font-semibold rounded-xl transition-all
-                             hover:brightness-110 active:scale-[0.97]
-                             disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:brightness-100">
-                <span *ngIf="!creatingCategory">Add</span>
-                <div *ngIf="creatingCategory" class="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              </button>
-            </div>
-            <p *ngIf="createError" class="text-xs text-coral mt-2">{{ createError }}</p>
+            <app-category-create (created)="onCategoryCreated($event)"></app-category-create>
           </div>
 
           <!-- Empty state -->
@@ -189,16 +171,14 @@ import { UploadResponse } from '../../api/generated/model/uploadResponse';
           <!-- Categories list -->
           <div *ngIf="!categoriesLoading && !categoriesError && categories.length > 0" class="space-y-2">
             <div *ngFor="let category of categories"
-                 class="glass-card p-4 flex items-center gap-3 group transition-colors hover:border-subtle">
-
-              <!-- Color dot -->
-              <div class="w-3 h-3 rounded-full shrink-0"
-                   [style.background-color]="category.color || '#6b7194'"></div>
+                 class="glass-card p-4 group transition-colors hover:border-subtle">
 
               <!-- View mode -->
-              <ng-container *ngIf="editingId !== category.id">
-                <span class="text-sm text-white flex-1 truncate">{{ category.name }}</span>
-                <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div *ngIf="editingId !== category.id" class="flex items-center gap-3 min-w-0">
+                <div class="w-3 h-3 rounded-full shrink-0"
+                     [style.background-color]="category.color || '#6b7194'"></div>
+                <span class="text-sm text-white flex-1 truncate min-w-0">{{ category.name }}</span>
+                <div class="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
                   <button (click)="startEdit(category)"
                           class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-subtle text-muted hover:text-white transition-colors"
                           title="Edit">
@@ -217,33 +197,35 @@ import { UploadResponse } from '../../api/generated/model/uploadResponse';
                     <div *ngIf="deletingId === category.id" class="w-3 h-3 border-2 border-coral/30 border-t-coral rounded-full animate-spin"></div>
                   </button>
                 </div>
-              </ng-container>
+              </div>
 
               <!-- Edit mode -->
-              <ng-container *ngIf="editingId === category.id">
+              <div *ngIf="editingId === category.id" class="flex flex-wrap items-center gap-2 min-w-0">
                 <input [(ngModel)]="editName"
                        (keydown.enter)="saveEdit(category)"
                        (keydown.escape)="cancelEdit()"
-                       class="flex-1 text-sm bg-subtle border-0 rounded-lg px-3 py-1.5 text-white placeholder-muted/50 focus:outline-none focus:ring-1 focus:ring-violet/40">
-                <input [(ngModel)]="editColor"
-                       type="color"
-                       class="w-8 h-8 rounded-lg bg-subtle border-0 cursor-pointer shrink-0">
-                <button (click)="saveEdit(category)"
-                        [disabled]="!editName.trim() || savingEdit"
-                        class="w-7 h-7 flex items-center justify-center rounded-lg bg-accent-dim text-accent hover:brightness-110 transition-all
-                               disabled:opacity-40 disabled:cursor-not-allowed">
-                  <svg *ngIf="!savingEdit" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                  </svg>
-                  <div *ngIf="savingEdit" class="w-3 h-3 border-2 border-accent/30 border-t-accent rounded-full animate-spin"></div>
-                </button>
-                <button (click)="cancelEdit()"
-                        class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-subtle text-muted hover:text-white transition-colors">
-                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </ng-container>
+                       class="flex-1 min-w-0 text-sm bg-subtle border-0 rounded-lg px-3 py-1.5 text-white placeholder-muted/50 focus:outline-none focus:ring-1 focus:ring-violet/40">
+                <div class="flex items-center gap-1 shrink-0">
+                  <input [(ngModel)]="editColor"
+                         type="color"
+                         class="w-8 h-8 rounded-lg bg-subtle border-0 cursor-pointer shrink-0">
+                  <button (click)="saveEdit(category)"
+                          [disabled]="!editName.trim() || savingEdit"
+                          class="w-7 h-7 flex items-center justify-center rounded-lg bg-accent-dim text-accent hover:brightness-110 transition-all
+                                 disabled:opacity-40 disabled:cursor-not-allowed">
+                    <svg *ngIf="!savingEdit" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                    <div *ngIf="savingEdit" class="w-3 h-3 border-2 border-accent/30 border-t-accent rounded-full animate-spin"></div>
+                  </button>
+                  <button (click)="cancelEdit()"
+                          class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-subtle text-muted hover:text-white transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -265,12 +247,6 @@ export class ConfigureComponent implements OnInit {
   categories: CategoryDto[] = [];
   categoriesLoading = false;
   categoriesError: string | null = null;
-
-  // Create category
-  newCategoryName = '';
-  newCategoryColor = '#a78bfa';
-  creatingCategory = false;
-  createError: string | null = null;
 
   // Edit category
   editingId: string | null = null;
@@ -345,24 +321,8 @@ export class ConfigureComponent implements OnInit {
     });
   }
 
-  createCategory(): void {
-    const name = this.newCategoryName.trim();
-    if (!name) return;
-
-    this.creatingCategory = true;
-    this.createError = null;
-    this.categoriesService.createCategory({ name, color: this.newCategoryColor }).subscribe({
-      next: (created) => {
-        this.categories = [...this.categories, created];
-        this.newCategoryName = '';
-        this.newCategoryColor = '#a78bfa';
-        this.creatingCategory = false;
-      },
-      error: (err) => {
-        this.createError = err.error?.message || 'Failed to create category.';
-        this.creatingCategory = false;
-      }
-    });
+  onCategoryCreated(category: CategoryDto): void {
+    this.categories = [...this.categories, category];
   }
 
   startEdit(category: CategoryDto): void {
