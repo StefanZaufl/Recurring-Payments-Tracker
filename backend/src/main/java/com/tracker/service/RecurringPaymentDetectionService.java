@@ -1,5 +1,6 @@
 package com.tracker.service;
 
+import com.tracker.controller.ResourceNotFoundException;
 import com.tracker.model.entity.*;
 import com.tracker.repository.RecurringPaymentRepository;
 import com.tracker.repository.RuleRepository;
@@ -56,6 +57,7 @@ public class RecurringPaymentDetectionService {
      */
     @Transactional
     public List<RecurringPayment> detectRecurringPayments(List<Transaction> newTransactions) {
+        log.info("Starting detection with {} new transactions", newTransactions.size());
         if (newTransactions.isEmpty()) {
             return List.of();
         }
@@ -65,50 +67,63 @@ public class RecurringPaymentDetectionService {
 
         // Step 1: Match against existing active RTs
         List<RecurringPayment> existingRts = recurringPaymentRepository.findByIsActiveTrue();
+        log.info("Step 1: Matching against {} existing active RTs", existingRts.size());
         for (RecurringPayment rt : existingRts) {
             List<Rule> rules = rt.getRules();
+            log.debug("RT '{}' (id={}) has {} rules: {}", rt.getName(), rt.getId(), rules.size(),
+                    rules.stream().map(r -> r.getRuleType().name()).toList());
             if (rules.isEmpty()) {
+                log.debug("Skipping RT '{}' — no rules", rt.getName());
                 continue;
             }
 
             List<Transaction> matched = ruleEvaluationService.findMatchingTransactions(rules, unmatched);
             if (!matched.isEmpty()) {
+                log.info("RT '{}': matched {} new transactions", rt.getName(), matched.size());
                 for (Transaction tx : matched) {
                     createLink(tx, rt);
                 }
-                // Sliding window: update AmountRule to newest transaction's amount
                 updateAmountRuleToNewest(rules, matched);
-                // Recompute average amount
                 recomputeAverageAmount(rt);
                 recurringPaymentRepository.save(rt);
                 unmatched.removeAll(matched);
                 result.add(rt);
+            } else {
+                log.debug("RT '{}': no matches among {} unmatched transactions", rt.getName(), unmatched.size());
             }
         }
 
         // Step 2: Try to form new RTs from unmatched transactions
+        log.info("Step 2: {} unmatched transactions remain, attempting to form new RTs", unmatched.size());
         LocalDate cutoff = LocalDate.now().minusDays(LOOKBACK_DAYS);
-        List<Transaction> oldUnlinked = transactionRepository.findUnlinkedTransactionsAfter(cutoff);
+        Set<UUID> newTransactionIds = newTransactions.stream()
+                .map(Transaction::getId).collect(Collectors.toSet());
+        List<Transaction> oldUnlinked = transactionRepository.findUnlinkedTransactionsAfter(cutoff)
+                .stream().filter(tx -> !newTransactionIds.contains(tx.getId())).collect(Collectors.toCollection(ArrayList::new));
+        log.debug("Found {} old unlinked transactions (cutoff={}, excluded {} new)", oldUnlinked.size(), cutoff, newTransactionIds.size());
 
-        // Iterate over a copy since we modify unmatched during iteration
         List<Transaction> toProcess = new ArrayList<>(unmatched);
         for (Transaction tx : toProcess) {
             if (!unmatched.contains(tx)) {
-                continue; // already matched by a previously created transient RT
+                continue;
             }
             if (tx.getPartnerName() == null || tx.getPartnerName().isBlank()) {
+                log.debug("Skipping transaction {} — no partner name", tx.getId());
                 continue;
             }
 
             List<Rule> transientRules = createTransientRules(tx);
+            log.debug("Created transient rules for '{}' (amount={}): {}", tx.getPartnerName(), tx.getAmount(),
+                    transientRules.stream().map(r -> r.getRuleType().name() + "(" +
+                            (r.getText() != null ? "text=" + r.getText() : "amount=" + r.getAmount()) + ")").toList());
 
-            // Candidates: old unlinked + remaining unmatched new (excluding self)
             List<Transaction> candidates = new ArrayList<>(oldUnlinked);
             for (Transaction u : unmatched) {
                 if (!u.getId().equals(tx.getId())) {
                     candidates.add(u);
                 }
             }
+            log.debug("Evaluating {} candidates for '{}'", candidates.size(), tx.getPartnerName());
 
             List<Transaction> additionalMatches = ruleEvaluationService.findMatchingTransactions(transientRules, candidates);
 
@@ -118,12 +133,19 @@ public class RecurringPaymentDetectionService {
                 allMatched.addAll(additionalMatches);
 
                 String frequency = detectFrequency(allMatched);
+                log.debug("'{}': {} total matches, detected frequency={}", tx.getPartnerName(),
+                        allMatched.size(), frequency);
                 if (frequency != null) {
                     RecurringPayment rt = createAndPersistRecurringPayment(tx, allMatched, transientRules, frequency);
                     result.add(rt);
                     unmatched.removeAll(allMatched);
                     oldUnlinked.removeAll(additionalMatches);
+                    log.info("Created new RT '{}' ({}) with {} transactions", rt.getName(), frequency, allMatched.size());
+                } else {
+                    log.debug("'{}': no valid frequency detected from {} matches — skipping", tx.getPartnerName(), allMatched.size());
                 }
+            } else {
+                log.debug("'{}': no additional matches found", tx.getPartnerName());
             }
         }
 
@@ -139,7 +161,7 @@ public class RecurringPaymentDetectionService {
     @Transactional
     public RecurringPayment reEvaluateRecurringPayment(UUID recurringPaymentId) {
         RecurringPayment rt = recurringPaymentRepository.findById(recurringPaymentId)
-                .orElseThrow(() -> new NoSuchElementException("Recurring payment not found: " + recurringPaymentId));
+                .orElseThrow(() -> new ResourceNotFoundException("Recurring payment not found: " + recurringPaymentId));
 
         List<Rule> rules = ruleRepository.findByRecurringPaymentId(recurringPaymentId);
         if (rules.isEmpty()) {
@@ -273,15 +295,19 @@ public class RecurringPaymentDetectionService {
 
     String detectFrequency(List<Transaction> transactions) {
         if (transactions.size() < MIN_OCCURRENCES) {
+            log.debug("Too few transactions ({}) for frequency detection", transactions.size());
             return null;
         }
 
         List<Long> gaps = computeDayGaps(transactions);
         if (gaps.isEmpty()) {
+            log.debug("No gaps computed from {} transactions", transactions.size());
             return null;
         }
 
         long medianGap = median(gaps);
+        log.debug("Frequency detection: {} transactions, gaps={}, medianGap={}",
+                transactions.size(), gaps, medianGap);
 
         if (medianGap >= MONTHLY_MIN_DAYS && medianGap <= MONTHLY_MAX_DAYS) {
             return "MONTHLY";
@@ -291,6 +317,9 @@ public class RecurringPaymentDetectionService {
             return "YEARLY";
         }
 
+        log.debug("Median gap {} does not match any frequency range (monthly={}-{}, quarterly={}-{}, yearly={}-{})",
+                medianGap, MONTHLY_MIN_DAYS, MONTHLY_MAX_DAYS, QUARTERLY_MIN_DAYS, QUARTERLY_MAX_DAYS,
+                YEARLY_MIN_DAYS, YEARLY_MAX_DAYS);
         return null;
     }
 

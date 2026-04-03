@@ -8,7 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.NoSuchElementException;
+import com.tracker.controller.ResourceNotFoundException;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -85,7 +85,7 @@ public class RuleService {
 
     private RecurringPayment requirePaymentExists(UUID recurringPaymentId) {
         return recurringPaymentRepository.findById(recurringPaymentId)
-                .orElseThrow(() -> new NoSuchElementException("Recurring payment not found: " + recurringPaymentId));
+                .orElseThrow(() -> new ResourceNotFoundException("Recurring payment not found: " + recurringPaymentId));
     }
 
     private void validateRule(RuleType ruleType, TargetField targetField, String text,

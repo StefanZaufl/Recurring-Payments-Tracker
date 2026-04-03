@@ -16,7 +16,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.UUID;
 
 @RestController
@@ -38,74 +37,50 @@ public class RuleController implements RecurringPaymentRulesApi {
 
     @Override
     public ResponseEntity<List<RuleDto>> getRules(UUID recurringPaymentId) {
-        try {
-            return ResponseEntity.ok(ruleMapper.toDtoList(ruleService.getRulesForPayment(recurringPaymentId)));
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.notFound().build();
-        }
+        return ResponseEntity.ok(ruleMapper.toDtoList(ruleService.getRulesForPayment(recurringPaymentId)));
     }
 
     @Override
     public ResponseEntity<RuleDto> createRule(UUID recurringPaymentId, CreateRuleRequest request) {
-        try {
-            var rule = ruleService.createRule(
-                    recurringPaymentId,
-                    mapRuleType(request.getRuleType()),
-                    mapTargetField(request.getTargetField()),
-                    request.getText(),
-                    request.getStrict(),
-                    request.getThreshold(),
-                    toBigDecimal(request.getAmount()),
-                    toBigDecimal(request.getFluctuationRange()));
-            return ResponseEntity.status(HttpStatus.CREATED).body(ruleMapper.toDto(rule));
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.notFound().build();
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
-        }
+        var rule = ruleService.createRule(
+                recurringPaymentId,
+                mapRuleType(request.getRuleType()),
+                mapTargetField(request.getTargetField()),
+                request.getText(),
+                request.getStrict(),
+                request.getThreshold(),
+                toBigDecimal(request.getAmount()),
+                toBigDecimal(request.getFluctuationRange()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ruleMapper.toDto(rule));
     }
 
     @Override
     public ResponseEntity<RuleDto> updateRule(UUID recurringPaymentId, UUID ruleId, UpdateRuleRequest request) {
-        try {
-            return ruleService.updateRule(
-                            recurringPaymentId, ruleId,
-                            mapTargetField(request.getTargetField()),
-                            request.getText(),
-                            request.getStrict(),
-                            request.getThreshold(),
-                            toBigDecimal(request.getAmount()),
-                            toBigDecimal(request.getFluctuationRange()))
-                    .map(ruleMapper::toDto)
-                    .map(ResponseEntity::ok)
-                    .orElse(ResponseEntity.notFound().build());
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.notFound().build();
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
-        }
+        return ruleService.updateRule(
+                        recurringPaymentId, ruleId,
+                        mapTargetField(request.getTargetField()),
+                        request.getText(),
+                        request.getStrict(),
+                        request.getThreshold(),
+                        toBigDecimal(request.getAmount()),
+                        toBigDecimal(request.getFluctuationRange()))
+                .map(ruleMapper::toDto)
+                .map(ResponseEntity::ok)
+                .orElseThrow(() -> new ResourceNotFoundException("Rule not found: " + ruleId));
     }
 
     @Override
     public ResponseEntity<Void> deleteRule(UUID recurringPaymentId, UUID ruleId) {
-        try {
-            if (ruleService.deleteRule(recurringPaymentId, ruleId)) {
-                return ResponseEntity.noContent().build();
-            }
-            return ResponseEntity.notFound().build();
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.notFound().build();
+        if (ruleService.deleteRule(recurringPaymentId, ruleId)) {
+            return ResponseEntity.noContent().build();
         }
+        throw new ResourceNotFoundException("Rule not found: " + ruleId);
     }
 
     @Override
     public ResponseEntity<RecurringPaymentDto> reEvaluateRecurringPayment(UUID recurringPaymentId) {
-        try {
-            RecurringPayment updated = detectionService.reEvaluateRecurringPayment(recurringPaymentId);
-            return ResponseEntity.ok(recurringPaymentMapper.toDto(updated));
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.notFound().build();
-        }
+        RecurringPayment updated = detectionService.reEvaluateRecurringPayment(recurringPaymentId);
+        return ResponseEntity.ok(recurringPaymentMapper.toDto(updated));
     }
 
     private RuleType mapRuleType(com.tracker.api.model.RuleType apiRuleType) {

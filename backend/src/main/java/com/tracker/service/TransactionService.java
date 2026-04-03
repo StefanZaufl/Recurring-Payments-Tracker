@@ -62,7 +62,11 @@ public class TransactionService {
     public Page<Transaction> getTransactions(LocalDate from, LocalDate to, String text, int page, int size, String sort, String sortDirection) {
         String sortField = sort != null && ALLOWED_SORT_FIELDS.contains(sort) ? sort : "bookingDate";
         Sort.Direction direction = "asc".equalsIgnoreCase(sortDirection) ? Sort.Direction.ASC : Sort.Direction.DESC;
-        PageRequest pageRequest = PageRequest.of(page, size, Sort.by(direction, sortField));
+        Sort sorting = Sort.by(direction, sortField);
+        if (!"bookingDate".equals(sortField)) {
+            sorting = sorting.and(Sort.by(Sort.Direction.DESC, "bookingDate"));
+        }
+        PageRequest pageRequest = PageRequest.of(page, size, sorting);
 
         Specification<Transaction> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
