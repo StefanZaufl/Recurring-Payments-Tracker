@@ -2,10 +2,14 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { RecurringPaymentsService, CategoriesService } from '../../api/generated';
+import { RecurringPaymentsService, CategoriesService, RecurringPaymentRulesService } from '../../api/generated';
 import { RecurringPaymentDto } from '../../api/generated/model/recurringPaymentDto';
 import { TransactionDto } from '../../api/generated/model/transactionDto';
 import { CategoryDto } from '../../api/generated/model/categoryDto';
+import { RuleDto } from '../../api/generated/model/ruleDto';
+import { RuleType } from '../../api/generated/model/ruleType';
+import { TargetField } from '../../api/generated/model/targetField';
+import { CreateRuleRequest } from '../../api/generated/model/createRuleRequest';
 import { CategoryCreateComponent } from '../../shared/category-create.component';
 import { DateRangePickerComponent, DateRange } from '../../shared/date-range-picker.component';
 import { forkJoin } from 'rxjs';
@@ -105,6 +109,10 @@ import { forkJoin } from 'rxjs';
                       }">
                   {{ payment.isIncome ? 'Income' : 'Expense' }}
                 </span>
+                <button (click)="openRulesModal(payment); $event.stopPropagation()"
+                        class="badge cursor-pointer bg-subtle text-muted hover:bg-card-hover transition-colors">
+                  {{ payment.ruleCount }} rule{{ payment.ruleCount === 1 ? '' : 's' }}
+                </button>
               </div>
             </div>
             <p class="font-mono text-sm font-semibold shrink-0 ml-3"
@@ -151,6 +159,7 @@ import { forkJoin } from 'rxjs';
                 <th class="table-header text-right">Amount</th>
                 <th class="table-header">Type</th>
                 <th class="table-header">Status</th>
+                <th class="table-header">Rules</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-card-border">
@@ -204,6 +213,15 @@ import { forkJoin } from 'rxjs';
                             'bg-subtle text-muted': !payment.isActive
                           }">
                     {{ payment.isActive ? 'Active' : 'Inactive' }}
+                  </button>
+                </td>
+                <td class="table-cell">
+                  <button (click)="openRulesModal(payment); $event.stopPropagation()"
+                          class="badge cursor-pointer bg-subtle text-muted hover:bg-card-hover transition-colors group">
+                    {{ payment.ruleCount }} rule{{ payment.ruleCount === 1 ? '' : 's' }}
+                    <svg class="w-3 h-3 ml-1 inline-block opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+                    </svg>
                   </button>
                 </td>
               </tr>
@@ -392,6 +410,164 @@ import { forkJoin } from 'rxjs';
           </div>
         </div>
       </div>
+
+      <!-- Rules modal backdrop -->
+      <div *ngIf="rulesPayment"
+           class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+           (click)="closeRulesModal()">
+        <div class="glass-card w-full max-w-2xl p-0 animate-slide-up border-subtle max-h-[85vh] flex flex-col"
+             (click)="$event.stopPropagation()">
+
+          <!-- Header -->
+          <div class="flex items-center justify-between px-5 py-4 border-b border-card-border shrink-0">
+            <div class="min-w-0 flex-1">
+              <h3 class="text-sm font-semibold text-white">Detection Rules</h3>
+              <p class="text-xs text-muted truncate mt-0.5">{{ rulesPayment.name }}</p>
+            </div>
+            <button (click)="closeRulesModal()"
+                    class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-subtle text-muted hover:text-white transition-colors shrink-0 ml-3">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Content area (scrollable) -->
+          <div class="overflow-y-auto flex-1 min-h-0">
+
+            <!-- Loading -->
+            <div *ngIf="rulesLoading" class="flex flex-col items-center justify-center py-12 gap-3">
+              <div class="w-6 h-6 border-2 border-accent/30 border-t-accent rounded-full animate-spin"></div>
+              <span class="text-xs text-muted">Loading rules...</span>
+            </div>
+
+            <!-- Error -->
+            <div *ngIf="!rulesLoading && rulesError" class="p-5">
+              <p class="text-sm text-coral font-medium">{{ rulesError }}</p>
+            </div>
+
+            <!-- Rules list -->
+            <div *ngIf="!rulesLoading && !rulesError" class="p-5 space-y-3">
+              <div *ngIf="rules.length === 0" class="text-center py-6">
+                <p class="text-sm text-muted">No rules configured. Add a rule below.</p>
+              </div>
+
+              <div *ngFor="let rule of rules" class="bg-subtle rounded-xl p-4">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1.5">
+                      <span class="badge text-[10px]"
+                            [ngClass]="{
+                              'bg-violet-dim text-violet': rule.ruleType === 'JARO_WINKLER',
+                              'bg-amber-dim text-amber': rule.ruleType === 'REGEX',
+                              'bg-sky-dim text-sky': rule.ruleType === 'AMOUNT'
+                            }">
+                        {{ formatRuleType(rule.ruleType) }}
+                      </span>
+                      <span *ngIf="rule.targetField" class="text-[11px] text-muted">
+                        {{ formatTargetField(rule.targetField) }}
+                      </span>
+                    </div>
+                    <p class="text-xs text-muted/80 break-all">{{ formatRuleSummary(rule) }}</p>
+                  </div>
+                  <div class="flex items-center gap-1 shrink-0">
+                    <button (click)="startEditRule(rule)"
+                            class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-card-hover text-muted hover:text-white transition-colors">
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                      </svg>
+                    </button>
+                    <button (click)="deleteRule(rule)"
+                            class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-coral-dim text-muted hover:text-coral transition-colors">
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Add/Edit rule form -->
+          <div *ngIf="!rulesLoading && !rulesError" class="px-5 py-4 border-t border-card-border shrink-0">
+            <p class="text-[11px] text-muted uppercase tracking-wider font-medium mb-3">
+              {{ editingRule ? 'Edit rule' : 'Add rule' }}
+            </p>
+
+            <!-- Rule type selector -->
+            <div *ngIf="!editingRule" class="mb-3">
+              <select [(ngModel)]="ruleFormType" (change)="onRuleTypeChange()"
+                      class="w-full text-xs bg-card border border-card-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-subtle">
+                <option value="JARO_WINKLER">Jaro-Winkler (Fuzzy Text Match)</option>
+                <option value="REGEX">Regex (Pattern Match)</option>
+                <option value="AMOUNT">Amount (Value Range)</option>
+              </select>
+            </div>
+
+            <!-- Text rule fields -->
+            <div *ngIf="ruleFormType === 'JARO_WINKLER' || ruleFormType === 'REGEX'" class="space-y-3">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="text-[11px] text-muted mb-1 block">Target Field</label>
+                  <select [(ngModel)]="ruleFormTargetField"
+                          class="w-full text-xs bg-card border border-card-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-subtle">
+                    <option value="PARTNER_NAME">Partner Name</option>
+                    <option value="PARTNER_IBAN">Partner IBAN</option>
+                    <option value="DETAILS">Details</option>
+                  </select>
+                </div>
+                <div *ngIf="ruleFormType === 'JARO_WINKLER'">
+                  <label class="text-[11px] text-muted mb-1 block">Threshold</label>
+                  <input type="number" [(ngModel)]="ruleFormThreshold" min="0" max="1" step="0.05"
+                         class="w-full text-xs bg-card border border-card-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-subtle"
+                         placeholder="0.85">
+                </div>
+              </div>
+              <div>
+                <label class="text-[11px] text-muted mb-1 block">{{ ruleFormType === 'REGEX' ? 'Pattern' : 'Text' }}</label>
+                <input type="text" [(ngModel)]="ruleFormText"
+                       class="w-full text-xs bg-card border border-card-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-subtle"
+                       [placeholder]="ruleFormType === 'REGEX' ? 'e.g. netflix.*' : 'e.g. netflix'">
+              </div>
+              <label class="flex items-center gap-2 text-xs text-muted cursor-pointer select-none">
+                <input type="checkbox" [(ngModel)]="ruleFormStrict" class="rounded border-card-border bg-card text-accent focus:ring-0 focus:ring-offset-0">
+                Strict (fail on null values)
+              </label>
+            </div>
+
+            <!-- Amount rule fields -->
+            <div *ngIf="ruleFormType === 'AMOUNT'" class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-[11px] text-muted mb-1 block">Amount</label>
+                <input type="number" [(ngModel)]="ruleFormAmount" step="0.01"
+                       class="w-full text-xs bg-card border border-card-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-subtle"
+                       placeholder="-12.99">
+              </div>
+              <div>
+                <label class="text-[11px] text-muted mb-1 block">Fluctuation Range</label>
+                <input type="number" [(ngModel)]="ruleFormFluctuationRange" min="0" step="0.01"
+                       class="w-full text-xs bg-card border border-card-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-subtle"
+                       placeholder="1.30">
+              </div>
+            </div>
+
+            <!-- Form actions -->
+            <div class="flex items-center gap-2 mt-4">
+              <button (click)="saveRule()"
+                      [disabled]="ruleSaving"
+                      class="btn-primary text-xs px-4 py-2">
+                {{ ruleSaving ? 'Saving...' : (editingRule ? 'Update Rule' : 'Add Rule') }}
+              </button>
+              <button *ngIf="editingRule" (click)="cancelEditRule()"
+                      class="text-xs text-muted hover:text-white transition-colors px-3 py-2">
+                Cancel
+              </button>
+              <span *ngIf="ruleFormError" class="text-xs text-coral ml-2">{{ ruleFormError }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   `
 })
@@ -417,9 +593,28 @@ export class RecurringPaymentsListComponent implements OnInit {
   txFilterFrom: string | null = null;
   txFilterTo: string | null = null;
 
+  // Rules modal state
+  rulesPayment: RecurringPaymentDto | null = null;
+  rules: RuleDto[] = [];
+  rulesLoading = false;
+  rulesError: string | null = null;
+  editingRule: RuleDto | null = null;
+  ruleSaving = false;
+  ruleFormError: string | null = null;
+
+  // Rule form fields
+  ruleFormType: string = 'JARO_WINKLER';
+  ruleFormTargetField: string = 'PARTNER_NAME';
+  ruleFormText: string = '';
+  ruleFormStrict: boolean = true;
+  ruleFormThreshold: number = 0.85;
+  ruleFormAmount: number | null = null;
+  ruleFormFluctuationRange: number | null = null;
+
   constructor(
     private recurringPaymentsService: RecurringPaymentsService,
-    private categoriesService: CategoriesService
+    private categoriesService: CategoriesService,
+    private rulesService: RecurringPaymentRulesService
   ) {}
 
   ngOnInit(): void {
@@ -565,5 +760,194 @@ export class RecurringPaymentsListComponent implements OnInit {
         this.loading = false;
       }
     });
+  }
+
+  // Rules modal methods
+
+  openRulesModal(payment: RecurringPaymentDto): void {
+    this.rulesPayment = payment;
+    this.rulesLoading = true;
+    this.rulesError = null;
+    this.rules = [];
+    this.editingRule = null;
+    this.resetRuleForm();
+
+    this.rulesService.getRules(payment.id).subscribe({
+      next: (rules) => {
+        this.rules = rules;
+        this.rulesLoading = false;
+      },
+      error: (err) => {
+        this.rulesError = err.error?.message || 'Failed to load rules.';
+        this.rulesLoading = false;
+      }
+    });
+  }
+
+  closeRulesModal(): void {
+    this.rulesPayment = null;
+    this.rules = [];
+    this.rulesError = null;
+    this.editingRule = null;
+    this.resetRuleForm();
+  }
+
+  startEditRule(rule: RuleDto): void {
+    this.editingRule = rule;
+    this.ruleFormType = rule.ruleType;
+    this.ruleFormTargetField = rule.targetField || 'PARTNER_NAME';
+    this.ruleFormText = rule.text || '';
+    this.ruleFormStrict = rule.strict !== false;
+    this.ruleFormThreshold = rule.threshold || 0.85;
+    this.ruleFormAmount = rule.amount ?? null;
+    this.ruleFormFluctuationRange = rule.fluctuationRange ?? null;
+    this.ruleFormError = null;
+  }
+
+  cancelEditRule(): void {
+    this.editingRule = null;
+    this.resetRuleForm();
+  }
+
+  onRuleTypeChange(): void {
+    this.ruleFormError = null;
+  }
+
+  saveRule(): void {
+    if (!this.rulesPayment) return;
+    this.ruleSaving = true;
+    this.ruleFormError = null;
+
+    if (this.editingRule) {
+      this.rulesService.updateRule(this.rulesPayment.id, this.editingRule.id, {
+        targetField: this.isTextRule() ? this.ruleFormTargetField as TargetField : undefined,
+        text: this.isTextRule() ? this.ruleFormText : undefined,
+        strict: this.isTextRule() ? this.ruleFormStrict : undefined,
+        threshold: this.ruleFormType === 'JARO_WINKLER' ? this.ruleFormThreshold : undefined,
+        amount: this.ruleFormType === 'AMOUNT' ? this.ruleFormAmount! : undefined,
+        fluctuationRange: this.ruleFormType === 'AMOUNT' ? this.ruleFormFluctuationRange! : undefined,
+      }).subscribe({
+        next: () => this.onRuleSaved(),
+        error: (err) => {
+          this.ruleFormError = err.error?.message || 'Failed to update rule.';
+          this.ruleSaving = false;
+        }
+      });
+    } else {
+      const request: CreateRuleRequest = {
+        ruleType: this.ruleFormType as RuleType,
+        targetField: this.isTextRule() ? this.ruleFormTargetField as TargetField : undefined,
+        text: this.isTextRule() ? this.ruleFormText : undefined,
+        strict: this.isTextRule() ? this.ruleFormStrict : undefined,
+        threshold: this.ruleFormType === 'JARO_WINKLER' ? this.ruleFormThreshold : undefined,
+        amount: this.ruleFormType === 'AMOUNT' ? this.ruleFormAmount! : undefined,
+        fluctuationRange: this.ruleFormType === 'AMOUNT' ? this.ruleFormFluctuationRange! : undefined,
+      };
+
+      this.rulesService.createRule(this.rulesPayment.id, request).subscribe({
+        next: () => this.onRuleSaved(),
+        error: (err) => {
+          this.ruleFormError = err.error?.message || 'Failed to create rule.';
+          this.ruleSaving = false;
+        }
+      });
+    }
+  }
+
+  deleteRule(rule: RuleDto): void {
+    if (!this.rulesPayment) return;
+    this.rulesService.deleteRule(this.rulesPayment.id, rule.id).subscribe({
+      next: () => this.onRuleSaved(),
+      error: (err) => {
+        this.rulesError = err.error?.message || 'Failed to delete rule.';
+      }
+    });
+  }
+
+  private onRuleSaved(): void {
+    if (!this.rulesPayment) return;
+    const paymentId = this.rulesPayment.id;
+
+    // Trigger re-evaluation
+    this.rulesService.reEvaluateRecurringPayment(paymentId).subscribe({
+      next: (updatedPayment) => {
+        // Update the payment in the list
+        const idx = this.payments.findIndex(p => p.id === paymentId);
+        if (idx >= 0) {
+          this.payments[idx] = updatedPayment;
+        }
+        if (this.rulesPayment?.id === paymentId) {
+          this.rulesPayment = updatedPayment;
+        }
+        this.applyFilter();
+      }
+    });
+
+    // Reload rules
+    this.rulesService.getRules(paymentId).subscribe({
+      next: (rules) => {
+        this.rules = rules;
+        // Update rule count on payment
+        if (this.rulesPayment?.id === paymentId) {
+          this.rulesPayment = { ...this.rulesPayment, ruleCount: rules.length };
+        }
+        const idx = this.payments.findIndex(p => p.id === paymentId);
+        if (idx >= 0) {
+          this.payments[idx] = { ...this.payments[idx], ruleCount: rules.length };
+        }
+        this.applyFilter();
+      }
+    });
+
+    this.editingRule = null;
+    this.resetRuleForm();
+    this.ruleSaving = false;
+  }
+
+  private isTextRule(): boolean {
+    return this.ruleFormType === 'JARO_WINKLER' || this.ruleFormType === 'REGEX';
+  }
+
+  private resetRuleForm(): void {
+    this.ruleFormType = 'JARO_WINKLER';
+    this.ruleFormTargetField = 'PARTNER_NAME';
+    this.ruleFormText = '';
+    this.ruleFormStrict = true;
+    this.ruleFormThreshold = 0.85;
+    this.ruleFormAmount = null;
+    this.ruleFormFluctuationRange = null;
+    this.ruleFormError = null;
+    this.ruleSaving = false;
+  }
+
+  formatRuleType(type: string): string {
+    switch (type) {
+      case 'JARO_WINKLER': return 'Jaro-Winkler';
+      case 'REGEX': return 'Regex';
+      case 'AMOUNT': return 'Amount';
+      default: return type;
+    }
+  }
+
+  formatTargetField(field: string): string {
+    switch (field) {
+      case 'PARTNER_NAME': return 'Partner Name';
+      case 'PARTNER_IBAN': return 'Partner IBAN';
+      case 'DETAILS': return 'Details';
+      default: return field;
+    }
+  }
+
+  formatRuleSummary(rule: RuleDto): string {
+    switch (rule.ruleType) {
+      case 'JARO_WINKLER':
+        return `"${rule.text}" (threshold: ${rule.threshold})${rule.strict ? ' [strict]' : ''}`;
+      case 'REGEX':
+        return `/${rule.text}/${rule.strict ? ' [strict]' : ''}`;
+      case 'AMOUNT':
+        return `${this.formatCurrency(rule.amount!)} +/- ${this.formatCurrency(rule.fluctuationRange!)}`;
+      default:
+        return '';
+    }
   }
 }

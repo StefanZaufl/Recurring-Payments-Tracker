@@ -19,6 +19,7 @@ export interface RecurringPaymentDto {
     frequency: Frequency;
     isIncome: boolean;
     isActive: boolean;
+    ruleCount: number;
 }
 
 

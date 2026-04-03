@@ -51,9 +51,13 @@ class RecurringPaymentControllerTest {
     @Autowired
     private FileUploadRepository fileUploadRepository;
 
+    @Autowired
+    private RuleRepository ruleRepository;
+
     @BeforeEach
     void setUp() {
         linkRepository.deleteAll();
+        ruleRepository.deleteAll();
         recurringPaymentRepository.deleteAll();
         transactionRepository.deleteAll();
         fileUploadRepository.deleteAll();
@@ -240,7 +244,7 @@ class RecurringPaymentControllerTest {
         }
 
         @Test
-        void secondUploadReplacesDetectedPayments() throws Exception {
+        void secondUploadAddsNewRecurringPaymentIncrementally() throws Exception {
             // First upload: Netflix monthly
             String header = "Buchungsdatum;Partnername;Betrag";
             byte[] csv1 = CsvMother.bytes(header,
@@ -253,7 +257,7 @@ class RecurringPaymentControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.recurringPaymentsDetected").value(1));
 
-            // Second upload: adds Spotify monthly, detection should re-run on all transactions
+            // Second upload: adds Spotify monthly — incremental detection creates new RT
             byte[] csv2 = CsvMother.bytes(header,
                     "05.01.2025;Spotify;-9,99",
                     "05.02.2025;Spotify;-9,99",
@@ -262,9 +266,9 @@ class RecurringPaymentControllerTest {
 
             mockMvc.perform(multipart("/api/transactions/csv").file(file2))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.recurringPaymentsDetected").value(2));
+                    .andExpect(jsonPath("$.recurringPaymentsDetected").value(1));
 
-            // Should have exactly 2 recurring payments total (not 3)
+            // Should have exactly 2 recurring payments total (Netflix from first, Spotify from second)
             mockMvc.perform(get(RECURRING_URL))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$", hasSize(2)));

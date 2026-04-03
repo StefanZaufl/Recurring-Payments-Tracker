@@ -7,6 +7,8 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -47,4 +49,7 @@ public class RecurringPayment {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt = LocalDateTime.now();
+
+    @OneToMany(mappedBy = "recurringPayment", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Rule> rules = new ArrayList<>();
 }

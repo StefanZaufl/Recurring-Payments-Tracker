@@ -2,8 +2,7 @@ package com.tracker.controller;
 
 import com.tracker.model.entity.FileUpload;
 import com.tracker.model.entity.Transaction;
-import com.tracker.repository.FileUploadRepository;
-import com.tracker.repository.TransactionRepository;
+import com.tracker.repository.*;
 import com.tracker.testutil.CsvMother;
 import com.tracker.testutil.FileUploadMother;
 import com.tracker.testutil.TransactionMother;
@@ -64,8 +63,20 @@ class TransactionControllerTest {
     @Autowired
     private FileUploadRepository fileUploadRepository;
 
+    @Autowired
+    private TransactionRecurringLinkRepository linkRepository;
+
+    @Autowired
+    private RuleRepository ruleRepository;
+
+    @Autowired
+    private RecurringPaymentRepository recurringPaymentRepository;
+
     @BeforeEach
     void setUp() {
+        linkRepository.deleteAll();
+        ruleRepository.deleteAll();
+        recurringPaymentRepository.deleteAll();
         transactionRepository.deleteAll();
         fileUploadRepository.deleteAll();
     }

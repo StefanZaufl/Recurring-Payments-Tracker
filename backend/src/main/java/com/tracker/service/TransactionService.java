@@ -49,9 +49,9 @@ public class TransactionService {
         for (Transaction tx : transactions) {
             tx.setUpload(upload);
         }
-        transactionRepository.saveAll(transactions);
+        List<Transaction> savedTransactions = transactionRepository.saveAll(transactions);
 
-        int recurringCount = detectionService.detectRecurringPayments().size();
+        int recurringCount = detectionService.detectRecurringPayments(savedTransactions).size();
 
         return new UploadResult(upload.getId(), transactions.size(), recurringCount);
     }
