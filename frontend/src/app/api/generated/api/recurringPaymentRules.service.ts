@@ -17,13 +17,15 @@ import { Observable }                                        from 'rxjs';
 import { OpenApiHttpParams, QueryParamStyle } from '../query.params';
 
 // @ts-ignore
-import { CategoryDto } from '../model/categoryDto';
-// @ts-ignore
-import { CreateCategoryRequest } from '../model/createCategoryRequest';
+import { CreateRuleRequest } from '../model/createRuleRequest';
 // @ts-ignore
 import { ErrorResponse } from '../model/errorResponse';
 // @ts-ignore
-import { UpdateCategoryRequest } from '../model/updateCategoryRequest';
+import { RecurringPaymentDto } from '../model/recurringPaymentDto';
+// @ts-ignore
+import { RuleDto } from '../model/ruleDto';
+// @ts-ignore
+import { UpdateRuleRequest } from '../model/updateRuleRequest';
 
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS }                     from '../variables';
@@ -35,26 +37,30 @@ import { BaseService } from '../api.base.service';
 @Injectable({
   providedIn: 'root'
 })
-export class CategoriesService extends BaseService {
+export class RecurringPaymentRulesService extends BaseService {
 
     constructor(protected httpClient: HttpClient, @Optional() @Inject(BASE_PATH) basePath: string|string[], @Optional() configuration?: Configuration) {
         super(basePath, configuration);
     }
 
     /**
-     * Create a new category
-     * @endpoint post /api/categories
-     * @param createCategoryRequest 
+     * Create a new rule for a recurring payment
+     * @endpoint post /api/recurring-payments/{recurringPaymentId}/rules
+     * @param recurringPaymentId 
+     * @param createRuleRequest 
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public createCategory(createCategoryRequest: CreateCategoryRequest, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<CategoryDto>;
-    public createCategory(createCategoryRequest: CreateCategoryRequest, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<CategoryDto>>;
-    public createCategory(createCategoryRequest: CreateCategoryRequest, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<CategoryDto>>;
-    public createCategory(createCategoryRequest: CreateCategoryRequest, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
-        if (createCategoryRequest === null || createCategoryRequest === undefined) {
-            throw new Error('Required parameter createCategoryRequest was null or undefined when calling createCategory.');
+    public createRule(recurringPaymentId: string, createRuleRequest: CreateRuleRequest, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<RuleDto>;
+    public createRule(recurringPaymentId: string, createRuleRequest: CreateRuleRequest, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<RuleDto>>;
+    public createRule(recurringPaymentId: string, createRuleRequest: CreateRuleRequest, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<RuleDto>>;
+    public createRule(recurringPaymentId: string, createRuleRequest: CreateRuleRequest, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (recurringPaymentId === null || recurringPaymentId === undefined) {
+            throw new Error('Required parameter recurringPaymentId was null or undefined when calling createRule.');
+        }
+        if (createRuleRequest === null || createRuleRequest === undefined) {
+            throw new Error('Required parameter createRuleRequest was null or undefined when calling createRule.');
         }
 
         let localVarHeaders = this.defaultHeaders;
@@ -91,12 +97,12 @@ export class CategoriesService extends BaseService {
             }
         }
 
-        let localVarPath = `/api/categories`;
+        let localVarPath = `/api/recurring-payments/${this.configuration.encodeParam({name: "recurringPaymentId", value: recurringPaymentId, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}/rules`;
         const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<CategoryDto>('post', `${basePath}${localVarPath}`,
+        return this.httpClient.request<RuleDto>('post', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
-                body: createCategoryRequest,
+                body: createRuleRequest,
                 responseType: <any>responseType_,
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,
@@ -108,19 +114,23 @@ export class CategoriesService extends BaseService {
     }
 
     /**
-     * Delete a category
-     * @endpoint delete /api/categories/{id}
-     * @param id 
+     * Delete a rule
+     * @endpoint delete /api/recurring-payments/{recurringPaymentId}/rules/{ruleId}
+     * @param recurringPaymentId 
+     * @param ruleId 
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public deleteCategory(id: string, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any>;
-    public deleteCategory(id: string, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<any>>;
-    public deleteCategory(id: string, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<any>>;
-    public deleteCategory(id: string, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
-        if (id === null || id === undefined) {
-            throw new Error('Required parameter id was null or undefined when calling deleteCategory.');
+    public deleteRule(recurringPaymentId: string, ruleId: string, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any>;
+    public deleteRule(recurringPaymentId: string, ruleId: string, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<any>>;
+    public deleteRule(recurringPaymentId: string, ruleId: string, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<any>>;
+    public deleteRule(recurringPaymentId: string, ruleId: string, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (recurringPaymentId === null || recurringPaymentId === undefined) {
+            throw new Error('Required parameter recurringPaymentId was null or undefined when calling deleteRule.');
+        }
+        if (ruleId === null || ruleId === undefined) {
+            throw new Error('Required parameter ruleId was null or undefined when calling deleteRule.');
         }
 
         let localVarHeaders = this.defaultHeaders;
@@ -148,7 +158,7 @@ export class CategoriesService extends BaseService {
             }
         }
 
-        let localVarPath = `/api/categories/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}`;
+        let localVarPath = `/api/recurring-payments/${this.configuration.encodeParam({name: "recurringPaymentId", value: recurringPaymentId, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}/rules/${this.configuration.encodeParam({name: "ruleId", value: ruleId, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}`;
         const { basePath, withCredentials } = this.configuration;
         return this.httpClient.request<any>('delete', `${basePath}${localVarPath}`,
             {
@@ -164,71 +174,19 @@ export class CategoriesService extends BaseService {
     }
 
     /**
-     * List all categories
-     * @endpoint get /api/categories
+     * List rules for a recurring payment
+     * @endpoint get /api/recurring-payments/{recurringPaymentId}/rules
+     * @param recurringPaymentId 
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public getCategories(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<Array<CategoryDto>>;
-    public getCategories(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<Array<CategoryDto>>>;
-    public getCategories(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<Array<CategoryDto>>>;
-    public getCategories(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
-
-        let localVarHeaders = this.defaultHeaders;
-
-        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
-            'application/json'
-        ]);
-        if (localVarHttpHeaderAcceptSelected !== undefined) {
-            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
-        }
-
-        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
-
-        const localVarTransferCache: boolean = options?.transferCache ?? true;
-
-
-        let responseType_: 'text' | 'json' | 'blob' = 'json';
-        if (localVarHttpHeaderAcceptSelected) {
-            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
-                responseType_ = 'text';
-            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
-                responseType_ = 'json';
-            } else {
-                responseType_ = 'blob';
-            }
-        }
-
-        let localVarPath = `/api/categories`;
-        const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<Array<CategoryDto>>('get', `${basePath}${localVarPath}`,
-            {
-                context: localVarHttpContext,
-                responseType: <any>responseType_,
-                ...(withCredentials ? { withCredentials } : {}),
-                headers: localVarHeaders,
-                observe: observe,
-                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
-                reportProgress: reportProgress
-            }
-        );
-    }
-
-    /**
-     * Get a single category by ID
-     * @endpoint get /api/categories/{id}
-     * @param id 
-     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
-     * @param reportProgress flag to report request and response progress.
-     * @param options additional options
-     */
-    public getCategoryById(id: string, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<CategoryDto>;
-    public getCategoryById(id: string, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<CategoryDto>>;
-    public getCategoryById(id: string, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<CategoryDto>>;
-    public getCategoryById(id: string, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
-        if (id === null || id === undefined) {
-            throw new Error('Required parameter id was null or undefined when calling getCategoryById.');
+    public getRules(recurringPaymentId: string, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<Array<RuleDto>>;
+    public getRules(recurringPaymentId: string, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<Array<RuleDto>>>;
+    public getRules(recurringPaymentId: string, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<Array<RuleDto>>>;
+    public getRules(recurringPaymentId: string, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (recurringPaymentId === null || recurringPaymentId === undefined) {
+            throw new Error('Required parameter recurringPaymentId was null or undefined when calling getRules.');
         }
 
         let localVarHeaders = this.defaultHeaders;
@@ -256,9 +214,9 @@ export class CategoriesService extends BaseService {
             }
         }
 
-        let localVarPath = `/api/categories/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}`;
+        let localVarPath = `/api/recurring-payments/${this.configuration.encodeParam({name: "recurringPaymentId", value: recurringPaymentId, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}/rules`;
         const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<CategoryDto>('get', `${basePath}${localVarPath}`,
+        return this.httpClient.request<Array<RuleDto>>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 responseType: <any>responseType_,
@@ -272,23 +230,83 @@ export class CategoriesService extends BaseService {
     }
 
     /**
-     * Update an existing category
-     * @endpoint put /api/categories/{id}
-     * @param id 
-     * @param updateCategoryRequest 
+     * Re-evaluate a recurring payment against unlinked transactions
+     * @endpoint post /api/recurring-payments/{recurringPaymentId}/re-evaluate
+     * @param recurringPaymentId 
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public updateCategory(id: string, updateCategoryRequest: UpdateCategoryRequest, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<CategoryDto>;
-    public updateCategory(id: string, updateCategoryRequest: UpdateCategoryRequest, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<CategoryDto>>;
-    public updateCategory(id: string, updateCategoryRequest: UpdateCategoryRequest, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<CategoryDto>>;
-    public updateCategory(id: string, updateCategoryRequest: UpdateCategoryRequest, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
-        if (id === null || id === undefined) {
-            throw new Error('Required parameter id was null or undefined when calling updateCategory.');
+    public reEvaluateRecurringPayment(recurringPaymentId: string, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<RecurringPaymentDto>;
+    public reEvaluateRecurringPayment(recurringPaymentId: string, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<RecurringPaymentDto>>;
+    public reEvaluateRecurringPayment(recurringPaymentId: string, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<RecurringPaymentDto>>;
+    public reEvaluateRecurringPayment(recurringPaymentId: string, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (recurringPaymentId === null || recurringPaymentId === undefined) {
+            throw new Error('Required parameter recurringPaymentId was null or undefined when calling reEvaluateRecurringPayment.');
         }
-        if (updateCategoryRequest === null || updateCategoryRequest === undefined) {
-            throw new Error('Required parameter updateCategoryRequest was null or undefined when calling updateCategory.');
+
+        let localVarHeaders = this.defaultHeaders;
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/recurring-payments/${this.configuration.encodeParam({name: "recurringPaymentId", value: recurringPaymentId, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}/re-evaluate`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<RecurringPaymentDto>('post', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Update a rule
+     * @endpoint put /api/recurring-payments/{recurringPaymentId}/rules/{ruleId}
+     * @param recurringPaymentId 
+     * @param ruleId 
+     * @param updateRuleRequest 
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public updateRule(recurringPaymentId: string, ruleId: string, updateRuleRequest: UpdateRuleRequest, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<RuleDto>;
+    public updateRule(recurringPaymentId: string, ruleId: string, updateRuleRequest: UpdateRuleRequest, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<RuleDto>>;
+    public updateRule(recurringPaymentId: string, ruleId: string, updateRuleRequest: UpdateRuleRequest, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<RuleDto>>;
+    public updateRule(recurringPaymentId: string, ruleId: string, updateRuleRequest: UpdateRuleRequest, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (recurringPaymentId === null || recurringPaymentId === undefined) {
+            throw new Error('Required parameter recurringPaymentId was null or undefined when calling updateRule.');
+        }
+        if (ruleId === null || ruleId === undefined) {
+            throw new Error('Required parameter ruleId was null or undefined when calling updateRule.');
+        }
+        if (updateRuleRequest === null || updateRuleRequest === undefined) {
+            throw new Error('Required parameter updateRuleRequest was null or undefined when calling updateRule.');
         }
 
         let localVarHeaders = this.defaultHeaders;
@@ -325,12 +343,12 @@ export class CategoriesService extends BaseService {
             }
         }
 
-        let localVarPath = `/api/categories/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}`;
+        let localVarPath = `/api/recurring-payments/${this.configuration.encodeParam({name: "recurringPaymentId", value: recurringPaymentId, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}/rules/${this.configuration.encodeParam({name: "ruleId", value: ruleId, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}`;
         const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<CategoryDto>('put', `${basePath}${localVarPath}`,
+        return this.httpClient.request<RuleDto>('put', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
-                body: updateCategoryRequest,
+                body: updateRuleRequest,
                 responseType: <any>responseType_,
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,

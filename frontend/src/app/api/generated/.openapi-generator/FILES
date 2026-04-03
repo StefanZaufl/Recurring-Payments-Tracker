@@ -5,6 +5,7 @@ api.module.ts
 api/analytics.service.ts
 api/api.ts
 api/categories.service.ts
+api/recurringPaymentRules.service.ts
 api/recurringPayments.service.ts
 api/transactions.service.ts
 configuration.ts
@@ -15,6 +16,8 @@ model/annualOverview.ts
 model/categoryBreakdown.ts
 model/categoryDto.ts
 model/createCategoryRequest.ts
+model/createRuleRequest.ts
+model/errorResponse.ts
 model/frequency.ts
 model/models.ts
 model/monthlyBreakdown.ts
@@ -23,10 +26,14 @@ model/predictionResponse.ts
 model/recurringPaymentDto.ts
 model/recurringPaymentSummary.ts
 model/recurringPaymentUpdateRequest.ts
+model/ruleDto.ts
+model/ruleType.ts
+model/targetField.ts
 model/transactionDto.ts
 model/transactionPage.ts
 model/upcomingPayment.ts
 model/updateCategoryRequest.ts
+model/updateRuleRequest.ts
 model/uploadResponse.ts
 param.ts
 provide-api.ts

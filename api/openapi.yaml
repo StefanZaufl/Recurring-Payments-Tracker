@@ -70,6 +70,20 @@ paths:
           schema:
             type: integer
             default: 50
+        - name: sort
+          in: query
+          description: Field to sort by
+          schema:
+            type: string
+            default: bookingDate
+            enum: [bookingDate, partnerName, amount]
+        - name: sortDirection
+          in: query
+          description: Sort direction
+          schema:
+            type: string
+            default: desc
+            enum: [asc, desc]
       responses:
         '200':
           description: Paginated list of transactions
@@ -190,6 +204,160 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/TransactionDto'
+
+  /api/recurring-payments/{recurringPaymentId}/rules:
+    get:
+      operationId: getRules
+      summary: List rules for a recurring payment
+      tags: [RecurringPaymentRules]
+      parameters:
+        - name: recurringPaymentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of rules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RuleDto'
+        '404':
+          description: Recurring payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createRule
+      summary: Create a new rule for a recurring payment
+      tags: [RecurringPaymentRules]
+      parameters:
+        - name: recurringPaymentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRuleRequest'
+      responses:
+        '201':
+          description: Rule created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleDto'
+        '400':
+          description: Invalid rule configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Recurring payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/recurring-payments/{recurringPaymentId}/rules/{ruleId}:
+    put:
+      operationId: updateRule
+      summary: Update a rule
+      tags: [RecurringPaymentRules]
+      parameters:
+        - name: recurringPaymentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRuleRequest'
+      responses:
+        '200':
+          description: Updated rule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleDto'
+        '404':
+          description: Rule or recurring payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteRule
+      summary: Delete a rule
+      tags: [RecurringPaymentRules]
+      parameters:
+        - name: recurringPaymentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Rule deleted
+        '404':
+          description: Rule or recurring payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/recurring-payments/{recurringPaymentId}/re-evaluate:
+    post:
+      operationId: reEvaluateRecurringPayment
+      summary: Re-evaluate a recurring payment against unlinked transactions
+      tags: [RecurringPaymentRules]
+      parameters:
+        - name: recurringPaymentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Updated recurring payment after re-evaluation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringPaymentDto'
+        '404':
+          description: Recurring payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/categories:
     get:
@@ -450,9 +618,83 @@ components:
       type: string
       enum: [MONTHLY, QUARTERLY, YEARLY]
 
+    RuleType:
+      type: string
+      enum: [REGEX, JARO_WINKLER, AMOUNT]
+
+    TargetField:
+      type: string
+      enum: [PARTNER_NAME, PARTNER_IBAN, DETAILS]
+
+    RuleDto:
+      type: object
+      required: [id, ruleType]
+      properties:
+        id:
+          type: string
+          format: uuid
+        ruleType:
+          $ref: '#/components/schemas/RuleType'
+        targetField:
+          $ref: '#/components/schemas/TargetField'
+        text:
+          type: string
+        strict:
+          type: boolean
+        threshold:
+          type: number
+          format: double
+        amount:
+          type: number
+          format: double
+        fluctuationRange:
+          type: number
+          format: double
+
+    CreateRuleRequest:
+      type: object
+      required: [ruleType]
+      properties:
+        ruleType:
+          $ref: '#/components/schemas/RuleType'
+        targetField:
+          $ref: '#/components/schemas/TargetField'
+        text:
+          type: string
+        strict:
+          type: boolean
+        threshold:
+          type: number
+          format: double
+        amount:
+          type: number
+          format: double
+        fluctuationRange:
+          type: number
+          format: double
+
+    UpdateRuleRequest:
+      type: object
+      properties:
+        targetField:
+          $ref: '#/components/schemas/TargetField'
+        text:
+          type: string
+        strict:
+          type: boolean
+        threshold:
+          type: number
+          format: double
+        amount:
+          type: number
+          format: double
+        fluctuationRange:
+          type: number
+          format: double
+
     RecurringPaymentDto:
       type: object
-      required: [id, name, averageAmount, frequency, isIncome, isActive]
+      required: [id, name, averageAmount, frequency, isIncome, isActive, ruleCount]
       properties:
         id:
           type: string
@@ -473,6 +715,8 @@ components:
           type: boolean
         isActive:
           type: boolean
+        ruleCount:
+          type: integer
 
     RecurringPaymentUpdateRequest:
       type: object

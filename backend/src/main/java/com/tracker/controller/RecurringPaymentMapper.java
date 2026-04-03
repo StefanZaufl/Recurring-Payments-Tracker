@@ -19,6 +19,7 @@ public interface RecurringPaymentMapper {
     @Mapping(source = "category.id", target = "categoryId")
     @Mapping(source = "category.name", target = "categoryName")
     @Mapping(source = "frequency", target = "frequency")
+    @Mapping(expression = "java(entity.getRules() != null ? entity.getRules().size() : 0)", target = "ruleCount")
     RecurringPaymentDto toDto(RecurringPayment entity);
 
     List<RecurringPaymentDto> toDtoList(List<RecurringPayment> entities);

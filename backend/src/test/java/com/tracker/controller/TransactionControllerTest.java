@@ -2,8 +2,7 @@ package com.tracker.controller;
 
 import com.tracker.model.entity.FileUpload;
 import com.tracker.model.entity.Transaction;
-import com.tracker.repository.FileUploadRepository;
-import com.tracker.repository.TransactionRepository;
+import com.tracker.repository.*;
 import com.tracker.testutil.CsvMother;
 import com.tracker.testutil.FileUploadMother;
 import com.tracker.testutil.TransactionMother;
@@ -39,6 +38,8 @@ class TransactionControllerTest {
     private static final String FROM_PARAM = "from";
     private static final String TO_PARAM = "to";
     private static final String TEXT_PARAM = "text";
+    private static final String SORT_PARAM = "sort";
+    private static final String SORT_DIR_PARAM = "sortDirection";
 
     private static final int PAGE_SIZE_2 = 2;
     private static final int TOTAL_PAGING_ITEMS = 3;
@@ -62,8 +63,20 @@ class TransactionControllerTest {
     @Autowired
     private FileUploadRepository fileUploadRepository;
 
+    @Autowired
+    private TransactionRecurringLinkRepository linkRepository;
+
+    @Autowired
+    private RuleRepository ruleRepository;
+
+    @Autowired
+    private RecurringPaymentRepository recurringPaymentRepository;
+
     @BeforeEach
     void setUp() {
+        linkRepository.deleteAll();
+        ruleRepository.deleteAll();
+        recurringPaymentRepository.deleteAll();
         transactionRepository.deleteAll();
         fileUploadRepository.deleteAll();
     }
@@ -175,6 +188,36 @@ class TransactionControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].partnerName").value(NETFLIX));
+    }
+
+    @Test
+    void getTransactions_sortByPartnerNameAsc() throws Exception {
+        seedTransaction(TransactionMother.transaction(NETFLIX, JAN_DATE, TEN));
+        seedTransaction(TransactionMother.transaction(EMPLOYER, FEB_DATE, TWENTY));
+        seedTransaction(TransactionMother.transaction(SPOTIFY, MAR_DATE, THIRTY));
+
+        mockMvc.perform(get(TRANSACTIONS_URL)
+                        .param(SORT_PARAM, "partnerName")
+                        .param(SORT_DIR_PARAM, "asc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].partnerName").value(EMPLOYER))
+                .andExpect(jsonPath("$.content[1].partnerName").value(NETFLIX))
+                .andExpect(jsonPath("$.content[2].partnerName").value(SPOTIFY));
+    }
+
+    @Test
+    void getTransactions_sortByAmountDesc() throws Exception {
+        seedTransaction(TransactionMother.transaction(NETFLIX, JAN_DATE, TEN));
+        seedTransaction(TransactionMother.transaction(SPOTIFY, FEB_DATE, TWENTY));
+        seedTransaction(TransactionMother.transaction(EMPLOYER, MAR_DATE, THIRTY));
+
+        mockMvc.perform(get(TRANSACTIONS_URL)
+                        .param(SORT_PARAM, "amount")
+                        .param(SORT_DIR_PARAM, "desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].amount").value(-10.00))
+                .andExpect(jsonPath("$.content[1].amount").value(-20.00))
+                .andExpect(jsonPath("$.content[2].amount").value(-30.00));
     }
 
     @Test

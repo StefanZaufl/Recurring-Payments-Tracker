@@ -17,6 +17,8 @@ import { Observable }                                        from 'rxjs';
 import { OpenApiHttpParams, QueryParamStyle } from '../query.params';
 
 // @ts-ignore
+import { ErrorResponse } from '../model/errorResponse';
+// @ts-ignore
 import { TransactionDto } from '../model/transactionDto';
 // @ts-ignore
 import { TransactionPage } from '../model/transactionPage';
@@ -103,14 +105,16 @@ export class TransactionsService extends BaseService {
      * @param text Search in partner name and details (case-insensitive, partial match)
      * @param page 
      * @param size 
+     * @param sort Field to sort by
+     * @param sortDirection Sort direction
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public getTransactions(from?: string, to?: string, text?: string, page?: number, size?: number, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<TransactionPage>;
-    public getTransactions(from?: string, to?: string, text?: string, page?: number, size?: number, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<TransactionPage>>;
-    public getTransactions(from?: string, to?: string, text?: string, page?: number, size?: number, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<TransactionPage>>;
-    public getTransactions(from?: string, to?: string, text?: string, page?: number, size?: number, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public getTransactions(from?: string, to?: string, text?: string, page?: number, size?: number, sort?: 'bookingDate' | 'partnerName' | 'amount', sortDirection?: 'asc' | 'desc', observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<TransactionPage>;
+    public getTransactions(from?: string, to?: string, text?: string, page?: number, size?: number, sort?: 'bookingDate' | 'partnerName' | 'amount', sortDirection?: 'asc' | 'desc', observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<TransactionPage>>;
+    public getTransactions(from?: string, to?: string, text?: string, page?: number, size?: number, sort?: 'bookingDate' | 'partnerName' | 'amount', sortDirection?: 'asc' | 'desc', observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<TransactionPage>>;
+    public getTransactions(from?: string, to?: string, text?: string, page?: number, size?: number, sort?: 'bookingDate' | 'partnerName' | 'amount', sortDirection?: 'asc' | 'desc', observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
 
         let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
 
@@ -154,6 +158,24 @@ export class TransactionsService extends BaseService {
             localVarQueryParameters,
             'size',
             <any>size,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'sort',
+            <any>sort,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'sortDirection',
+            <any>sortDirection,
             QueryParamStyle.Form,
             true,
         );
