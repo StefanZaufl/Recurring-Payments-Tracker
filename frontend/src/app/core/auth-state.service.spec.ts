@@ -93,7 +93,7 @@ describe('AuthStateService', () => {
     expect(service.currentUser).toEqual(mockUser);
 
     authService.logout.mockReturnValue(of(undefined as any));
-    service.logout();
+    service.logout().subscribe();
 
     expect(service.currentUser).toBeNull();
     expect(router.navigate).toHaveBeenCalledWith(['/login']);
@@ -104,7 +104,7 @@ describe('AuthStateService', () => {
     service.login('admin', 'pass').subscribe();
 
     authService.logout.mockReturnValue(throwError(() => new Error('fail')));
-    service.logout();
+    service.logout().subscribe();
 
     expect(service.currentUser).toBeNull();
     expect(router.navigate).toHaveBeenCalledWith(['/login']);

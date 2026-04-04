@@ -1,11 +1,11 @@
-import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject } from '@angular/core';
+
 import { RouterLink } from '@angular/router';
 import { TransactionsService, UploadResponse } from '../../api/generated';
 
 @Component({
   selector: 'app-file-upload',
-  imports: [CommonModule, RouterLink],
+  imports: [RouterLink],
   template: `
     <div class="animate-fade-in">
       <div class="mb-6 sm:mb-8">
@@ -20,10 +20,13 @@ import { TransactionsService, UploadResponse } from '../../api/generated';
           [class.border-accent]="isDragging"
           [class.bg-accent-dim]="isDragging"
           [class.scale-105]="isDragging"
+          role="button"
+          tabindex="0"
           (dragover)="onDragOver($event)"
           (dragleave)="isDragging = false"
           (drop)="onDrop($event)"
-          (click)="fileInput.click()">
+          (click)="fileInput.click()"
+          (keydown.enter)="fileInput.click()">
 
           <input #fileInput type="file" accept=".csv" class="hidden" (change)="onFileSelected($event)" />
 
@@ -111,12 +114,12 @@ import { TransactionsService, UploadResponse } from '../../api/generated';
   `
 })
 export class FileUploadComponent {
+  private transactionsService = inject(TransactionsService);
+
   isDragging = false;
   uploading = false;
   result: UploadResponse | null = null;
   error: string | null = null;
-
-  constructor(private transactionsService: TransactionsService) {}
 
   onDragOver(event: DragEvent) {
     event.preventDefault();

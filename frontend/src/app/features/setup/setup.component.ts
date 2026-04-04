@@ -1,13 +1,15 @@
-import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnDestroy, inject } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { SetupService } from '../../api/generated';
 import { AuthStateService } from '../../core/auth-state.service';
+import { Subject, takeUntil } from 'rxjs';
+import { PASSWORD_MIN_LENGTH } from '../../shared/constants';
 
 @Component({
   selector: 'app-setup',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="min-h-screen bg-surface flex items-center justify-center px-4">
       <div class="w-full max-w-sm">
@@ -23,12 +25,12 @@ import { AuthStateService } from '../../core/auth-state.service';
             <span class="block text-[10px] text-muted font-medium tracking-wider uppercase">Tracker</span>
           </div>
         </div>
-
+    
         <!-- Setup card -->
         <div class="glass-card p-6 sm:p-8">
           <h1 class="text-xl font-bold text-white mb-1">Welcome</h1>
           <p class="text-sm text-muted mb-6">Create your admin account to get started.</p>
-
+    
           <form (ngSubmit)="onSubmit()" class="space-y-4">
             <div>
               <label for="username" class="block text-xs font-medium text-muted uppercase tracking-wider mb-1.5">Username</label>
@@ -41,9 +43,9 @@ import { AuthStateService } from '../../core/auth-state.service';
                 required
                 class="w-full px-4 py-2.5 bg-surface border border-card-border rounded-xl text-sm text-white placeholder-muted/50 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25 transition-colors"
                 placeholder="Choose a username"
-              />
+                />
             </div>
-
+    
             <div>
               <label for="password" class="block text-xs font-medium text-muted uppercase tracking-wider mb-1.5">Password</label>
               <input
@@ -55,9 +57,9 @@ import { AuthStateService } from '../../core/auth-state.service';
                 required
                 class="w-full px-4 py-2.5 bg-surface border border-card-border rounded-xl text-sm text-white placeholder-muted/50 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25 transition-colors"
                 placeholder="Choose a password"
-              />
+                />
             </div>
-
+    
             <div>
               <label for="confirmPassword" class="block text-xs font-medium text-muted uppercase tracking-wider mb-1.5">Confirm Password</label>
               <input
@@ -69,42 +71,45 @@ import { AuthStateService } from '../../core/auth-state.service';
                 required
                 class="w-full px-4 py-2.5 bg-surface border border-card-border rounded-xl text-sm text-white placeholder-muted/50 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25 transition-colors"
                 placeholder="Confirm your password"
-              />
+                />
             </div>
-
-            <div *ngIf="error" class="flex items-center gap-2 px-3 py-2.5 bg-coral-dim/50 border border-coral/20 rounded-xl">
-              <svg class="w-4 h-4 text-coral shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-              </svg>
-              <span class="text-xs text-coral">{{ error }}</span>
-            </div>
-
+    
+            @if (error) {
+              <div class="flex items-center gap-2 px-3 py-2.5 bg-coral-dim/50 border border-coral/20 rounded-xl">
+                <svg class="w-4 h-4 text-coral shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                </svg>
+                <span class="text-xs text-coral">{{ error }}</span>
+              </div>
+            }
+    
             <button
               type="submit"
               [disabled]="loading"
               class="w-full btn-primary justify-center py-3 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <div *ngIf="loading" class="w-4 h-4 border-2 border-surface/30 border-t-surface rounded-full animate-spin"></div>
+              >
+              @if (loading) {
+                <div class="w-4 h-4 border-2 border-surface/30 border-t-surface rounded-full animate-spin"></div>
+              }
               {{ loading ? 'Creating account...' : 'Create admin account' }}
             </button>
           </form>
         </div>
       </div>
     </div>
-  `
+    `
 })
-export class SetupComponent {
+export class SetupComponent implements OnDestroy {
+  private setupService = inject(SetupService);
+  private authState = inject(AuthStateService);
+  private router = inject(Router);
+
+  private destroy$ = new Subject<void>();
   username = '';
   password = '';
   confirmPassword = '';
   error = '';
   loading = false;
-
-  constructor(
-    private setupService: SetupService,
-    private authState: AuthStateService,
-    private router: Router
-  ) {}
 
   onSubmit(): void {
     if (!this.username || !this.password || !this.confirmPassword) {
@@ -117,15 +122,15 @@ export class SetupComponent {
       return;
     }
 
-    if (this.password.length < 8) {
-      this.error = 'Password must be at least 8 characters.';
+    if (this.password.length < PASSWORD_MIN_LENGTH) {
+      this.error = `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`;
       return;
     }
 
     this.loading = true;
     this.error = '';
 
-    this.setupService.initializeSetup({ username: this.username, password: this.password }).subscribe({
+    this.setupService.initializeSetup({ username: this.username, password: this.password }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (user) => {
         this.authState.setUser(user);
         this.router.navigate(['/dashboard']);
@@ -139,5 +144,10 @@ export class SetupComponent {
         }
       }
     });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }
