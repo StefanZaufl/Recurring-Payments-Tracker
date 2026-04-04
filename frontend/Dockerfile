@@ -9,11 +9,11 @@ COPY api/openapi.yaml /api/openapi.yaml
 
 # Install dependencies
 COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm install --legacy-peer-deps
+RUN --mount=type=cache,target=/root/.npm npm install --legacy-peer-deps
 
 # Copy source and build
 COPY frontend/ .
-RUN npm run api:generate && npm run build
+RUN --mount=type=cache,target=/root/.npm npm run api:generate && npm run build
 
 FROM nginx:alpine
 
