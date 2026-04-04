@@ -2,6 +2,7 @@ package com.tracker.controller;
 
 import com.tracker.model.entity.*;
 import com.tracker.repository.*;
+import com.tracker.testutil.SecurityTestUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -15,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+import static com.tracker.testutil.SecurityTestUtil.authenticatedUser;
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -42,6 +44,11 @@ class RuleControllerTest {
     @Autowired
     private FileUploadRepository fileUploadRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    private User testUser;
+
     @BeforeEach
     void setUp() {
         linkRepository.deleteAll();
@@ -49,6 +56,7 @@ class RuleControllerTest {
         recurringPaymentRepository.deleteAll();
         transactionRepository.deleteAll();
         fileUploadRepository.deleteAll();
+        testUser = SecurityTestUtil.createTestUser(userRepository);
     }
 
     private String rulesUrl(UUID paymentId) {
@@ -74,7 +82,7 @@ class RuleControllerTest {
         void returnsEmptyListWhenNoRules() throws Exception {
             RecurringPayment payment = seedPayment("Netflix");
 
-            mockMvc.perform(get(rulesUrl(payment.getId())))
+            mockMvc.perform(get(rulesUrl(payment.getId())).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$", hasSize(0)));
         }
@@ -85,7 +93,7 @@ class RuleControllerTest {
             seedJaroWinklerRule(payment, "netflix", 0.85);
             seedAmountRule(payment, "-12.99", "1.30");
 
-            mockMvc.perform(get(rulesUrl(payment.getId())))
+            mockMvc.perform(get(rulesUrl(payment.getId())).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$", hasSize(2)))
                     .andExpect(jsonPath("$[*].ruleType", containsInAnyOrder("JARO_WINKLER", "AMOUNT")));
@@ -93,7 +101,7 @@ class RuleControllerTest {
 
         @Test
         void returns404ForNonExistentPayment() throws Exception {
-            mockMvc.perform(get(rulesUrl(UUID.randomUUID())))
+            mockMvc.perform(get(rulesUrl(UUID.randomUUID())).with(authenticatedUser(testUser)))
                     .andExpect(status().isNotFound());
         }
     }
@@ -119,7 +127,8 @@ class RuleControllerTest {
                                     "strict": true,
                                     "threshold": 0.85
                                 }
-                                """))
+                                """)
+                            .with(authenticatedUser(testUser)))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.ruleType").value("JARO_WINKLER"))
                     .andExpect(jsonPath("$.targetField").value("PARTNER_NAME"))
@@ -139,7 +148,8 @@ class RuleControllerTest {
                                     "amount": -12.99,
                                     "fluctuationRange": 1.30
                                 }
-                                """))
+                                """)
+                            .with(authenticatedUser(testUser)))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.ruleType").value("AMOUNT"))
                     .andExpect(jsonPath("$.amount").value(-12.99));
@@ -158,7 +168,8 @@ class RuleControllerTest {
                                     "text": "netflix.*",
                                     "strict": true
                                 }
-                                """))
+                                """)
+                            .with(authenticatedUser(testUser)))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.ruleType").value("REGEX"));
         }
@@ -175,7 +186,8 @@ class RuleControllerTest {
                                     "targetField": "PARTNER_NAME",
                                     "text": "[invalid"
                                 }
-                                """))
+                                """)
+                            .with(authenticatedUser(testUser)))
                     .andExpect(status().isBadRequest());
         }
 
@@ -189,7 +201,8 @@ class RuleControllerTest {
                                     "amount": -10,
                                     "fluctuationRange": 1
                                 }
-                                """))
+                                """)
+                            .with(authenticatedUser(testUser)))
                     .andExpect(status().isNotFound());
         }
     }
@@ -213,7 +226,8 @@ class RuleControllerTest {
                                     "text": "netflix inc",
                                     "threshold": 0.90
                                 }
-                                """))
+                                """)
+                            .with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.text").value("netflix inc"))
                     .andExpect(jsonPath("$.threshold").value(0.90));
@@ -225,7 +239,8 @@ class RuleControllerTest {
 
             mockMvc.perform(put(ruleUrl(payment.getId(), UUID.randomUUID()))
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"text\": \"test\"}"))
+                            .content("{\"text\": \"test\"}")
+                            .with(authenticatedUser(testUser)))
                     .andExpect(status().isNotFound());
         }
     }
@@ -242,10 +257,10 @@ class RuleControllerTest {
             RecurringPayment payment = seedPayment("Netflix");
             Rule rule = seedJaroWinklerRule(payment, "netflix", 0.85);
 
-            mockMvc.perform(delete(ruleUrl(payment.getId(), rule.getId())))
+            mockMvc.perform(delete(ruleUrl(payment.getId(), rule.getId())).with(authenticatedUser(testUser)))
                     .andExpect(status().isNoContent());
 
-            mockMvc.perform(get(rulesUrl(payment.getId())))
+            mockMvc.perform(get(rulesUrl(payment.getId())).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$", hasSize(0)));
         }
@@ -254,7 +269,7 @@ class RuleControllerTest {
         void returns404ForNonExistentRule() throws Exception {
             RecurringPayment payment = seedPayment("Netflix");
 
-            mockMvc.perform(delete(ruleUrl(payment.getId(), UUID.randomUUID())))
+            mockMvc.perform(delete(ruleUrl(payment.getId(), UUID.randomUUID())).with(authenticatedUser(testUser)))
                     .andExpect(status().isNotFound());
         }
     }
@@ -270,7 +285,7 @@ class RuleControllerTest {
         void returnsUpdatedPayment() throws Exception {
             RecurringPayment payment = seedPayment("Netflix");
 
-            mockMvc.perform(post(reEvaluateUrl(payment.getId())))
+            mockMvc.perform(post(reEvaluateUrl(payment.getId())).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(payment.getId().toString()))
                     .andExpect(jsonPath("$.name").value("Netflix"));
@@ -278,7 +293,7 @@ class RuleControllerTest {
 
         @Test
         void returns404ForNonExistentPayment() throws Exception {
-            mockMvc.perform(post(reEvaluateUrl(UUID.randomUUID())))
+            mockMvc.perform(post(reEvaluateUrl(UUID.randomUUID())).with(authenticatedUser(testUser)))
                     .andExpect(status().isNotFound());
         }
     }
@@ -296,7 +311,7 @@ class RuleControllerTest {
             seedJaroWinklerRule(payment, "netflix", 0.85);
             seedAmountRule(payment, "-12.99", "1.30");
 
-            mockMvc.perform(get("/api/recurring-payments"))
+            mockMvc.perform(get("/api/recurring-payments").with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$[0].ruleCount").value(2));
         }
@@ -305,7 +320,7 @@ class RuleControllerTest {
         void returnsZeroRuleCountWhenNoRules() throws Exception {
             seedPayment("Netflix");
 
-            mockMvc.perform(get("/api/recurring-payments"))
+            mockMvc.perform(get("/api/recurring-payments").with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$[0].ruleCount").value(0));
         }
@@ -323,6 +338,7 @@ class RuleControllerTest {
         payment.setFrequency("MONTHLY");
         payment.setIsIncome(false);
         payment.setIsActive(true);
+        payment.setUser(testUser);
         return recurringPaymentRepository.save(payment);
     }
 
@@ -334,6 +350,7 @@ class RuleControllerTest {
         rule.setText(text);
         rule.setStrict(true);
         rule.setThreshold(threshold);
+        rule.setUser(testUser);
         return ruleRepository.save(rule);
     }
 
@@ -343,6 +360,7 @@ class RuleControllerTest {
         rule.setRuleType(RuleType.AMOUNT);
         rule.setAmount(new BigDecimal(amount));
         rule.setFluctuationRange(new BigDecimal(fluctuation));
+        rule.setUser(testUser);
         return ruleRepository.save(rule);
     }
 }

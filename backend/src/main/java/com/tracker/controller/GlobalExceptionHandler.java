@@ -7,6 +7,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
@@ -53,6 +57,36 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException e) {
         log.debug("File upload size exceeded: {}", e.getMessage(), e);
         return buildResponse(HttpStatus.BAD_REQUEST, "File size exceeds the maximum allowed size of 10MB.");
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleBadCredentials(BadCredentialsException e) {
+        log.debug("Authentication failed: {}", e.getMessage(), e);
+        return buildResponse(HttpStatus.UNAUTHORIZED, "Invalid username or password");
+    }
+
+    @ExceptionHandler(UsernameNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleUsernameNotFound(UsernameNotFoundException e) {
+        log.debug("Username not found: {}", e.getMessage(), e);
+        return buildResponse(HttpStatus.UNAUTHORIZED, "Invalid username or password");
+    }
+
+    @ExceptionHandler(DisabledException.class)
+    public ResponseEntity<ErrorResponse> handleDisabled(DisabledException e) {
+        log.debug("Disabled account login attempt: {}", e.getMessage(), e);
+        return buildResponse(HttpStatus.UNAUTHORIZED, "Account is disabled");
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException e) {
+        log.debug("Access denied: {}", e.getMessage(), e);
+        return buildResponse(HttpStatus.FORBIDDEN, "Access denied");
+    }
+
+    @ExceptionHandler(SetupAlreadyCompleteException.class)
+    public ResponseEntity<ErrorResponse> handleSetupAlreadyComplete(SetupAlreadyCompleteException e) {
+        log.debug("Setup already complete: {}", e.getMessage(), e);
+        return buildResponse(HttpStatus.CONFLICT, e.getMessage());
     }
 
     @ExceptionHandler(NoResourceFoundException.class)

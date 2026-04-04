@@ -2,9 +2,11 @@ package com.tracker.controller;
 
 import com.tracker.model.entity.FileUpload;
 import com.tracker.model.entity.Transaction;
+import com.tracker.model.entity.User;
 import com.tracker.repository.*;
 import com.tracker.testutil.CsvMother;
 import com.tracker.testutil.FileUploadMother;
+import com.tracker.testutil.SecurityTestUtil;
 import com.tracker.testutil.TransactionMother;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +23,7 @@ import java.util.UUID;
 
 import static com.tracker.controller.TransactionController.*;
 import static com.tracker.testutil.CsvMother.*;
+import static com.tracker.testutil.SecurityTestUtil.authenticatedUser;
 import static com.tracker.testutil.TransactionMother.*;
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -72,6 +75,11 @@ class TransactionControllerTest {
     @Autowired
     private RecurringPaymentRepository recurringPaymentRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    private User testUser;
+
     @BeforeEach
     void setUp() {
         linkRepository.deleteAll();
@@ -79,13 +87,14 @@ class TransactionControllerTest {
         recurringPaymentRepository.deleteAll();
         transactionRepository.deleteAll();
         fileUploadRepository.deleteAll();
+        testUser = SecurityTestUtil.createTestUser(userRepository);
     }
 
     @Test
     void uploadCsv_validFile_returnsUploadResponse() throws Exception {
         MockMultipartFile file = CsvMother.validTwoRowFile();
 
-        mockMvc.perform(multipart(UPLOAD_URL).file(file))
+        mockMvc.perform(multipart(UPLOAD_URL).file(file).with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.uploadId").isNotEmpty())
                 .andExpect(jsonPath("$.transactionCount").value(2))
@@ -96,7 +105,7 @@ class TransactionControllerTest {
     void uploadCsv_missingRequiredColumn_returns400() throws Exception {
         MockMultipartFile file = CsvMother.multipartFile(INVALID_HEADER, "01.01.2025;Test;-10,00");
 
-        mockMvc.perform(multipart(UPLOAD_URL).file(file))
+        mockMvc.perform(multipart(UPLOAD_URL).file(file).with(authenticatedUser(testUser)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", containsString("Buchungsdatum")));
     }
@@ -105,7 +114,7 @@ class TransactionControllerTest {
     void uploadCsv_invalidDate_returns400() throws Exception {
         MockMultipartFile file = CsvMother.multipartFile(HEADER, INVALID_DATE_ROW);
 
-        mockMvc.perform(multipart(UPLOAD_URL).file(file))
+        mockMvc.perform(multipart(UPLOAD_URL).file(file).with(authenticatedUser(testUser)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", containsString("date")));
     }
@@ -115,7 +124,8 @@ class TransactionControllerTest {
         seedTransaction(TransactionMother.netflix());
         seedTransaction(TransactionMother.spotify());
 
-        mockMvc.perform(get(TRANSACTIONS_URL).param(PAGE_PARAM, "0").param(SIZE_PARAM, "10"))
+        mockMvc.perform(get(TRANSACTIONS_URL).param(PAGE_PARAM, "0").param(SIZE_PARAM, "10")
+                        .with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(2))
                 .andExpect(jsonPath("$.totalPages").value(1))
@@ -128,15 +138,14 @@ class TransactionControllerTest {
 
     @Test
     void getTransactions_pagingAcrossTwoPages() throws Exception {
-        // Seed 3 transactions, request page size 2 -> should yield 2 pages
         Transaction tx1 = seedTransaction(TransactionMother.transaction(NETFLIX, JAN_DATE, TEN));
         Transaction tx2 = seedTransaction(TransactionMother.transaction(SPOTIFY, FEB_DATE, TWENTY));
         Transaction tx3 = seedTransaction(TransactionMother.transaction(EMPLOYER, MAR_DATE, THIRTY));
 
-        // Page 0: most recent first (sorted DESC by bookingDate) -> Mar, Feb
         mockMvc.perform(get(TRANSACTIONS_URL)
                         .param(PAGE_PARAM, "0")
-                        .param(SIZE_PARAM, String.valueOf(PAGE_SIZE_2)))
+                        .param(SIZE_PARAM, String.valueOf(PAGE_SIZE_2))
+                        .with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(TOTAL_PAGING_ITEMS))
                 .andExpect(jsonPath("$.totalPages").value(EXPECTED_PAGES))
@@ -150,10 +159,10 @@ class TransactionControllerTest {
                 .andExpect(header().string(HEADER_PAGE_SIZE, String.valueOf(PAGE_SIZE_2)))
                 .andExpect(header().string(HEADER_TOTAL_PAGES, String.valueOf(EXPECTED_PAGES)));
 
-        // Page 1: remaining item -> Jan
         mockMvc.perform(get(TRANSACTIONS_URL)
                         .param(PAGE_PARAM, "1")
-                        .param(SIZE_PARAM, String.valueOf(PAGE_SIZE_2)))
+                        .param(SIZE_PARAM, String.valueOf(PAGE_SIZE_2))
+                        .with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(TOTAL_PAGING_ITEMS))
                 .andExpect(jsonPath("$.totalPages").value(EXPECTED_PAGES))
@@ -173,7 +182,8 @@ class TransactionControllerTest {
 
         mockMvc.perform(get(TRANSACTIONS_URL)
                         .param(FROM_PARAM, "2025-02-01")
-                        .param(TO_PARAM, "2025-12-31"))
+                        .param(TO_PARAM, "2025-12-31")
+                        .with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].partnerName").value(PARTNER_MAR));
@@ -184,7 +194,8 @@ class TransactionControllerTest {
         seedTransaction(TransactionMother.netflix());
         seedTransaction(TransactionMother.spotify());
 
-        mockMvc.perform(get(TRANSACTIONS_URL).param(TEXT_PARAM, "net"))
+        mockMvc.perform(get(TRANSACTIONS_URL).param(TEXT_PARAM, "net")
+                        .with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].partnerName").value(NETFLIX));
@@ -198,7 +209,8 @@ class TransactionControllerTest {
 
         mockMvc.perform(get(TRANSACTIONS_URL)
                         .param(SORT_PARAM, "partnerName")
-                        .param(SORT_DIR_PARAM, "asc"))
+                        .param(SORT_DIR_PARAM, "asc")
+                        .with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].partnerName").value(EMPLOYER))
                 .andExpect(jsonPath("$.content[1].partnerName").value(NETFLIX))
@@ -213,7 +225,8 @@ class TransactionControllerTest {
 
         mockMvc.perform(get(TRANSACTIONS_URL)
                         .param(SORT_PARAM, "amount")
-                        .param(SORT_DIR_PARAM, "desc"))
+                        .param(SORT_DIR_PARAM, "desc")
+                        .with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].amount").value(-10.00))
                 .andExpect(jsonPath("$.content[1].amount").value(-20.00))
@@ -224,7 +237,8 @@ class TransactionControllerTest {
     void getTransactionById_exists_returnsTransaction() throws Exception {
         Transaction tx = seedTransaction(TransactionMother.netflix());
 
-        mockMvc.perform(get(TRANSACTIONS_URL + "/{id}", tx.getId()))
+        mockMvc.perform(get(TRANSACTIONS_URL + "/{id}", tx.getId())
+                        .with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(tx.getId().toString()))
                 .andExpect(jsonPath("$.partnerName").value(NETFLIX))
@@ -233,13 +247,19 @@ class TransactionControllerTest {
 
     @Test
     void getTransactionById_notFound_returns404() throws Exception {
-        mockMvc.perform(get(TRANSACTIONS_URL + "/{id}", UUID.randomUUID()))
+        mockMvc.perform(get(TRANSACTIONS_URL + "/{id}", UUID.randomUUID())
+                        .with(authenticatedUser(testUser)))
                 .andExpect(status().isNotFound());
     }
 
     private Transaction seedTransaction(Transaction tx) {
-        FileUpload upload = fileUploadRepository.save(FileUploadMother.csvUpload());
+        FileUpload upload = new FileUpload();
+        upload.setFilename("test.csv");
+        upload.setMimeType("text/csv");
+        upload.setUser(testUser);
+        upload = fileUploadRepository.save(upload);
         tx.setUpload(upload);
+        tx.setUser(testUser);
         return transactionRepository.save(tx);
     }
 }

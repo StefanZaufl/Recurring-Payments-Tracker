@@ -19,16 +19,19 @@ public class RuleService {
 
     private final RuleRepository ruleRepository;
     private final RecurringPaymentRepository recurringPaymentRepository;
+    private final UserContextService userContextService;
 
-    public RuleService(RuleRepository ruleRepository, RecurringPaymentRepository recurringPaymentRepository) {
+    public RuleService(RuleRepository ruleRepository, RecurringPaymentRepository recurringPaymentRepository,
+                       UserContextService userContextService) {
         this.ruleRepository = ruleRepository;
         this.recurringPaymentRepository = recurringPaymentRepository;
+        this.userContextService = userContextService;
     }
 
     @Transactional(readOnly = true)
     public List<Rule> getRulesForPayment(UUID recurringPaymentId) {
         requirePaymentExists(recurringPaymentId);
-        return ruleRepository.findByRecurringPaymentId(recurringPaymentId);
+        return ruleRepository.findByRecurringPaymentIdAndUserId(recurringPaymentId, userContextService.getCurrentUserId());
     }
 
     @Transactional
@@ -48,6 +51,7 @@ public class RuleService {
         rule.setThreshold(threshold);
         rule.setAmount(amount);
         rule.setFluctuationRange(fluctuationRange);
+        rule.setUser(userContextService.getCurrentUser());
         return ruleRepository.save(rule);
     }
 
@@ -56,7 +60,8 @@ public class RuleService {
                                      String text, Boolean strict, Double threshold,
                                      BigDecimal amount, BigDecimal fluctuationRange) {
         requirePaymentExists(recurringPaymentId);
-        return ruleRepository.findByIdAndRecurringPaymentId(ruleId, recurringPaymentId)
+        UUID currentUserId = userContextService.getCurrentUserId();
+        return ruleRepository.findByIdAndRecurringPaymentIdAndUserId(ruleId, recurringPaymentId, currentUserId)
                 .map(rule -> {
                     if (targetField != null) rule.setTargetField(targetField);
                     if (text != null) rule.setText(text);
@@ -75,7 +80,8 @@ public class RuleService {
     @Transactional
     public boolean deleteRule(UUID recurringPaymentId, UUID ruleId) {
         requirePaymentExists(recurringPaymentId);
-        return ruleRepository.findByIdAndRecurringPaymentId(ruleId, recurringPaymentId)
+        UUID currentUserId = userContextService.getCurrentUserId();
+        return ruleRepository.findByIdAndRecurringPaymentIdAndUserId(ruleId, recurringPaymentId, currentUserId)
                 .map(rule -> {
                     ruleRepository.delete(rule);
                     return true;
@@ -84,7 +90,7 @@ public class RuleService {
     }
 
     private RecurringPayment requirePaymentExists(UUID recurringPaymentId) {
-        return recurringPaymentRepository.findById(recurringPaymentId)
+        return recurringPaymentRepository.findByIdAndUserId(recurringPaymentId, userContextService.getCurrentUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Recurring payment not found: " + recurringPaymentId));
     }
 

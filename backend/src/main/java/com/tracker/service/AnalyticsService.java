@@ -22,13 +22,16 @@ public class AnalyticsService {
     private final TransactionRepository transactionRepository;
     private final RecurringPaymentRepository recurringPaymentRepository;
     private final TransactionRecurringLinkRepository linkRepository;
+    private final UserContextService userContextService;
 
     public AnalyticsService(TransactionRepository transactionRepository,
                             RecurringPaymentRepository recurringPaymentRepository,
-                            TransactionRecurringLinkRepository linkRepository) {
+                            TransactionRecurringLinkRepository linkRepository,
+                            UserContextService userContextService) {
         this.transactionRepository = transactionRepository;
         this.recurringPaymentRepository = recurringPaymentRepository;
         this.linkRepository = linkRepository;
+        this.userContextService = userContextService;
     }
 
     @Transactional(readOnly = true)
@@ -36,8 +39,9 @@ public class AnalyticsService {
         LocalDate startOfYear = LocalDate.of(year, 1, 1);
         LocalDate endOfYear = LocalDate.of(year, 12, 31);
 
-        List<Transaction> transactions = transactionRepository.findByBookingDateBetween(startOfYear, endOfYear);
-        List<RecurringPayment> activePayments = recurringPaymentRepository.findByIsActiveTrue();
+        UUID currentUserId = userContextService.getCurrentUserId();
+        List<Transaction> transactions = transactionRepository.findByUserIdAndBookingDateBetween(currentUserId, startOfYear, endOfYear);
+        List<RecurringPayment> activePayments = recurringPaymentRepository.findByUserIdAndIsActiveTrue(currentUserId);
 
         // Presort transactions by month (index 0 = January, 11 = December)
         List<List<Transaction>> transactionsByMonth = new ArrayList<>(12);
@@ -144,7 +148,7 @@ public class AnalyticsService {
 
     @Transactional(readOnly = true)
     public PredictionResult getPredictions(int months) {
-        List<RecurringPayment> activePayments = recurringPaymentRepository.findByIsActiveTrue();
+        List<RecurringPayment> activePayments = recurringPaymentRepository.findByUserIdAndIsActiveTrue(userContextService.getCurrentUserId());
         LocalDate today = LocalDate.now();
 
         // Generate upcoming individual payments

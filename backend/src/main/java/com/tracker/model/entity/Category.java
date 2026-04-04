@@ -23,4 +23,8 @@ public class Category {
 
     @Column(length = 7)
     private String color;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 }

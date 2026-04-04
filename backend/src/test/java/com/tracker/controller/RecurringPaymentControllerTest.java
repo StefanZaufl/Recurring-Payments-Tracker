@@ -4,9 +4,11 @@ import com.tracker.model.entity.FileUpload;
 import com.tracker.model.entity.RecurringPayment;
 import com.tracker.model.entity.Transaction;
 import com.tracker.model.entity.TransactionRecurringLink;
+import com.tracker.model.entity.User;
 import com.tracker.repository.*;
 import com.tracker.testutil.CsvMother;
 import com.tracker.testutil.FileUploadMother;
+import com.tracker.testutil.SecurityTestUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -22,6 +24,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
+import static com.tracker.testutil.SecurityTestUtil.authenticatedUser;
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -54,6 +57,11 @@ class RecurringPaymentControllerTest {
     @Autowired
     private RuleRepository ruleRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    private User testUser;
+
     @BeforeEach
     void setUp() {
         linkRepository.deleteAll();
@@ -62,6 +70,7 @@ class RecurringPaymentControllerTest {
         transactionRepository.deleteAll();
         fileUploadRepository.deleteAll();
         categoryRepository.deleteAll();
+        testUser = SecurityTestUtil.createTestUser(userRepository);
     }
 
     // ────────────────────────────────────────────────────────────────────
@@ -73,7 +82,7 @@ class RecurringPaymentControllerTest {
 
         @Test
         void returnsEmptyListWhenNoneExist() throws Exception {
-            mockMvc.perform(get(RECURRING_URL))
+            mockMvc.perform(get(RECURRING_URL).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$", hasSize(0)));
         }
@@ -83,7 +92,7 @@ class RecurringPaymentControllerTest {
             seedRecurringPayment("Netflix", "MONTHLY", "-12.99", false);
             seedRecurringPayment("Salary", "MONTHLY", "3500.00", true);
 
-            mockMvc.perform(get(RECURRING_URL))
+            mockMvc.perform(get(RECURRING_URL).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$", hasSize(2)))
                     .andExpect(jsonPath("$[*].name", containsInAnyOrder("Netflix", "Salary")));
@@ -93,7 +102,7 @@ class RecurringPaymentControllerTest {
         void returnsCorrectDtoFields() throws Exception {
             RecurringPayment payment = seedRecurringPayment("Netflix", "MONTHLY", "-12.99", false);
 
-            mockMvc.perform(get(RECURRING_URL))
+            mockMvc.perform(get(RECURRING_URL).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$[0].id").value(payment.getId().toString()))
                     .andExpect(jsonPath("$[0].name").value("Netflix"))
@@ -117,7 +126,8 @@ class RecurringPaymentControllerTest {
 
             mockMvc.perform(put(RECURRING_URL + "/{id}", payment.getId())
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"name\": \"Netflix Premium\"}"))
+                            .content("{\"name\": \"Netflix Premium\"}")
+                            .with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.name").value("Netflix Premium"));
         }
@@ -128,7 +138,8 @@ class RecurringPaymentControllerTest {
 
             mockMvc.perform(put(RECURRING_URL + "/{id}", payment.getId())
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"isActive\": false}"))
+                            .content("{\"isActive\": false}")
+                            .with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.isActive").value(false));
         }
@@ -137,7 +148,8 @@ class RecurringPaymentControllerTest {
         void returns404ForNonExistentId() throws Exception {
             mockMvc.perform(put(RECURRING_URL + "/{id}", UUID.randomUUID())
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"name\": \"Test\"}"))
+                            .content("{\"name\": \"Test\"}")
+                            .with(authenticatedUser(testUser)))
                     .andExpect(status().isNotFound());
         }
 
@@ -147,7 +159,8 @@ class RecurringPaymentControllerTest {
 
             mockMvc.perform(put(RECURRING_URL + "/{id}", payment.getId())
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"name\": \"Netflix HD\"}"))
+                            .content("{\"name\": \"Netflix HD\"}")
+                            .with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.name").value("Netflix HD"))
                     .andExpect(jsonPath("$.frequency").value("MONTHLY"))
@@ -171,7 +184,7 @@ class RecurringPaymentControllerTest {
             seedLink(tx1, payment);
             seedLink(tx2, payment);
 
-            mockMvc.perform(get(RECURRING_URL + "/{id}/transactions", payment.getId()))
+            mockMvc.perform(get(RECURRING_URL + "/{id}/transactions", payment.getId()).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$", hasSize(2)))
                     .andExpect(jsonPath("$[*].partnerName", everyItem(is("Netflix"))));
@@ -181,14 +194,14 @@ class RecurringPaymentControllerTest {
         void returnsEmptyListWhenNoLinkedTransactions() throws Exception {
             RecurringPayment payment = seedRecurringPayment("Netflix", "MONTHLY", "-12.99", false);
 
-            mockMvc.perform(get(RECURRING_URL + "/{id}/transactions", payment.getId()))
+            mockMvc.perform(get(RECURRING_URL + "/{id}/transactions", payment.getId()).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$", hasSize(0)));
         }
 
         @Test
         void returns404ForNonExistentPayment() throws Exception {
-            mockMvc.perform(get(RECURRING_URL + "/{id}/transactions", UUID.randomUUID()))
+            mockMvc.perform(get(RECURRING_URL + "/{id}/transactions", UUID.randomUUID()).with(authenticatedUser(testUser)))
                     .andExpect(status().isNotFound());
         }
     }
@@ -217,13 +230,13 @@ class RecurringPaymentControllerTest {
             byte[] csvBytes = CsvMother.bytes(header, row1, row2, row3, row4, row5, row6, row7);
             MockMultipartFile file = new MockMultipartFile("file", "export.csv", "text/csv", csvBytes);
 
-            mockMvc.perform(multipart("/api/transactions/csv").file(file))
+            mockMvc.perform(multipart("/api/transactions/csv").file(file).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.transactionCount").value(7))
                     .andExpect(jsonPath("$.recurringPaymentsDetected").value(2));
 
             // Verify recurring payments were persisted
-            mockMvc.perform(get(RECURRING_URL))
+            mockMvc.perform(get(RECURRING_URL).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$", hasSize(2)))
                     .andExpect(jsonPath("$[*].frequency", everyItem(is("MONTHLY"))));
@@ -238,7 +251,7 @@ class RecurringPaymentControllerTest {
             byte[] csvBytes = CsvMother.bytes(header, row1, row2);
             MockMultipartFile file = new MockMultipartFile("file", "export.csv", "text/csv", csvBytes);
 
-            mockMvc.perform(multipart("/api/transactions/csv").file(file))
+            mockMvc.perform(multipart("/api/transactions/csv").file(file).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.recurringPaymentsDetected").value(0));
         }
@@ -253,7 +266,7 @@ class RecurringPaymentControllerTest {
                     "15.03.2025;Netflix;-12,99");
             MockMultipartFile file1 = new MockMultipartFile("file", "export1.csv", "text/csv", csv1);
 
-            mockMvc.perform(multipart("/api/transactions/csv").file(file1))
+            mockMvc.perform(multipart("/api/transactions/csv").file(file1).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.recurringPaymentsDetected").value(1));
 
@@ -264,12 +277,12 @@ class RecurringPaymentControllerTest {
                     "05.03.2025;Spotify;-9,99");
             MockMultipartFile file2 = new MockMultipartFile("file", "export2.csv", "text/csv", csv2);
 
-            mockMvc.perform(multipart("/api/transactions/csv").file(file2))
+            mockMvc.perform(multipart("/api/transactions/csv").file(file2).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.recurringPaymentsDetected").value(1));
 
             // Should have exactly 2 recurring payments total (Netflix from first, Spotify from second)
-            mockMvc.perform(get(RECURRING_URL))
+            mockMvc.perform(get(RECURRING_URL).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$", hasSize(2)));
         }
@@ -287,16 +300,20 @@ class RecurringPaymentControllerTest {
         payment.setFrequency(frequency);
         payment.setIsIncome(isIncome);
         payment.setIsActive(true);
+        payment.setUser(testUser);
         return recurringPaymentRepository.save(payment);
     }
 
     private Transaction seedTransaction(String partnerName, LocalDate date, String amount) {
-        FileUpload upload = fileUploadRepository.save(FileUploadMother.csvUpload());
+        FileUpload upload = FileUploadMother.csvUpload();
+        upload.setUser(testUser);
+        upload = fileUploadRepository.save(upload);
         Transaction tx = new Transaction();
         tx.setPartnerName(partnerName);
         tx.setBookingDate(date);
         tx.setAmount(new BigDecimal(amount));
         tx.setUpload(upload);
+        tx.setUser(testUser);
         return transactionRepository.save(tx);
     }
 
@@ -305,6 +322,7 @@ class RecurringPaymentControllerTest {
         link.setTransaction(tx);
         link.setRecurringPayment(payment);
         link.setConfidenceScore(new BigDecimal("0.95"));
+        link.setUser(testUser);
         linkRepository.save(link);
     }
 }

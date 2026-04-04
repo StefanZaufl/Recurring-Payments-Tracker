@@ -2,6 +2,7 @@ package com.tracker.service;
 
 import com.tracker.model.entity.FileUpload;
 import com.tracker.model.entity.Transaction;
+import com.tracker.model.entity.User;
 import com.tracker.repository.FileUploadRepository;
 import com.tracker.repository.TransactionRepository;
 import jakarta.persistence.criteria.Predicate;
@@ -25,29 +26,35 @@ public class TransactionService {
     private final TransactionRepository transactionRepository;
     private final FileUploadRepository fileUploadRepository;
     private final RecurringPaymentDetectionService detectionService;
+    private final UserContextService userContextService;
 
     public TransactionService(CsvParserService csvParserService,
                               TransactionRepository transactionRepository,
                               FileUploadRepository fileUploadRepository,
-                              RecurringPaymentDetectionService detectionService) {
+                              RecurringPaymentDetectionService detectionService,
+                              UserContextService userContextService) {
         this.csvParserService = csvParserService;
         this.transactionRepository = transactionRepository;
         this.fileUploadRepository = fileUploadRepository;
         this.detectionService = detectionService;
+        this.userContextService = userContextService;
     }
 
     @Transactional
     public UploadResult uploadCsv(CsvUploadRequest request) {
+        User currentUser = userContextService.getCurrentUser();
         List<Transaction> transactions = csvParserService.parse(request.content());
 
         FileUpload upload = new FileUpload();
         upload.setFilename(request.filename());
         upload.setMimeType(request.mimeType());
         upload.setRowCount(transactions.size());
+        upload.setUser(currentUser);
         upload = fileUploadRepository.save(upload);
 
         for (Transaction tx : transactions) {
             tx.setUpload(upload);
+            tx.setUser(currentUser);
         }
         List<Transaction> savedTransactions = transactionRepository.saveAll(transactions);
 
@@ -60,6 +67,7 @@ public class TransactionService {
 
     @Transactional(readOnly = true)
     public Page<Transaction> getTransactions(LocalDate from, LocalDate to, String text, int page, int size, String sort, String sortDirection) {
+        UUID currentUserId = userContextService.getCurrentUserId();
         String sortField = sort != null && ALLOWED_SORT_FIELDS.contains(sort) ? sort : "bookingDate";
         Sort.Direction direction = "asc".equalsIgnoreCase(sortDirection) ? Sort.Direction.ASC : Sort.Direction.DESC;
         Sort sorting = Sort.by(direction, sortField);
@@ -70,6 +78,7 @@ public class TransactionService {
 
         Specification<Transaction> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(root.get("user").get("id"), currentUserId));
             if (from != null) {
                 predicates.add(cb.greaterThanOrEqualTo(root.get("bookingDate"), from));
             }
@@ -91,7 +100,9 @@ public class TransactionService {
 
     @Transactional(readOnly = true)
     public Optional<Transaction> getTransactionById(UUID id) {
-        return transactionRepository.findById(id);
+        UUID currentUserId = userContextService.getCurrentUserId();
+        return transactionRepository.findById(id)
+                .filter(tx -> tx.getUser() != null && tx.getUser().getId().equals(currentUserId));
     }
 
     public record CsvUploadRequest(String filename, String mimeType, byte[] content) {}

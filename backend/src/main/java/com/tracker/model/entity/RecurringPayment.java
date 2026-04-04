@@ -52,4 +52,8 @@ public class RecurringPayment {
 
     @OneToMany(mappedBy = "recurringPayment", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Rule> rules = new ArrayList<>();
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 }
