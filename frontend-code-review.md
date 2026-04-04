@@ -620,9 +620,13 @@ The following issues from the original review have been addressed:
 | 16 | AuthStateService design (§5.5) | `logout()` now returns `Observable`; `checkSetupNeeded()` logs errors before fallback |
 | 17 | Hardcoded values (§4.1) | Extracted `PASSWORD_MIN_LENGTH`, `DEFAULT_PAGE_SIZE`, `CURRENCY_LOCALE`, `CURRENCY_CODE` to `shared/constants.ts` |
 | 18 | Currency formatting duplication (§2.7) | All 5 `Intl.NumberFormat` calls now use shared constants; `CurrencyFormatPipe` created for future template use |
+| 19 | God component (§3.1) | Split `recurring-payments-list` (994→280 lines) into 3 sub-components: `payment-category-dialog`, `payment-transactions-modal`, `payment-rules-modal` |
+| 20 | Modal dialog duplication (§2.6) | Extracted `<app-modal>` shared component with content projection, used by all 3 modals |
+| 21 | File upload duplication (§2.4) | Extracted `<app-file-upload-zone>` shared component, replaced in `file-upload` and `configure` components |
+| 22 | Empty state component (§2.3) | Created `<app-empty-state>` shared component with icon slot, heading, description, and CTA |
 
-**Lint errors: 223 → 28** (all remaining in test files).
-**Tests: 244 → 257** (13 new tests for shared components).
+**Lint errors: 223 → 28** (all remaining in test files, no regressions from phase 2).
+**Tests: 244 → 257** (test count maintained; tests migrated to sub-component specs).
 **Build: passing.**
 
 ---
@@ -647,25 +651,9 @@ Addresses §7 (Test Quality) and the remaining 28 lint errors.
 
 **How to structure:** One PR with commits grouped by file. Start with the 28 lint fixes (mechanical), then add error-path tests, then refactor test anti-patterns.
 
-#### PR 2 -- Split the god component
+#### ~~PR 2 -- Split the god component~~ ✅ COMPLETED
 
-Addresses §3.1 (Component Complexity) and partially §2.6 (Modal Dialog Structure).
-
-`recurring-payments-list.component.ts` is still 950+ lines with 4 modal dialogs and full rules CRUD. Split into:
-
-| New component | Responsibility | Estimated lines |
-|---------------|---------------|-----------------|
-| `recurring-payments-list.component.ts` | List view, filtering, sorting | ~300 |
-| `payment-category-dialog.component.ts` | Category selection modal + inline create | ~120 |
-| `payment-transactions-modal.component.ts` | Transaction history modal with date filtering | ~150 |
-| `payment-rules-modal.component.ts` | Rules CRUD modal (list, create, edit, delete, re-evaluate) | ~250 |
-
-Also extract from this PR:
-- `<app-empty-state>` shared component (§2.3) -- 5 occurrences across components
-- `<app-modal>` shared component (§2.6) -- backdrop + close button + content projection
-- `<app-file-upload-zone>` shared component (§2.4) -- deduplicate between `file-upload.component.ts` and `configure.component.ts`
-
-**How to structure:** Extract shared components first (one commit), then split the god component (one commit per extracted sub-component). Keep the parent component as the coordinator, passing data via `@Input` and receiving events via `@Output`.
+Resolved in items #19-22 above. `recurring-payments-list.component.ts` reduced from 994 to 280 lines. Three sub-components extracted (`payment-category-dialog`, `payment-transactions-modal`, `payment-rules-modal`). Three shared components created (`<app-modal>`, `<app-file-upload-zone>`, `<app-empty-state>`). File upload logic deduplicated between `file-upload` and `configure` components.
 
 #### PR 3 -- Infrastructure and tooling
 
