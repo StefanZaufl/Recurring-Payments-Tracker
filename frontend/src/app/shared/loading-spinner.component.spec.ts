@@ -25,7 +25,7 @@ describe('LoadingSpinnerComponent', () => {
   });
 
   it('should display custom message', () => {
-    component.message = 'Loading data...';
+    fixture.componentRef.setInput('message', 'Loading data...');
     fixture.detectChanges();
     const el: HTMLElement = fixture.nativeElement;
     expect(el.textContent).toContain('Loading data...');

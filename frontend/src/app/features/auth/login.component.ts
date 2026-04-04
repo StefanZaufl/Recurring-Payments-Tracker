@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -7,6 +7,7 @@ import { Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-login',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule],
   template: `
     <div class="min-h-screen bg-surface flex items-center justify-center px-4">
@@ -90,6 +91,7 @@ import { Subject, takeUntil } from 'rxjs';
 export class LoginComponent implements OnInit, OnDestroy {
   private authState = inject(AuthStateService);
   private router = inject(Router);
+  private cdr = inject(ChangeDetectorRef);
 
   private destroy$ = new Subject<void>();
   username = '';
@@ -105,6 +107,7 @@ export class LoginComponent implements OnInit, OnDestroy {
       } else {
         this.checking = false;
       }
+      this.cdr.markForCheck();
     });
   }
 
@@ -120,6 +123,7 @@ export class LoginComponent implements OnInit, OnDestroy {
     this.authState.login(this.username, this.password).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.router.navigate(['/dashboard']);
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.loading = false;
@@ -128,6 +132,7 @@ export class LoginComponent implements OnInit, OnDestroy {
         } else {
           this.error = 'An error occurred. Please try again.';
         }
+        this.cdr.markForCheck();
       }
     });
   }

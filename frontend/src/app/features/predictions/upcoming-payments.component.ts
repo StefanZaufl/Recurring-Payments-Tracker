@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 
 import { RouterLink } from '@angular/router';
 import { BaseChartDirective } from 'ng2-charts';
@@ -8,10 +8,11 @@ import { PredictionResponse } from '../../api/generated/model/predictionResponse
 import { Subject, takeUntil } from 'rxjs';
 import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component';
 import { ErrorStateComponent } from '../../shared/error-state.component';
-import { CURRENCY_LOCALE, CURRENCY_CODE } from '../../shared/constants';
+import { CURRENCY_LOCALE, CURRENCY_CODE, CHART_THEME } from '../../shared/constants';
 
 @Component({
   selector: 'app-upcoming-payments',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink, BaseChartDirective, LoadingSpinnerComponent, ErrorStateComponent],
   template: `
     <div class="animate-fade-in">
@@ -51,6 +52,8 @@ import { CURRENCY_LOCALE, CURRENCY_CODE } from '../../shared/constants';
             <h2 class="text-sm font-semibold text-white mb-4">Monthly Forecast</h2>
             <div class="h-52 sm:h-72">
               <canvas baseChart
+                role="img"
+                aria-label="Bar chart showing 6-month income and expense forecast"
                 [datasets]="forecastChartData.datasets"
                 [labels]="forecastChartData.labels"
                 [options]="forecastChartOptions"
@@ -129,6 +132,7 @@ import { CURRENCY_LOCALE, CURRENCY_CODE } from '../../shared/constants';
 })
 export class UpcomingPaymentsComponent implements OnInit, OnDestroy {
   private analyticsService = inject(AnalyticsService);
+  private cdr = inject(ChangeDetectorRef);
 
   private destroy$ = new Subject<void>();
   loading = false;
@@ -142,20 +146,20 @@ export class UpcomingPaymentsComponent implements OnInit, OnDestroy {
     plugins: {
       legend: {
         position: 'top',
-        labels: { color: '#6b7194', font: { family: 'DM Sans', size: 11 }, boxWidth: 10, padding: 16 }
+        labels: { color: CHART_THEME.labelColor, font: { family: CHART_THEME.fontFamily, size: 11 }, boxWidth: 10, padding: 16 }
       }
     },
     scales: {
       x: {
-        grid: { color: 'rgba(42,45,62,0.5)' },
-        ticks: { color: '#6b7194', font: { family: 'DM Sans', size: 10 } }
+        grid: { color: CHART_THEME.gridColor },
+        ticks: { color: CHART_THEME.labelColor, font: { family: CHART_THEME.fontFamily, size: 10 } }
       },
       y: {
         beginAtZero: true,
-        grid: { color: 'rgba(42,45,62,0.5)' },
+        grid: { color: CHART_THEME.gridColor },
         ticks: {
-          color: '#6b7194',
-          font: { family: 'JetBrains Mono', size: 10 },
+          color: CHART_THEME.labelColor,
+          font: { family: CHART_THEME.monoFontFamily, size: 10 },
           callback: (value) => `${value}`
         }
       }
@@ -195,11 +199,13 @@ export class UpcomingPaymentsComponent implements OnInit, OnDestroy {
         this.predictions = data;
         this.buildForecastChart(data);
         this.loading = false;
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.predictions = null;
         this.error = err.error?.message || 'Failed to load predictions. Please try again.';
         this.loading = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -211,14 +217,14 @@ export class UpcomingPaymentsComponent implements OnInit, OnDestroy {
         {
           label: 'Expected Income',
           data: data.predictions.map(p => p.expectedIncome),
-          backgroundColor: 'rgba(34,197,94,0.7)',
+          backgroundColor: CHART_THEME.incomeColor,
           borderRadius: 4,
           borderSkipped: false,
         },
         {
           label: 'Expected Expenses',
           data: data.predictions.map(p => p.expectedExpenses),
-          backgroundColor: 'rgba(248,113,113,0.7)',
+          backgroundColor: CHART_THEME.expenseColor,
           borderRadius: 4,
           borderSkipped: false,
         }

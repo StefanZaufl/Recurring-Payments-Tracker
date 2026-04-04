@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CategoryDto } from '../../api/generated/model/categoryDto';
 import { RecurringPaymentDto } from '../../api/generated/model/recurringPaymentDto';
@@ -7,6 +7,7 @@ import { ModalComponent } from '../../shared/modal.component';
 
 @Component({
   selector: 'app-payment-category-dialog',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, CategoryCreateComponent, ModalComponent],
   template: `
     <app-modal

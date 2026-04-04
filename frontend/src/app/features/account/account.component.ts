@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { AuthStateService } from '../../core/auth-state.service';
@@ -8,6 +8,7 @@ import { PASSWORD_MIN_LENGTH } from '../../shared/constants';
 
 @Component({
   selector: 'app-account',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule],
   template: `
     <div class="animate-fade-in">
@@ -130,6 +131,7 @@ import { PASSWORD_MIN_LENGTH } from '../../shared/constants';
 export class AccountComponent implements OnInit, OnDestroy {
   private authState = inject(AuthStateService);
   private accountService = inject(AccountService);
+  private cdr = inject(ChangeDetectorRef);
 
   private destroy$ = new Subject<void>();
   currentUsername = '';
@@ -170,6 +172,7 @@ export class AccountComponent implements OnInit, OnDestroy {
         this.usernameSuccess = 'Username updated successfully.';
         this.currentUsername = this.newUsername;
         this.newUsername = '';
+        this.cdr.markForCheck();
         this.authState.refreshUser().pipe(takeUntil(this.destroy$)).subscribe({
           error: () => { /* user data will refresh on next navigation */ }
         });
@@ -181,6 +184,7 @@ export class AccountComponent implements OnInit, OnDestroy {
         } else {
           this.usernameError = 'Failed to update username.';
         }
+        this.cdr.markForCheck();
       }
     });
   }
@@ -212,6 +216,7 @@ export class AccountComponent implements OnInit, OnDestroy {
         this.currentPassword = '';
         this.newPassword = '';
         this.confirmNewPassword = '';
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.passwordLoading = false;
@@ -220,6 +225,7 @@ export class AccountComponent implements OnInit, OnDestroy {
         } else {
           this.passwordError = 'Failed to update password.';
         }
+        this.cdr.markForCheck();
       }
     });
   }

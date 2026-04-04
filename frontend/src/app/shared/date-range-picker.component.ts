@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export interface DateRange {
@@ -9,6 +9,7 @@ export interface DateRange {
 
 @Component({
   selector: 'app-date-range-picker',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule],
   template: `
     <!-- Trigger button -->
@@ -363,7 +364,8 @@ export class DateRangePickerComponent {
   }
 
   private formatDisplay(dateStr: string): string {
-    const d = new Date(dateStr + 'T00:00:00');
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const d = new Date(year, month - 1, day);
     return d.toLocaleDateString('en', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 }

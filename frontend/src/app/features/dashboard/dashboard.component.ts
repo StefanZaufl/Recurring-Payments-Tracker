@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 
 import { RouterLink } from '@angular/router';
 import { BaseChartDirective } from 'ng2-charts';
@@ -8,10 +8,11 @@ import { AnnualOverview } from '../../api/generated/model/annualOverview';
 import { Subject, takeUntil } from 'rxjs';
 import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component';
 import { ErrorStateComponent } from '../../shared/error-state.component';
-import { CURRENCY_LOCALE, CURRENCY_CODE } from '../../shared/constants';
+import { CURRENCY_LOCALE, CURRENCY_CODE, CHART_THEME } from '../../shared/constants';
 
 @Component({
   selector: 'app-dashboard',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink, BaseChartDirective, LoadingSpinnerComponent, ErrorStateComponent],
   template: `
     <div class="animate-fade-in">
@@ -97,6 +98,8 @@ import { CURRENCY_LOCALE, CURRENCY_CODE } from '../../shared/constants';
               <h2 class="text-sm font-semibold text-white mb-4">Monthly Income vs Expenses</h2>
               <div class="h-56 sm:h-72">
                 <canvas baseChart
+                  role="img"
+                  aria-label="Bar chart showing monthly income versus expenses"
                   [datasets]="barChartData.datasets"
                   [labels]="barChartData.labels"
                   [options]="barChartOptions"
@@ -110,6 +113,8 @@ import { CURRENCY_LOCALE, CURRENCY_CODE } from '../../shared/constants';
               @if (overview.byCategory.length > 0) {
                 <div class="h-56 sm:h-72 flex items-center justify-center">
                   <canvas baseChart
+                    role="img"
+                    aria-label="Doughnut chart showing expense breakdown by category"
                     [datasets]="pieChartData.datasets"
                     [labels]="pieChartData.labels"
                     [options]="pieChartOptions"
@@ -170,6 +175,7 @@ import { CURRENCY_LOCALE, CURRENCY_CODE } from '../../shared/constants';
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   private analyticsService = inject(AnalyticsService);
+  private cdr = inject(ChangeDetectorRef);
 
   private destroy$ = new Subject<void>();
   selectedYear = new Date().getFullYear();
@@ -187,20 +193,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
     plugins: {
       legend: {
         position: 'top',
-        labels: { color: '#6b7194', font: { family: 'DM Sans', size: 11 }, boxWidth: 10, padding: 16 }
+        labels: { color: CHART_THEME.labelColor, font: { family: CHART_THEME.fontFamily, size: 11 }, boxWidth: 10, padding: 16 }
       }
     },
     scales: {
       x: {
-        grid: { color: 'rgba(42,45,62,0.5)' },
-        ticks: { color: '#6b7194', font: { family: 'DM Sans', size: 10 } }
+        grid: { color: CHART_THEME.gridColor },
+        ticks: { color: CHART_THEME.labelColor, font: { family: CHART_THEME.fontFamily, size: 10 } }
       },
       y: {
         beginAtZero: true,
-        grid: { color: 'rgba(42,45,62,0.5)' },
+        grid: { color: CHART_THEME.gridColor },
         ticks: {
-          color: '#6b7194',
-          font: { family: 'JetBrains Mono', size: 10 },
+          color: CHART_THEME.labelColor,
+          font: { family: CHART_THEME.monoFontFamily, size: 10 },
           callback: (value) => `${value}`
         }
       }
@@ -215,15 +221,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     plugins: {
       legend: {
         position: 'bottom',
-        labels: { color: '#6b7194', font: { family: 'DM Sans', size: 11 }, boxWidth: 10, padding: 12 }
+        labels: { color: CHART_THEME.labelColor, font: { family: CHART_THEME.fontFamily, size: 11 }, boxWidth: 10, padding: 12 }
       }
     }
   };
-
-  private readonly categoryColors = [
-    '#22c55e', '#f87171', '#38bdf8', '#fbbf24', '#a78bfa',
-    '#f472b6', '#06b6d4', '#84cc16', '#fb923c', '#818cf8'
-  ];
 
   ngOnInit(): void {
     this.loadData();
@@ -252,11 +253,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.buildBarChart(data);
         this.buildPieChart(data);
         this.loading = false;
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.overview = null;
         this.error = err.error?.message || 'Failed to load annual overview. Please try again.';
         this.loading = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -268,14 +271,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
         {
           label: 'Income',
           data: data.monthlyBreakdown.map(m => m.income),
-          backgroundColor: 'rgba(34,197,94,0.7)',
+          backgroundColor: CHART_THEME.incomeColor,
           borderRadius: 4,
           borderSkipped: false,
         },
         {
           label: 'Expenses',
           data: data.monthlyBreakdown.map(m => m.expenses),
-          backgroundColor: 'rgba(248,113,113,0.7)',
+          backgroundColor: CHART_THEME.expenseColor,
           borderRadius: 4,
           borderSkipped: false,
         }
@@ -288,8 +291,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
       labels: data.byCategory.map(c => c.category),
       datasets: [{
         data: data.byCategory.map(c => c.total),
-        backgroundColor: data.byCategory.map((_, i) => this.categoryColors[i % this.categoryColors.length]),
-        borderColor: '#181a23',
+        backgroundColor: data.byCategory.map((_, i) => CHART_THEME.categoryColors[i % CHART_THEME.categoryColors.length]),
+        borderColor: CHART_THEME.borderColor,
         borderWidth: 2,
       }]
     };

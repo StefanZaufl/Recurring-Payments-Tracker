@@ -20,14 +20,14 @@ describe('FrequencyBadgeComponent', () => {
   });
 
   it('should display the frequency text', () => {
-    component.frequency = 'MONTHLY';
+    fixture.componentRef.setInput('frequency', 'MONTHLY');
     fixture.detectChanges();
     const el: HTMLElement = fixture.nativeElement;
     expect(el.textContent).toContain('MONTHLY');
   });
 
   it('should apply violet classes for MONTHLY', () => {
-    component.frequency = 'MONTHLY';
+    fixture.componentRef.setInput('frequency', 'MONTHLY');
     fixture.detectChanges();
     const badge = fixture.nativeElement.querySelector('span');
     expect(badge.classList).toContain('bg-violet-dim');
@@ -35,7 +35,7 @@ describe('FrequencyBadgeComponent', () => {
   });
 
   it('should apply amber classes for QUARTERLY', () => {
-    component.frequency = 'QUARTERLY';
+    fixture.componentRef.setInput('frequency', 'QUARTERLY');
     fixture.detectChanges();
     const badge = fixture.nativeElement.querySelector('span');
     expect(badge.classList).toContain('bg-amber-dim');
@@ -43,7 +43,7 @@ describe('FrequencyBadgeComponent', () => {
   });
 
   it('should apply sky classes for YEARLY', () => {
-    component.frequency = 'YEARLY';
+    fixture.componentRef.setInput('frequency', 'YEARLY');
     fixture.detectChanges();
     const badge = fixture.nativeElement.querySelector('span');
     expect(badge.classList).toContain('bg-sky-dim');

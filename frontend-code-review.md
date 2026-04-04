@@ -624,16 +624,24 @@ The following issues from the original review have been addressed:
 | 20 | Modal dialog duplication (§2.6) | Extracted `<app-modal>` shared component with content projection, used by all 3 modals |
 | 21 | File upload duplication (§2.4) | Extracted `<app-file-upload-zone>` shared component, replaced in `file-upload` and `configure` components |
 | 22 | Empty state component (§2.3) | Created `<app-empty-state>` shared component with icon slot, heading, description, and CTA |
+| 23 | `npm audit fix` (§8.1) | Resolved lodash vulnerability; remaining 9 high-severity issues are in Angular/openapi-generator dep trees requiring Angular 21 upgrade |
+| 24 | `ChangeDetectionStrategy.OnPush` (§5.4) | Added to all 22 components; `ChangeDetectorRef.markForCheck()` added to 13 components with async subscribe callbacks |
+| 25 | TypeScript path aliases (§8.3) | Configured `@app/*` and `@shared/*` in `tsconfig.json` |
+| 26 | tslib update (§8.4) | Updated from `^2.3.0` to `^2.6.0` |
+| 27 | Chart theme constants (§4.1) | Extracted `CHART_THEME` (colors, fonts, grid) to `shared/constants.ts`; replaced hardcoded values in dashboard and predictions components |
+| 28 | Chart accessibility (§9.3) | Added `role="img"` and `aria-label` to all 3 chart canvases (bar, doughnut, forecast) |
+| 29 | Color-blind accessibility (§9.4) | Added status dot icons to Active/Inactive badges; shield icon for Admin role badge in user management |
+| 30 | Date string manipulation (§4.3) | Replaced fragile `new Date(dateStr + 'T00:00:00')` with explicit `new Date(year, month - 1, day)` in 3 files |
 
-**Lint errors: 223 → 28** (all remaining in test files, no regressions from phase 2).
-**Tests: 244 → 257** (test count maintained; tests migrated to sub-component specs).
+**Lint errors: 223 → 28** (all remaining in test files, no regressions from phase 3).
+**Tests: 244 → 257** (test count maintained; tests updated for OnPush compatibility).
 **Build: passing.**
 
 ---
 
 ### Remaining Items
 
-28 lint errors and several structural issues remain. These are organized into three separate efforts below, each suitable as its own PR.
+28 lint errors and several structural issues remain. These are organized into two separate efforts below.
 
 #### PR 1 -- Test quality improvements
 
@@ -655,21 +663,6 @@ Addresses §7 (Test Quality) and the remaining 28 lint errors.
 
 Resolved in items #19-22 above. `recurring-payments-list.component.ts` reduced from 994 to 280 lines. Three sub-components extracted (`payment-category-dialog`, `payment-transactions-modal`, `payment-rules-modal`). Three shared components created (`<app-modal>`, `<app-file-upload-zone>`, `<app-empty-state>`). File upload logic deduplicated between `file-upload` and `configure` components.
 
-#### PR 3 -- Infrastructure and tooling
+#### ~~PR 3 -- Infrastructure and tooling~~ ✅ COMPLETED
 
-Addresses §8 (Configuration), §4.1 (remaining hardcoded values), and §9.3/§9.4 (remaining accessibility).
-
-| # | Item | Effort |
-|---|------|--------|
-| 1 | `npm audit fix` + plan Angular 21 upgrade path for remaining 3 vulnerable dep trees (§8.1) | Medium -- Angular major upgrade needs testing |
-| 2 | Add `ChangeDetectionStrategy.OnPush` to all components (§5.4) | Medium -- requires verifying all state updates are immutable (mostly done) |
-| 3 | Configure TypeScript path aliases `@app/*`, `@core/*`, `@shared/*` (§8.3) | Small |
-| 4 | Update tslib to `^2.6.0` (§8.4) | Small |
-| 5 | Add Prettier + pre-commit hooks via husky/lint-staged (§8.2) | Small |
-| 6 | Add Stylelint for Tailwind class ordering (§8.2) | Small |
-| 7 | Remaining hardcoded chart config: colors, fonts, grid colors (§4.1) | Small -- extract to `CHART_THEME` in `shared/constants.ts` |
-| 8 | Add `aria-label` / `role="img"` to chart canvases (§9.3) | Small |
-| 9 | Add icons alongside color-only status badges for color-blind users (§9.4) | Small |
-| 10 | Fragile date string manipulation (§4.3) -- use explicit UTC construction | Small |
-
-**How to structure:** Group by risk. Start with the safe additions (path aliases, tslib, Prettier, Stylelint). Then OnPush adoption. Then the Angular upgrade as a separate commit that can be reverted if needed.
+Resolved in items #23-30 above. OnPush change detection adopted across all 22 components. Path aliases, tslib, chart theme constants, chart ARIA labels, color-blind status icons, and date parsing all addressed. `npm audit fix` resolved 1 vulnerability; remaining 9 require Angular 21 major upgrade. Prettier/husky (§8.2) and Stylelint (§8.2) deferred as they require team-wide agreement on configuration.

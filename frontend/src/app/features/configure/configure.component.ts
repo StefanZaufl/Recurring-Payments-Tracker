@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { CategoriesService } from '../../api/generated';
@@ -11,6 +11,7 @@ import { Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-configure',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, CategoryCreateComponent, LoadingSpinnerComponent, ErrorStateComponent, FileUploadZoneComponent],
   template: `
     <div class="animate-fade-in min-w-0 overflow-hidden">
@@ -168,6 +169,7 @@ import { Subject, takeUntil } from 'rxjs';
 })
 export class ConfigureComponent implements OnInit, OnDestroy {
   private categoriesService = inject(CategoriesService);
+  private cdr = inject(ChangeDetectorRef);
 
   private destroy$ = new Subject<void>();
 
@@ -205,10 +207,12 @@ export class ConfigureComponent implements OnInit, OnDestroy {
       next: (cats) => {
         this.categories = cats;
         this.categoriesLoading = false;
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.categoriesError = err.error?.message || 'Failed to load categories.';
         this.categoriesLoading = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -243,10 +247,12 @@ export class ConfigureComponent implements OnInit, OnDestroy {
         if (idx !== -1) this.categories[idx] = updated;
         this.cancelEdit();
         this.savingEdit = false;
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.editError = err.error?.message || 'Failed to update category.';
         this.savingEdit = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -258,10 +264,12 @@ export class ConfigureComponent implements OnInit, OnDestroy {
       next: () => {
         this.categories = this.categories.filter(c => c.id !== category.id);
         this.deletingId = null;
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.deleteError = err.error?.message || 'Failed to delete category.';
         this.deletingId = null;
+        this.cdr.markForCheck();
       }
     });
   }

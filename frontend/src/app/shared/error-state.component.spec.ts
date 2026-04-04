@@ -20,7 +20,7 @@ describe('ErrorStateComponent', () => {
   });
 
   it('should display the error message', () => {
-    component.message = 'Something went wrong';
+    fixture.componentRef.setInput('message', 'Something went wrong');
     fixture.detectChanges();
     const el: HTMLElement = fixture.nativeElement;
     expect(el.textContent).toContain('Something went wrong');

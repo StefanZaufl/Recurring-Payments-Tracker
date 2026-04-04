@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TransactionsService } from '../../api/generated';
@@ -14,6 +14,7 @@ type SortDir = 'asc' | 'desc';
 
 @Component({
   selector: 'app-transactions',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule, DateRangePickerComponent, LoadingSpinnerComponent, ErrorStateComponent],
   template: `
     <div class="animate-fade-in">
@@ -196,6 +197,7 @@ type SortDir = 'asc' | 'desc';
 })
 export class TransactionsComponent implements OnInit, OnDestroy {
   private transactionsService = inject(TransactionsService);
+  private cdr = inject(ChangeDetectorRef);
 
   transactions: TransactionDto[] = [];
   loading = false;
@@ -226,6 +228,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
       this.searchText = text;
       this.page = 0;
       this.loadTransactions();
+      this.cdr.markForCheck();
     });
 
     this.loadTransactions();
@@ -283,10 +286,12 @@ export class TransactionsComponent implements OnInit, OnDestroy {
         this.totalElements = result.totalElements;
         this.totalPages = result.totalPages;
         this.loading = false;
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.error = err.error?.message || 'Failed to load transactions. Please try again.';
         this.loading = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -297,7 +302,8 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   }
 
   formatDate(dateStr: string): string {
-    const d = new Date(dateStr + 'T00:00:00');
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const d = new Date(year, month - 1, day);
     return d.toLocaleDateString('en', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 }

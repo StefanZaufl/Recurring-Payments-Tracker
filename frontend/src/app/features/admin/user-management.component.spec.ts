@@ -135,6 +135,7 @@ describe('UserManagementComponent', () => {
   it('should toggle create form', () => {
     expect(component.showCreateForm).toBe(false);
     component.showCreateForm = true;
+    component['cdr'].markForCheck();
     fixture.detectChanges();
 
     const el: HTMLElement = fixture.nativeElement;
@@ -326,6 +327,7 @@ describe('UserManagementComponent', () => {
   it('should render per-card error in template', () => {
     const user = component.users.find(u => u.id === 'u2')!;
     component.userErrors.set(user.id, 'Something went wrong');
+    component['cdr'].markForCheck();
     fixture.detectChanges();
 
     const el: HTMLElement = fixture.nativeElement;

@@ -1,4 +1,4 @@
-import { Component, OnDestroy, inject } from '@angular/core';
+import { Component, OnDestroy, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -9,6 +9,7 @@ import { PASSWORD_MIN_LENGTH } from '../../shared/constants';
 
 @Component({
   selector: 'app-setup',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule],
   template: `
     <div class="min-h-screen bg-surface flex items-center justify-center px-4">
@@ -103,6 +104,7 @@ export class SetupComponent implements OnDestroy {
   private setupService = inject(SetupService);
   private authState = inject(AuthStateService);
   private router = inject(Router);
+  private cdr = inject(ChangeDetectorRef);
 
   private destroy$ = new Subject<void>();
   username = '';
@@ -134,6 +136,7 @@ export class SetupComponent implements OnDestroy {
       next: (user) => {
         this.authState.setUser(user);
         this.router.navigate(['/dashboard']);
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.loading = false;
@@ -142,6 +145,7 @@ export class SetupComponent implements OnDestroy {
         } else {
           this.error = 'An error occurred. Please try again.';
         }
+        this.cdr.markForCheck();
       }
     });
   }

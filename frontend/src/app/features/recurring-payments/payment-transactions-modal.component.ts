@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RecurringPaymentsService } from '../../api/generated';
 import { RecurringPaymentDto } from '../../api/generated/model/recurringPaymentDto';
@@ -10,6 +10,7 @@ import { Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-payment-transactions-modal',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, DateRangePickerComponent, ModalComponent],
   template: `
     <app-modal
@@ -127,6 +128,7 @@ import { Subject, takeUntil } from 'rxjs';
 })
 export class PaymentTransactionsModalComponent implements OnInit, OnDestroy {
   private recurringPaymentsService = inject(RecurringPaymentsService);
+  private cdr = inject(ChangeDetectorRef);
   private destroy$ = new Subject<void>();
 
   @Input({ required: true }) payment!: RecurringPaymentDto;
@@ -159,10 +161,12 @@ export class PaymentTransactionsModalComponent implements OnInit, OnDestroy {
         this.allTransactions = transactions;
         this.applyFilter();
         this.loading = false;
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.error = err.error?.message || 'Failed to load transactions.';
         this.loading = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -179,7 +183,8 @@ export class PaymentTransactionsModalComponent implements OnInit, OnDestroy {
   }
 
   formatDate(dateStr: string): string {
-    const d = new Date(dateStr + 'T00:00:00');
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const d = new Date(year, month - 1, day);
     return d.toLocaleDateString('en', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 

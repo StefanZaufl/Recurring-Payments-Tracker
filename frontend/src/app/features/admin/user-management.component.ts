@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { AdminUsersService, AdminUserDto, UserRole } from '../../api/generated';
@@ -9,6 +9,7 @@ import { ErrorStateComponent } from '../../shared/error-state.component';
 
 @Component({
   selector: 'app-user-management',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, LoadingSpinnerComponent, ErrorStateComponent],
   template: `
     <div class="animate-fade-in">
@@ -166,6 +167,9 @@ import { ErrorStateComponent } from '../../shared/error-state.component';
                       (click)="startEditField(user, 'role')"
                       (keydown.enter)="startEditField(user, 'role')">
                       <span class="badge" [class]="user.role === UserRole.Admin ? 'bg-amber-500/10 text-amber-400' : 'bg-sky-500/10 text-sky-400'">
+                        @if (user.role === UserRole.Admin) {
+                          <svg class="w-3 h-3 mr-0.5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>
+                        }
                         {{ user.role === UserRole.Admin ? 'Admin' : 'User' }}
                       </span>
                       <svg class="w-3 h-3 text-muted shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
@@ -208,14 +212,14 @@ import { ErrorStateComponent } from '../../shared/error-state.component';
                       (click)="toggleEnabled(user)"
                       class="badge cursor-pointer transition-all hover:brightness-125"
                       [class]="user.enabled ? 'bg-accent-dim text-accent' : 'bg-coral-dim text-coral'">
-                      {{ user.enabled ? 'Active' : 'Disabled' }}
+                      <span class="inline-block w-1.5 h-1.5 rounded-full mr-1" [class.bg-accent]="user.enabled" [class.bg-coral]="!user.enabled"></span>{{ user.enabled ? 'Active' : 'Disabled' }}
                     </button>
                   }
                   @if (user.id === currentUserId) {
                     <span
                       class="badge bg-accent-dim text-accent opacity-60 cursor-not-allowed"
                       title="You cannot disable your own account">
-                      {{ user.enabled ? 'Active' : 'Disabled' }}
+                      <span class="inline-block w-1.5 h-1.5 rounded-full mr-1 bg-accent"></span>{{ user.enabled ? 'Active' : 'Disabled' }}
                     </span>
                   }
                 </div>
@@ -276,6 +280,7 @@ import { ErrorStateComponent } from '../../shared/error-state.component';
 export class UserManagementComponent implements OnInit, OnDestroy {
   private adminUsersService = inject(AdminUsersService);
   private authState = inject(AuthStateService);
+  private cdr = inject(ChangeDetectorRef);
 
   private destroy$ = new Subject<void>();
   readonly UserRole = UserRole;
@@ -317,10 +322,12 @@ export class UserManagementComponent implements OnInit, OnDestroy {
         this.users = users;
         this.sortUsers();
         this.loading = false;
+        this.cdr.markForCheck();
       },
       error: () => {
         this.error = 'Failed to load users.';
         this.loading = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -347,6 +354,7 @@ export class UserManagementComponent implements OnInit, OnDestroy {
         this.createUsername = '';
         this.createPassword = '';
         this.createRole = UserRole.User;
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.createLoading = false;
@@ -355,6 +363,7 @@ export class UserManagementComponent implements OnInit, OnDestroy {
         } else {
           this.createError = 'Failed to create user.';
         }
+        this.cdr.markForCheck();
       }
     });
   }
@@ -398,6 +407,7 @@ export class UserManagementComponent implements OnInit, OnDestroy {
         if (idx >= 0) this.users[idx] = updated;
         this.sortUsers();
         this.cancelFieldEdit();
+        this.cdr.markForCheck();
       },
       error: (err) => {
         if (err.status === 409) {
@@ -406,6 +416,7 @@ export class UserManagementComponent implements OnInit, OnDestroy {
           this.userErrors.set(user.id, 'Failed to update user.');
         }
         this.cancelFieldEdit();
+        this.cdr.markForCheck();
       }
     });
   }
@@ -418,9 +429,11 @@ export class UserManagementComponent implements OnInit, OnDestroy {
       next: (updated) => {
         const idx = this.users.findIndex(u => u.id === updated.id);
         if (idx >= 0) this.users[idx] = updated;
+        this.cdr.markForCheck();
       },
       error: () => {
         this.userErrors.set(user.id, 'Failed to update user.');
+        this.cdr.markForCheck();
       }
     });
   }
@@ -443,9 +456,11 @@ export class UserManagementComponent implements OnInit, OnDestroy {
     this.adminUsersService.updateUser(user.id, { password: this.newPassword }).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.cancelPasswordEdit();
+        this.cdr.markForCheck();
       },
       error: () => {
         this.userErrors.set(user.id, 'Failed to set password.');
+        this.cdr.markForCheck();
       }
     });
   }

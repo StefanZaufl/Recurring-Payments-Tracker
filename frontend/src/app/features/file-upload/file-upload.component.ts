@@ -1,8 +1,9 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { FileUploadZoneComponent } from '../../shared/file-upload-zone.component';
 
 @Component({
   selector: 'app-file-upload',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FileUploadZoneComponent],
   template: `
     <div class="animate-fade-in">

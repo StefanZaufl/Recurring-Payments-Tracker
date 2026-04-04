@@ -1,10 +1,11 @@
-import { Component, EventEmitter, Input, Output, inject, OnDestroy } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TransactionsService, UploadResponse } from '../api/generated';
 import { Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-file-upload-zone',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink],
   template: `
     <!-- Drop zone -->
@@ -110,6 +111,7 @@ import { Subject, takeUntil } from 'rxjs';
 })
 export class FileUploadZoneComponent implements OnDestroy {
   private transactionsService = inject(TransactionsService);
+  private cdr = inject(ChangeDetectorRef);
   private destroy$ = new Subject<void>();
 
   @Input() size: 'sm' | 'lg' = 'lg';
@@ -152,10 +154,12 @@ export class FileUploadZoneComponent implements OnDestroy {
         this.result = res;
         this.uploading = false;
         this.uploaded.emit(res);
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.error = err.error?.message || 'Upload failed. Please try again.';
         this.uploading = false;
+        this.cdr.markForCheck();
       }
     });
   }

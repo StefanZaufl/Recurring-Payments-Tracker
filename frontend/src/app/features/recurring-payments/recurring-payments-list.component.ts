@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -16,6 +16,7 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-recurring-payments-list',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule, RouterLink, LoadingSpinnerComponent, ErrorStateComponent, FrequencyBadgeComponent, PaymentCategoryDialogComponent, PaymentTransactionsModalComponent, PaymentRulesModalComponent],
   template: `
     <div class="animate-fade-in">
@@ -198,7 +199,7 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
                             'bg-accent-dim text-accent': payment.isActive,
                             'bg-subtle text-muted': !payment.isActive
                           }">
-                        {{ payment.isActive ? 'Active' : 'Inactive' }}
+                        <span class="inline-block w-1.5 h-1.5 rounded-full mr-1" [ngClass]="{'bg-accent': payment.isActive, 'bg-muted': !payment.isActive}"></span>{{ payment.isActive ? 'Active' : 'Inactive' }}
                       </button>
                     </td>
                     <td class="table-cell">
@@ -248,6 +249,7 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
 export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
   private recurringPaymentsService = inject(RecurringPaymentsService);
   private categoriesService = inject(CategoriesService);
+  private cdr = inject(ChangeDetectorRef);
 
   private destroy$ = new Subject<void>();
   payments: RecurringPaymentDto[] = [];
@@ -302,6 +304,7 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
         const idx = this.payments.findIndex(p => p.id === payment.id);
         if (idx >= 0) this.payments[idx] = { ...this.payments[idx], ...updated };
         this.applyFilter();
+        this.cdr.markForCheck();
       }
     });
   }
@@ -326,6 +329,7 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
         const idx = this.payments.findIndex(p => p.id === payment.id);
         if (idx >= 0) this.payments[idx] = { ...this.payments[idx], ...updated };
         this.closeCategoryDialog();
+        this.cdr.markForCheck();
       }
     });
   }
@@ -378,10 +382,12 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
         this.categories = categories;
         this.applyFilter();
         this.loading = false;
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.error = err.error?.message || 'Failed to load recurring payments. Please try again.';
         this.loading = false;
+        this.cdr.markForCheck();
       }
     });
   }

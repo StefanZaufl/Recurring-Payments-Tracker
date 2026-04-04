@@ -1,7 +1,8 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from '@angular/core';
 
 @Component({
   selector: 'app-error-state',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="glass-card p-6 border-coral/20 animate-slide-up">
       <div class="flex items-start gap-3">

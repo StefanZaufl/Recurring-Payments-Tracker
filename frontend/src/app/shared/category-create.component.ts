@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Output, inject } from '@angular/core';
+import { Component, EventEmitter, Output, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { CategoriesService } from '../api/generated';
@@ -6,6 +6,7 @@ import { CategoryDto } from '../api/generated/model/categoryDto';
 
 @Component({
   selector: 'app-category-create',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule],
   template: `
     <div class="flex flex-wrap gap-2">
@@ -39,6 +40,7 @@ import { CategoryDto } from '../api/generated/model/categoryDto';
 })
 export class CategoryCreateComponent {
   private categoriesService = inject(CategoriesService);
+  private cdr = inject(ChangeDetectorRef);
 
   @Output() created = new EventEmitter<CategoryDto>();
 
@@ -59,10 +61,12 @@ export class CategoryCreateComponent {
         this.name = '';
         this.color = '#a78bfa';
         this.creating = false;
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.error = err.error?.message || 'Failed to create category.';
         this.creating = false;
+        this.cdr.markForCheck();
       }
     });
   }

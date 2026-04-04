@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RecurringPaymentRulesService } from '../../api/generated';
@@ -13,6 +13,7 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-payment-rules-modal',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule, ModalComponent],
   template: `
     <app-modal
@@ -173,6 +174,7 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
 })
 export class PaymentRulesModalComponent implements OnInit, OnDestroy {
   private rulesService = inject(RecurringPaymentRulesService);
+  private cdr = inject(ChangeDetectorRef);
   private destroy$ = new Subject<void>();
 
   @Input({ required: true }) payment!: RecurringPaymentDto;
@@ -215,10 +217,12 @@ export class PaymentRulesModalComponent implements OnInit, OnDestroy {
       next: (rules) => {
         this.rules = rules;
         this.loading = false;
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.error = err.error?.message || 'Failed to load rules.';
         this.loading = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -261,6 +265,7 @@ export class PaymentRulesModalComponent implements OnInit, OnDestroy {
         error: (err) => {
           this.formError = err.error?.message || 'Failed to update rule.';
           this.saving = false;
+          this.cdr.markForCheck();
         }
       });
     } else {
@@ -279,6 +284,7 @@ export class PaymentRulesModalComponent implements OnInit, OnDestroy {
         error: (err) => {
           this.formError = err.error?.message || 'Failed to create rule.';
           this.saving = false;
+          this.cdr.markForCheck();
         }
       });
     }
@@ -289,6 +295,7 @@ export class PaymentRulesModalComponent implements OnInit, OnDestroy {
       next: () => this.onRuleSaved(),
       error: (err) => {
         this.error = err.error?.message || 'Failed to delete rule.';
+        this.cdr.markForCheck();
       }
     });
   }
@@ -338,6 +345,7 @@ export class PaymentRulesModalComponent implements OnInit, OnDestroy {
       next: ({ updatedPayment, rules }) => {
         this.rules = rules;
         this.paymentUpdated.emit({ payment: updatedPayment, ruleCount: rules.length });
+        this.cdr.markForCheck();
       }
     });
 
