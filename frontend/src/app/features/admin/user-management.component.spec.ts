@@ -49,7 +49,7 @@ describe('UserManagementComponent', () => {
 
   it('should load users on init', () => {
     expect(adminUsersService.listUsers).toHaveBeenCalled();
-    expect(component.users).toEqual(createMockUsers());
+    expect(component.users.length).toBe(3);
     expect(component.loading).toBe(false);
   });
 
@@ -62,17 +62,54 @@ describe('UserManagementComponent', () => {
     expect(el.textContent).toContain('User Management');
   });
 
-  it('should render user table with usernames', () => {
+  // ─── Sorting ───
+
+  it('should sort users by username after load', () => {
+    expect(component.users[0].username).toBe('admin');
+    expect(component.users[1].username).toBe('disabled');
+    expect(component.users[2].username).toBe('user1');
+  });
+
+  it('should sort users after creating a new user', () => {
+    const newUser: AdminUserDto = { id: 'u4', username: 'bob', role: UserRole.User, enabled: true };
+    adminUsersService.createUser.mockReturnValue(of(newUser));
+
+    component.createUsername = 'bob';
+    component.createPassword = 'password';
+    component.onCreate();
+
+    expect(component.users[0].username).toBe('admin');
+    expect(component.users[1].username).toBe('bob');
+    expect(component.users[2].username).toBe('disabled');
+    expect(component.users[3].username).toBe('user1');
+  });
+
+  it('should sort users after editing a username', () => {
+    const user = component.users.find(u => u.id === 'u2')!;
+    const updated = { ...user, username: 'aardvark' };
+    adminUsersService.updateUser.mockReturnValue(of(updated));
+
+    component.startEditField(user, 'username');
+    component.editValue = 'aardvark';
+    component.saveFieldEdit(user);
+
+    expect(component.users[0].username).toBe('aardvark');
+    expect(component.users[1].username).toBe('admin');
+  });
+
+  // ─── Card Rendering ───
+
+  it('should render user cards with usernames', () => {
     const el: HTMLElement = fixture.nativeElement;
     expect(el.textContent).toContain('admin');
     expect(el.textContent).toContain('user1');
     expect(el.textContent).toContain('disabled');
   });
 
-  it('should display role badges', () => {
+  it('should display role labels', () => {
     const el: HTMLElement = fixture.nativeElement;
-    expect(el.textContent).toContain('ADMIN');
-    expect(el.textContent).toContain('USER');
+    expect(el.textContent).toContain('Admin');
+    expect(el.textContent).toContain('User');
   });
 
   it('should display status badges', () => {
@@ -84,6 +121,13 @@ describe('UserManagementComponent', () => {
   it('should show "You" badge for current user', () => {
     const el: HTMLElement = fixture.nativeElement;
     expect(el.textContent).toContain('You');
+  });
+
+  it('should render Set Password buttons', () => {
+    const el: HTMLElement = fixture.nativeElement;
+    const buttons = el.querySelectorAll('button');
+    const setPasswordButtons = Array.from(buttons).filter(b => b.textContent?.trim() === 'Set Password');
+    expect(setPasswordButtons.length).toBe(3);
   });
 
   // ─── Create User ───
@@ -121,7 +165,6 @@ describe('UserManagementComponent', () => {
       role: UserRole.User,
     });
     expect(component.users.length).toBe(4);
-    expect(component.users[3]).toEqual(newUser);
     expect(component.showCreateForm).toBe(false);
     expect(component.createLoading).toBe(false);
   });
@@ -147,94 +190,250 @@ describe('UserManagementComponent', () => {
     expect(component.createError).toBe('Failed to create user.');
   });
 
-  // ─── Edit User ───
+  it('should reset create form fields after successful create', () => {
+    const newUser: AdminUserDto = { id: 'u4', username: 'newuser', role: UserRole.User, enabled: true };
+    adminUsersService.createUser.mockReturnValue(of(newUser));
 
-  it('should start editing a user', () => {
-    const user = component.users[1];
-    component.startEdit(user);
+    component.createUsername = 'newuser';
+    component.createPassword = 'password';
+    component.createRole = UserRole.Admin;
+    component.onCreate();
 
-    expect(component.editingUser).toBe(user);
-    expect(component.editUsername).toBe('user1');
-    expect(component.editRole).toBe(UserRole.User);
+    expect(component.createUsername).toBe('');
+    expect(component.createPassword).toBe('');
+    expect(component.createRole).toBe(UserRole.User);
   });
 
-  it('should cancel editing', () => {
-    component.startEdit(component.users[1]);
-    component.cancelEdit();
+  // ─── Per-field Edit ───
 
-    expect(component.editingUser).toBeNull();
+  it('should start editing username field', () => {
+    const user = component.users.find(u => u.id === 'u2')!;
+    component.startEditField(user, 'username');
+
+    expect(component.editingField.get('u2')).toBe('username');
+    expect(component.editValue).toBe('user1');
   });
 
-  it('should save edited user', () => {
-    const updated = { ...component.users[1], username: 'renamed' };
+  it('should start editing role field', () => {
+    const user = component.users.find(u => u.id === 'u2')!;
+    component.startEditField(user, 'role');
+
+    expect(component.editingField.get('u2')).toBe('role');
+    expect(component.editValue).toBe(UserRole.User);
+  });
+
+  it('should cancel field editing', () => {
+    const user = component.users.find(u => u.id === 'u2')!;
+    component.startEditField(user, 'username');
+    component.cancelFieldEdit();
+
+    expect(component.editingField.size).toBe(0);
+    expect(component.editValue).toBe('');
+  });
+
+  it('should save username change', () => {
+    const user = component.users.find(u => u.id === 'u2')!;
+    const updated = { ...user, username: 'renamed' };
     adminUsersService.updateUser.mockReturnValue(of(updated));
 
-    component.startEdit(component.users[1]);
-    component.editUsername = 'renamed';
-    component.saveEdit();
+    component.startEditField(user, 'username');
+    component.editValue = 'renamed';
+    component.saveFieldEdit(user);
 
     expect(adminUsersService.updateUser).toHaveBeenCalledWith('u2', { username: 'renamed' });
-    expect(component.users[1].username).toBe('renamed');
-    expect(component.editingUser).toBeNull();
+    expect(component.editingField.size).toBe(0);
   });
 
   it('should save role change', () => {
-    const updated = { ...component.users[1], role: UserRole.Admin };
+    const user = component.users.find(u => u.id === 'u2')!;
+    const updated = { ...user, role: UserRole.Admin };
     adminUsersService.updateUser.mockReturnValue(of(updated));
 
-    component.startEdit(component.users[1]);
-    component.editRole = UserRole.Admin;
-    component.saveEdit();
+    component.startEditField(user, 'role');
+    component.editValue = UserRole.Admin;
+    component.saveFieldEdit(user);
 
     expect(adminUsersService.updateUser).toHaveBeenCalledWith('u2', { role: UserRole.Admin });
   });
 
-  it('should not call API when nothing changed', () => {
-    component.startEdit(component.users[1]);
-    component.saveEdit();
+  it('should not call API when field value unchanged', () => {
+    const user = component.users.find(u => u.id === 'u2')!;
+    component.startEditField(user, 'username');
+    // editValue is already 'user1', don't change it
+    component.saveFieldEdit(user);
 
     expect(adminUsersService.updateUser).not.toHaveBeenCalled();
-    expect(component.editingUser).toBeNull();
+    expect(component.editingField.size).toBe(0);
   });
 
-  it('should show error on edit failure', () => {
+  it('should cancel previous edit when starting a new one', () => {
+    const user1 = component.users.find(u => u.id === 'u2')!;
+    const user2 = component.users.find(u => u.id === 'u3')!;
+
+    component.startEditField(user1, 'username');
+    expect(component.editingField.get('u2')).toBe('username');
+
+    component.startEditField(user2, 'role');
+    expect(component.editingField.has('u2')).toBe(false);
+    expect(component.editingField.get('u3')).toBe('role');
+  });
+
+  // ─── Per-card Errors ───
+
+  it('should show per-card error on edit failure', () => {
+    const user = component.users.find(u => u.id === 'u2')!;
     adminUsersService.updateUser.mockReturnValue(throwError(() => ({ status: 500 })));
 
-    component.startEdit(component.users[1]);
-    component.editUsername = 'renamed';
-    component.saveEdit();
+    component.startEditField(user, 'username');
+    component.editValue = 'renamed';
+    component.saveFieldEdit(user);
 
-    expect(component.error).toBe('Failed to update user.');
+    expect(component.userErrors.get('u2')).toBe('Failed to update user.');
+  });
+
+  it('should show per-card error on username conflict during edit', () => {
+    const user = component.users.find(u => u.id === 'u2')!;
+    adminUsersService.updateUser.mockReturnValue(throwError(() => ({ status: 409 })));
+
+    component.startEditField(user, 'username');
+    component.editValue = 'admin';
+    component.saveFieldEdit(user);
+
+    expect(component.userErrors.get('u2')).toBe('Username is already taken.');
+  });
+
+  it('should show per-card error on toggle failure', () => {
+    const user = component.users.find(u => u.id === 'u2')!;
+    adminUsersService.updateUser.mockReturnValue(throwError(() => ({ status: 500 })));
+
+    component.toggleEnabled(user);
+
+    expect(component.userErrors.get('u2')).toBe('Failed to update user.');
+  });
+
+  it('should clear per-card error before new operation', () => {
+    const user = component.users.find(u => u.id === 'u2')!;
+    component.userErrors.set('u2', 'Old error');
+
+    const updated = { ...user, enabled: false };
+    adminUsersService.updateUser.mockReturnValue(of(updated));
+
+    component.toggleEnabled(user);
+
+    expect(component.userErrors.has('u2')).toBe(false);
+  });
+
+  it('should render per-card error in template', () => {
+    const user = component.users.find(u => u.id === 'u2')!;
+    component.userErrors.set(user.id, 'Something went wrong');
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.textContent).toContain('Something went wrong');
   });
 
   // ─── Toggle Enabled ───
 
   it('should disable a user', () => {
-    const updated = { ...component.users[1], enabled: false };
+    const user = component.users.find(u => u.id === 'u2')!;
+    const updated = { ...user, enabled: false };
     adminUsersService.updateUser.mockReturnValue(of(updated));
 
-    component.toggleEnabled(component.users[1]);
+    component.toggleEnabled(user);
 
     expect(adminUsersService.updateUser).toHaveBeenCalledWith('u2', { enabled: false });
-    expect(component.users[1].enabled).toBe(false);
+    const updatedUser = component.users.find(u => u.id === 'u2')!;
+    expect(updatedUser.enabled).toBe(false);
   });
 
   it('should enable a disabled user', () => {
-    const updated = { ...component.users[2], enabled: true };
+    const user = component.users.find(u => u.id === 'u3')!;
+    const updated = { ...user, enabled: true };
     adminUsersService.updateUser.mockReturnValue(of(updated));
 
-    component.toggleEnabled(component.users[2]);
+    component.toggleEnabled(user);
 
     expect(adminUsersService.updateUser).toHaveBeenCalledWith('u3', { enabled: true });
-    expect(component.users[2].enabled).toBe(true);
+    const updatedUser = component.users.find(u => u.id === 'u3')!;
+    expect(updatedUser.enabled).toBe(true);
   });
 
-  it('should show error on toggle failure', () => {
+  it('should not toggle own account', () => {
+    const currentUser = component.users.find(u => u.id === 'u1')!;
+    component.toggleEnabled(currentUser);
+
+    expect(adminUsersService.updateUser).not.toHaveBeenCalled();
+  });
+
+  // ─── Password ───
+
+  it('should start password edit', () => {
+    const user = component.users.find(u => u.id === 'u2')!;
+    component.startPasswordEdit(user);
+
+    expect(component.passwordUserId).toBe('u2');
+    expect(component.newPassword).toBe('');
+  });
+
+  it('should cancel password edit', () => {
+    const user = component.users.find(u => u.id === 'u2')!;
+    component.startPasswordEdit(user);
+    component.newPassword = 'secret';
+    component.cancelPasswordEdit();
+
+    expect(component.passwordUserId).toBeNull();
+    expect(component.newPassword).toBe('');
+  });
+
+  it('should save password', () => {
+    const user = component.users.find(u => u.id === 'u2')!;
+    adminUsersService.updateUser.mockReturnValue(of(user));
+
+    component.startPasswordEdit(user);
+    component.newPassword = 'newpass123';
+    component.savePassword(user);
+
+    expect(adminUsersService.updateUser).toHaveBeenCalledWith('u2', { password: 'newpass123' });
+    expect(component.passwordUserId).toBeNull();
+  });
+
+  it('should not save empty password', () => {
+    const user = component.users.find(u => u.id === 'u2')!;
+
+    component.startPasswordEdit(user);
+    component.savePassword(user);
+
+    expect(adminUsersService.updateUser).not.toHaveBeenCalled();
+  });
+
+  it('should show per-card error on password save failure', () => {
+    const user = component.users.find(u => u.id === 'u2')!;
     adminUsersService.updateUser.mockReturnValue(throwError(() => ({ status: 500 })));
 
-    component.toggleEnabled(component.users[1]);
+    component.startPasswordEdit(user);
+    component.newPassword = 'newpass';
+    component.savePassword(user);
 
-    expect(component.error).toBe('Failed to update user.');
+    expect(component.userErrors.get('u2')).toBe('Failed to set password.');
+  });
+
+  it('should cancel field edit when starting password edit', () => {
+    const user = component.users.find(u => u.id === 'u2')!;
+    component.startEditField(user, 'username');
+    expect(component.editingField.size).toBe(1);
+
+    component.startPasswordEdit(user);
+    expect(component.editingField.size).toBe(0);
+    expect(component.passwordUserId).toBe('u2');
+  });
+
+  it('should cancel password edit when starting field edit', () => {
+    const user = component.users.find(u => u.id === 'u2')!;
+    component.startPasswordEdit(user);
+    expect(component.passwordUserId).toBe('u2');
+
+    component.startEditField(user, 'username');
+    expect(component.passwordUserId).toBeNull();
   });
 
   // ─── Error States ───
@@ -256,21 +455,7 @@ describe('UserManagementComponent', () => {
     const freshUsers = createMockUsers();
     adminUsersService.listUsers.mockReturnValue(of(freshUsers));
     component.loadUsers();
-    expect(component.users).toEqual(freshUsers);
+    expect(component.users.length).toEqual(freshUsers.length);
     expect(component.error).toBe('');
-  });
-
-  it('should reset create form fields after successful create', () => {
-    const newUser: AdminUserDto = { id: 'u4', username: 'newuser', role: UserRole.User, enabled: true };
-    adminUsersService.createUser.mockReturnValue(of(newUser));
-
-    component.createUsername = 'newuser';
-    component.createPassword = 'password';
-    component.createRole = UserRole.Admin;
-    component.onCreate();
-
-    expect(component.createUsername).toBe('');
-    expect(component.createPassword).toBe('');
-    expect(component.createRole).toBe(UserRole.User);
   });
 });

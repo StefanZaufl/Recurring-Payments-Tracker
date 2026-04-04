@@ -14,11 +14,12 @@ import { AuthStateService } from '../../core/auth-state.service';
           <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">User Management</h1>
           <p class="text-sm text-muted mt-0.5">Manage user accounts and permissions</p>
         </div>
-        <button (click)="showCreateForm = !showCreateForm" class="btn-primary">
+        <button (click)="showCreateForm = !showCreateForm"
+                class="btn-primary !px-3 !py-2 !text-xs sm:!px-5 sm:!py-2.5 sm:!text-sm">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
-          Add User
+          <span class="hidden sm:inline">Add User</span>
         </button>
       </div>
 
@@ -88,81 +89,8 @@ import { AuthStateService } from '../../core/auth-state.service';
         <span class="text-sm text-muted">Loading users...</span>
       </div>
 
-      <!-- User Table -->
-      <div *ngIf="!loading" class="glass-card overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full">
-            <thead>
-              <tr class="border-b border-card-border">
-                <th class="table-header">Username</th>
-                <th class="table-header">Role</th>
-                <th class="table-header">Status</th>
-                <th class="table-header text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let user of users" class="border-b border-card-border/50 last:border-0 hover:bg-card-hover/30 transition-colors">
-                <td class="table-cell">
-                  <span class="text-white font-medium">{{ user.username }}</span>
-                  <span *ngIf="user.id === currentUserId" class="ml-2 badge bg-accent-dim text-accent">You</span>
-                </td>
-                <td class="table-cell">
-                  <span class="badge" [class]="user.role === UserRole.Admin ? 'bg-amber-500/10 text-amber-400' : 'bg-sky-500/10 text-sky-400'">
-                    {{ user.role }}
-                  </span>
-                </td>
-                <td class="table-cell">
-                  <span class="badge" [class]="user.enabled ? 'bg-accent-dim text-accent' : 'bg-coral-dim text-coral'">
-                    {{ user.enabled ? 'Active' : 'Disabled' }}
-                  </span>
-                </td>
-                <td class="table-cell text-right">
-                  <div *ngIf="editingUser?.id !== user.id" class="flex items-center justify-end gap-2">
-                    <button (click)="startEdit(user)"
-                            class="px-3 py-1.5 text-xs font-medium text-muted hover:text-white border border-card-border rounded-lg hover:border-subtle transition-all">
-                      Edit
-                    </button>
-                    <button *ngIf="user.id !== currentUserId"
-                            (click)="toggleEnabled(user)"
-                            class="px-3 py-1.5 text-xs font-medium rounded-lg border transition-all"
-                            [class]="user.enabled ? 'text-coral border-coral/30 hover:bg-coral-dim' : 'text-accent border-accent/30 hover:bg-accent-dim'">
-                      {{ user.enabled ? 'Disable' : 'Enable' }}
-                    </button>
-                  </div>
-
-                  <!-- Inline edit -->
-                  <div *ngIf="editingUser?.id === user.id" class="flex items-center justify-end gap-2">
-                    <input
-                      type="text"
-                      [(ngModel)]="editUsername"
-                      class="w-32 px-3 py-1.5 bg-surface border border-card-border rounded-lg text-xs text-white focus:outline-none focus:border-accent/50 transition-colors"
-                      placeholder="Username"
-                    />
-                    <select
-                      [(ngModel)]="editRole"
-                      class="px-3 py-1.5 bg-surface border border-card-border rounded-lg text-xs text-white focus:outline-none focus:border-accent/50 transition-colors"
-                    >
-                      <option [value]="UserRole.User">User</option>
-                      <option [value]="UserRole.Admin">Admin</option>
-                    </select>
-                    <button (click)="saveEdit()"
-                            class="px-3 py-1.5 text-xs font-medium text-accent border border-accent/30 rounded-lg hover:bg-accent-dim transition-all">
-                      Save
-                    </button>
-                    <button (click)="cancelEdit()"
-                            class="px-3 py-1.5 text-xs font-medium text-muted border border-card-border rounded-lg hover:border-subtle transition-all">
-                      Cancel
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Error -->
-      <div *ngIf="error" class="glass-card p-6 border-coral/20 mt-6">
+      <!-- Global Error (load failure) -->
+      <div *ngIf="error" class="glass-card p-6 border-coral/20 mb-6">
         <div class="flex items-start gap-3">
           <svg class="w-5 h-5 text-coral shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
@@ -170,6 +98,155 @@ import { AuthStateService } from '../../core/auth-state.service';
           <div>
             <p class="text-sm text-coral font-medium">{{ error }}</p>
             <button (click)="loadUsers()" class="mt-2 text-xs text-muted hover:text-white transition-colors">Try again</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- User Cards -->
+      <div *ngIf="!loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div *ngFor="let user of users" class="glass-card p-5 flex flex-col gap-3 animate-fade-in">
+
+          <!-- Card Header: Username -->
+          <div class="flex items-center justify-between gap-2 min-h-[2rem]">
+            <!-- Display mode -->
+            <div *ngIf="editingField.get(user.id) !== 'username'"
+                 class="group flex items-center gap-2 cursor-pointer min-w-0"
+                 (click)="startEditField(user, 'username')">
+              <h3 class="text-lg font-semibold text-white truncate">{{ user.username }}</h3>
+              <svg class="w-3.5 h-3.5 text-muted shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                   fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                      d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+              </svg>
+            </div>
+            <!-- Edit mode -->
+            <div *ngIf="editingField.get(user.id) === 'username'" class="flex items-center gap-1.5 flex-1 min-w-0">
+              <input
+                type="text"
+                [(ngModel)]="editValue"
+                class="flex-1 min-w-0 px-3 py-1.5 bg-surface border border-card-border rounded-lg text-sm text-white focus:outline-none focus:border-accent/50 transition-colors"
+                (keydown.enter)="saveFieldEdit(user)"
+                (keydown.escape)="cancelFieldEdit()"
+              />
+              <button (click)="saveFieldEdit(user)"
+                      class="p-1.5 text-accent hover:bg-accent-dim rounded-lg transition-colors shrink-0">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                </svg>
+              </button>
+              <button (click)="cancelFieldEdit()"
+                      class="p-1.5 text-muted hover:bg-subtle rounded-lg transition-colors shrink-0">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <span *ngIf="user.id === currentUserId" class="badge bg-accent-dim text-accent shrink-0">You</span>
+          </div>
+
+          <!-- Card Body -->
+          <div class="flex flex-col gap-2.5">
+
+            <!-- Role -->
+            <div class="flex items-center justify-between min-h-[1.75rem]">
+              <span class="text-xs font-medium text-muted uppercase tracking-wider">Role</span>
+              <!-- Display mode -->
+              <div *ngIf="editingField.get(user.id) !== 'role'"
+                   class="group flex items-center gap-1.5 cursor-pointer"
+                   (click)="startEditField(user, 'role')">
+                <span class="badge" [class]="user.role === UserRole.Admin ? 'bg-amber-500/10 text-amber-400' : 'bg-sky-500/10 text-sky-400'">
+                  {{ user.role === UserRole.Admin ? 'Admin' : 'User' }}
+                </span>
+                <svg class="w-3 h-3 text-muted shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                     fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                        d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+                </svg>
+              </div>
+              <!-- Edit mode -->
+              <div *ngIf="editingField.get(user.id) === 'role'" class="flex items-center gap-1.5">
+                <select
+                  [(ngModel)]="editValue"
+                  class="px-3 py-1 bg-surface border border-card-border rounded-lg text-xs text-white focus:outline-none focus:border-accent/50 transition-colors"
+                >
+                  <option [value]="UserRole.User">User</option>
+                  <option [value]="UserRole.Admin">Admin</option>
+                </select>
+                <button (click)="saveFieldEdit(user)"
+                        class="p-1.5 text-accent hover:bg-accent-dim rounded-lg transition-colors shrink-0">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                  </svg>
+                </button>
+                <button (click)="cancelFieldEdit()"
+                        class="p-1.5 text-muted hover:bg-subtle rounded-lg transition-colors shrink-0">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Status -->
+            <div class="flex items-center justify-between min-h-[1.75rem]">
+              <span class="text-xs font-medium text-muted uppercase tracking-wider">Status</span>
+              <button
+                *ngIf="user.id !== currentUserId"
+                (click)="toggleEnabled(user)"
+                class="badge cursor-pointer transition-all hover:brightness-125"
+                [class]="user.enabled ? 'bg-accent-dim text-accent' : 'bg-coral-dim text-coral'">
+                {{ user.enabled ? 'Active' : 'Disabled' }}
+              </button>
+              <span
+                *ngIf="user.id === currentUserId"
+                class="badge bg-accent-dim text-accent opacity-60 cursor-not-allowed"
+                title="You cannot disable your own account">
+                {{ user.enabled ? 'Active' : 'Disabled' }}
+              </span>
+            </div>
+
+            <!-- Password -->
+            <div class="flex items-center justify-between min-h-[1.75rem]">
+              <span class="text-xs font-medium text-muted uppercase tracking-wider">Password</span>
+              <div *ngIf="passwordUserId !== user.id">
+                <button (click)="startPasswordEdit(user)"
+                        class="text-xs font-medium text-muted hover:text-white border border-card-border rounded-lg px-3 py-1 hover:border-subtle transition-all">
+                  Set Password
+                </button>
+              </div>
+              <div *ngIf="passwordUserId === user.id" class="flex items-center gap-1.5">
+                <input
+                  type="password"
+                  [(ngModel)]="newPassword"
+                  autocomplete="new-password"
+                  placeholder="New password"
+                  class="w-28 px-3 py-1 bg-surface border border-card-border rounded-lg text-xs text-white placeholder-muted/50 focus:outline-none focus:border-accent/50 transition-colors"
+                  (keydown.enter)="savePassword(user)"
+                  (keydown.escape)="cancelPasswordEdit()"
+                />
+                <button (click)="savePassword(user)"
+                        class="p-1.5 text-accent hover:bg-accent-dim rounded-lg transition-colors shrink-0">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                  </svg>
+                </button>
+                <button (click)="cancelPasswordEdit()"
+                        class="p-1.5 text-muted hover:bg-subtle rounded-lg transition-colors shrink-0">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Per-card Error -->
+          <div *ngIf="userErrors.get(user.id)" class="flex items-center gap-2 px-3 py-2 bg-coral-dim/50 border border-coral/20 rounded-xl mt-1">
+            <svg class="w-3.5 h-3.5 text-coral shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            </svg>
+            <span class="text-xs text-coral">{{ userErrors.get(user.id) }}</span>
           </div>
         </div>
       </div>
@@ -191,9 +268,12 @@ export class UserManagementComponent implements OnInit {
   createError = '';
   createLoading = false;
 
-  editingUser: AdminUserDto | null = null;
-  editUsername = '';
-  editRole: UserRole = UserRole.User;
+  editingField = new Map<string, string>();
+  editValue = '';
+  userErrors = new Map<string, string>();
+
+  passwordUserId: string | null = null;
+  newPassword = '';
 
   constructor(
     private adminUsersService: AdminUsersService,
@@ -211,6 +291,7 @@ export class UserManagementComponent implements OnInit {
     this.adminUsersService.listUsers().subscribe({
       next: (users) => {
         this.users = users;
+        this.sortUsers();
         this.loading = false;
       },
       error: () => {
@@ -236,6 +317,7 @@ export class UserManagementComponent implements OnInit {
     }).subscribe({
       next: (user) => {
         this.users.push(user);
+        this.sortUsers();
         this.createLoading = false;
         this.showCreateForm = false;
         this.createUsername = '';
@@ -253,53 +335,98 @@ export class UserManagementComponent implements OnInit {
     });
   }
 
-  startEdit(user: AdminUserDto): void {
-    this.editingUser = user;
-    this.editUsername = user.username;
-    this.editRole = user.role;
+  startEditField(user: AdminUserDto, field: string): void {
+    this.cancelFieldEdit();
+    this.cancelPasswordEdit();
+    this.editingField.set(user.id, field);
+    if (field === 'username') {
+      this.editValue = user.username;
+    } else if (field === 'role') {
+      this.editValue = user.role;
+    }
   }
 
-  cancelEdit(): void {
-    this.editingUser = null;
+  cancelFieldEdit(): void {
+    this.editingField.clear();
+    this.editValue = '';
   }
 
-  saveEdit(): void {
-    if (!this.editingUser) return;
+  saveFieldEdit(user: AdminUserDto): void {
+    const field = this.editingField.get(user.id);
+    if (!field) return;
 
     const updates: Record<string, string | boolean> = {};
-    if (this.editUsername !== this.editingUser.username) {
-      updates['username'] = this.editUsername;
-    }
-    if (this.editRole !== this.editingUser.role) {
-      updates['role'] = this.editRole;
+    if (field === 'username' && this.editValue !== user.username) {
+      updates['username'] = this.editValue;
+    } else if (field === 'role' && this.editValue !== user.role) {
+      updates['role'] = this.editValue;
     }
 
     if (Object.keys(updates).length === 0) {
-      this.editingUser = null;
+      this.cancelFieldEdit();
       return;
     }
 
-    this.adminUsersService.updateUser(this.editingUser.id, updates).subscribe({
+    this.userErrors.delete(user.id);
+    this.adminUsersService.updateUser(user.id, updates).subscribe({
       next: (updated) => {
         const idx = this.users.findIndex(u => u.id === updated.id);
         if (idx >= 0) this.users[idx] = updated;
-        this.editingUser = null;
+        this.sortUsers();
+        this.cancelFieldEdit();
       },
-      error: () => {
-        this.error = 'Failed to update user.';
+      error: (err) => {
+        if (err.status === 409) {
+          this.userErrors.set(user.id, 'Username is already taken.');
+        } else {
+          this.userErrors.set(user.id, 'Failed to update user.');
+        }
+        this.cancelFieldEdit();
       }
     });
   }
 
   toggleEnabled(user: AdminUserDto): void {
+    if (user.id === this.currentUserId) return;
+
+    this.userErrors.delete(user.id);
     this.adminUsersService.updateUser(user.id, { enabled: !user.enabled }).subscribe({
       next: (updated) => {
         const idx = this.users.findIndex(u => u.id === updated.id);
         if (idx >= 0) this.users[idx] = updated;
       },
       error: () => {
-        this.error = 'Failed to update user.';
+        this.userErrors.set(user.id, 'Failed to update user.');
       }
     });
+  }
+
+  startPasswordEdit(user: AdminUserDto): void {
+    this.cancelFieldEdit();
+    this.passwordUserId = user.id;
+    this.newPassword = '';
+  }
+
+  cancelPasswordEdit(): void {
+    this.passwordUserId = null;
+    this.newPassword = '';
+  }
+
+  savePassword(user: AdminUserDto): void {
+    if (!this.newPassword) return;
+
+    this.userErrors.delete(user.id);
+    this.adminUsersService.updateUser(user.id, { password: this.newPassword }).subscribe({
+      next: () => {
+        this.cancelPasswordEdit();
+      },
+      error: () => {
+        this.userErrors.set(user.id, 'Failed to set password.');
+      }
+    });
+  }
+
+  private sortUsers(): void {
+    this.users.sort((a, b) => a.username.localeCompare(b.username));
   }
 }
