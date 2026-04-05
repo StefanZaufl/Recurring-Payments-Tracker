@@ -30,4 +30,8 @@ public class FileUpload {
 
     @Column(name = "row_count")
     private Integer rowCount;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 }

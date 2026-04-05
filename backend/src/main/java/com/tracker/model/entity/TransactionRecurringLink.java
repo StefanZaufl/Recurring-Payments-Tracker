@@ -31,6 +31,10 @@ public class TransactionRecurringLink {
     @Column(name = "confidence_score", precision = 3, scale = 2)
     private BigDecimal confidenceScore;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
+
     @Getter
     @Setter
     @NoArgsConstructor

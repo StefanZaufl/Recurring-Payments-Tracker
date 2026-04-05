@@ -18,7 +18,9 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID>,
 
     List<Transaction> findByBookingDateBetween(LocalDate from, LocalDate to);
 
-    @Query("SELECT t FROM Transaction t WHERE t.bookingDate >= :cutoff AND t.id NOT IN " +
+    List<Transaction> findByUserIdAndBookingDateBetween(UUID userId, LocalDate from, LocalDate to);
+
+    @Query("SELECT t FROM Transaction t WHERE t.bookingDate >= :cutoff AND t.user.id = :userId AND t.id NOT IN " +
            "(SELECT trl.transaction.id FROM TransactionRecurringLink trl)")
-    List<Transaction> findUnlinkedTransactionsAfter(@Param("cutoff") LocalDate cutoff);
+    List<Transaction> findUnlinkedTransactionsAfterForUser(@Param("cutoff") LocalDate cutoff, @Param("userId") UUID userId);
 }

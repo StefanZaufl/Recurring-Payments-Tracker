@@ -2,6 +2,7 @@ package com.tracker.controller;
 
 import com.tracker.model.entity.*;
 import com.tracker.repository.*;
+import com.tracker.testutil.SecurityTestUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+import static com.tracker.testutil.SecurityTestUtil.authenticatedUser;
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -29,6 +31,9 @@ class AnalyticsControllerTest {
     @Autowired private TransactionRecurringLinkRepository linkRepository;
     @Autowired private CategoryRepository categoryRepository;
     @Autowired private FileUploadRepository fileUploadRepository;
+    @Autowired private UserRepository userRepository;
+
+    private User testUser;
 
     @BeforeEach
     void setUp() {
@@ -37,6 +42,7 @@ class AnalyticsControllerTest {
         recurringPaymentRepository.deleteAll();
         categoryRepository.deleteAll();
         fileUploadRepository.deleteAll();
+        testUser = SecurityTestUtil.createTestUser(userRepository);
     }
 
     @Nested
@@ -44,7 +50,7 @@ class AnalyticsControllerTest {
 
         @Test
         void returnsOverviewWithNoData() throws Exception {
-            mockMvc.perform(get("/api/analytics/annual-overview").param("year", "2025"))
+            mockMvc.perform(get("/api/analytics/annual-overview").param("year", "2025").with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.totalIncome").value(0.0))
                     .andExpect(jsonPath("$.totalExpenses").value(0.0))
@@ -60,7 +66,7 @@ class AnalyticsControllerTest {
             seedTransaction(upload, LocalDate.of(2025, 3, 15), "Salary", new BigDecimal("3000.00"));
             seedTransaction(upload, LocalDate.of(2025, 3, 20), "Netflix", new BigDecimal("-12.99"));
 
-            mockMvc.perform(get("/api/analytics/annual-overview").param("year", "2025"))
+            mockMvc.perform(get("/api/analytics/annual-overview").param("year", "2025").with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.totalIncome").value(3000.0))
                     .andExpect(jsonPath("$.totalExpenses").value(12.99))
@@ -83,7 +89,7 @@ class AnalyticsControllerTest {
                 seedLink(tx, payment);
             }
 
-            mockMvc.perform(get("/api/analytics/annual-overview").param("year", "2025"))
+            mockMvc.perform(get("/api/analytics/annual-overview").param("year", "2025").with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.totalRecurringExpenses").value(closeTo(155.88, 0.01)))
                     .andExpect(jsonPath("$.recurringPayments", hasSize(1)))
@@ -100,7 +106,7 @@ class AnalyticsControllerTest {
 
         @Test
         void returnsEmptyPredictionsWithNoData() throws Exception {
-            mockMvc.perform(get("/api/analytics/predictions").param("months", "3"))
+            mockMvc.perform(get("/api/analytics/predictions").param("months", "3").with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.predictions", hasSize(3)))
                     .andExpect(jsonPath("$.upcomingPayments", hasSize(0)));
@@ -111,7 +117,7 @@ class AnalyticsControllerTest {
             seedRecurringPayment("Salary", "MONTHLY", new BigDecimal("3000.00"), true, null);
             seedRecurringPayment("Netflix", "MONTHLY", new BigDecimal("-12.99"), false, null);
 
-            mockMvc.perform(get("/api/analytics/predictions").param("months", "3"))
+            mockMvc.perform(get("/api/analytics/predictions").param("months", "3").with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.predictions", hasSize(3)))
                     .andExpect(jsonPath("$.predictions[0].expectedIncome").value(3000.0))
@@ -120,7 +126,7 @@ class AnalyticsControllerTest {
 
         @Test
         void defaultsToSixMonths() throws Exception {
-            mockMvc.perform(get("/api/analytics/predictions"))
+            mockMvc.perform(get("/api/analytics/predictions").with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.predictions", hasSize(6)));
         }
@@ -134,7 +140,7 @@ class AnalyticsControllerTest {
                     new BigDecimal("-12.99"));
             seedLink(tx, payment);
 
-            mockMvc.perform(get("/api/analytics/predictions").param("months", "3"))
+            mockMvc.perform(get("/api/analytics/predictions").param("months", "3").with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.upcomingPayments", hasSize(greaterThanOrEqualTo(1))))
                     .andExpect(jsonPath("$.upcomingPayments[0].name").value("Netflix"));
@@ -147,6 +153,7 @@ class AnalyticsControllerTest {
         FileUpload upload = new FileUpload();
         upload.setFilename("test.csv");
         upload.setRowCount(0);
+        upload.setUser(testUser);
         return fileUploadRepository.save(upload);
     }
 
@@ -156,6 +163,7 @@ class AnalyticsControllerTest {
         tx.setBookingDate(date);
         tx.setPartnerName(partner);
         tx.setAmount(amount);
+        tx.setUser(testUser);
         return transactionRepository.save(tx);
     }
 
@@ -163,6 +171,7 @@ class AnalyticsControllerTest {
         Category category = new Category();
         category.setName(name);
         category.setColor("#FF0000");
+        category.setUser(testUser);
         return categoryRepository.save(category);
     }
 
@@ -176,6 +185,7 @@ class AnalyticsControllerTest {
         payment.setIsIncome(isIncome);
         payment.setIsActive(true);
         payment.setCategory(category);
+        payment.setUser(testUser);
         return recurringPaymentRepository.save(payment);
     }
 
@@ -184,6 +194,7 @@ class AnalyticsControllerTest {
         link.setTransaction(tx);
         link.setRecurringPayment(payment);
         link.setConfidenceScore(new BigDecimal("0.95"));
+        link.setUser(testUser);
         linkRepository.save(link);
     }
 }

@@ -38,17 +38,20 @@ public class RecurringPaymentDetectionService {
     private final TransactionRecurringLinkRepository linkRepository;
     private final RuleRepository ruleRepository;
     private final RuleEvaluationService ruleEvaluationService;
+    private final UserContextService userContextService;
 
     public RecurringPaymentDetectionService(TransactionRepository transactionRepository,
                                             RecurringPaymentRepository recurringPaymentRepository,
                                             TransactionRecurringLinkRepository linkRepository,
                                             RuleRepository ruleRepository,
-                                            RuleEvaluationService ruleEvaluationService) {
+                                            RuleEvaluationService ruleEvaluationService,
+                                            UserContextService userContextService) {
         this.transactionRepository = transactionRepository;
         this.recurringPaymentRepository = recurringPaymentRepository;
         this.linkRepository = linkRepository;
         this.ruleRepository = ruleRepository;
         this.ruleEvaluationService = ruleEvaluationService;
+        this.userContextService = userContextService;
     }
 
     /**
@@ -66,7 +69,8 @@ public class RecurringPaymentDetectionService {
         List<Transaction> unmatched = new ArrayList<>(newTransactions);
 
         // Step 1: Match against existing active RTs
-        List<RecurringPayment> existingRts = recurringPaymentRepository.findByIsActiveTrue();
+        UUID currentUserId = userContextService.getCurrentUserId();
+        List<RecurringPayment> existingRts = recurringPaymentRepository.findByUserIdAndIsActiveTrue(currentUserId);
         log.info("Step 1: Matching against {} existing active RTs", existingRts.size());
         for (RecurringPayment rt : existingRts) {
             List<Rule> rules = rt.getRules();
@@ -98,7 +102,7 @@ public class RecurringPaymentDetectionService {
         LocalDate cutoff = LocalDate.now().minusDays(LOOKBACK_DAYS);
         Set<UUID> newTransactionIds = newTransactions.stream()
                 .map(Transaction::getId).collect(Collectors.toSet());
-        List<Transaction> oldUnlinked = transactionRepository.findUnlinkedTransactionsAfter(cutoff)
+        List<Transaction> oldUnlinked = transactionRepository.findUnlinkedTransactionsAfterForUser(cutoff, currentUserId)
                 .stream().filter(tx -> !newTransactionIds.contains(tx.getId())).collect(Collectors.toCollection(ArrayList::new));
         log.debug("Found {} old unlinked transactions (cutoff={}, excluded {} new)", oldUnlinked.size(), cutoff, newTransactionIds.size());
 
@@ -160,19 +164,20 @@ public class RecurringPaymentDetectionService {
      */
     @Transactional
     public RecurringPayment reEvaluateRecurringPayment(UUID recurringPaymentId) {
-        RecurringPayment rt = recurringPaymentRepository.findById(recurringPaymentId)
+        UUID currentUserId = userContextService.getCurrentUserId();
+        RecurringPayment rt = recurringPaymentRepository.findByIdAndUserId(recurringPaymentId, currentUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recurring payment not found: " + recurringPaymentId));
 
-        List<Rule> rules = ruleRepository.findByRecurringPaymentId(recurringPaymentId);
+        List<Rule> rules = ruleRepository.findByRecurringPaymentIdAndUserId(recurringPaymentId, currentUserId);
         if (rules.isEmpty()) {
             return rt;
         }
 
-        Set<UUID> alreadyLinkedIds = linkRepository.findByRecurringPaymentId(recurringPaymentId)
+        Set<UUID> alreadyLinkedIds = linkRepository.findByRecurringPaymentIdAndUserId(recurringPaymentId, currentUserId)
                 .stream().map(link -> link.getTransaction().getId()).collect(Collectors.toSet());
 
         LocalDate cutoff = LocalDate.now().minusDays(LOOKBACK_DAYS);
-        List<Transaction> candidates = transactionRepository.findUnlinkedTransactionsAfter(cutoff);
+        List<Transaction> candidates = transactionRepository.findUnlinkedTransactionsAfterForUser(cutoff, currentUserId);
 
         List<Transaction> newMatches = ruleEvaluationService.findMatchingTransactions(rules, candidates)
                 .stream().filter(tx -> !alreadyLinkedIds.contains(tx.getId())).toList();
@@ -207,6 +212,7 @@ public class RecurringPaymentDetectionService {
         link.setTransaction(tx);
         link.setRecurringPayment(rt);
         link.setConfidenceScore(BigDecimal.ONE.setScale(2, RoundingMode.HALF_UP));
+        link.setUser(userContextService.getCurrentUser());
         linkRepository.save(link);
     }
 
@@ -262,6 +268,7 @@ public class RecurringPaymentDetectionService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .divide(BigDecimal.valueOf(allMatched.size()), 2, RoundingMode.HALF_UP);
 
+        com.tracker.model.entity.User currentUser = userContextService.getCurrentUser();
         RecurringPayment rt = new RecurringPayment();
         rt.setName(representative.getPartnerName());
         rt.setNormalizedName(normalize(representative.getPartnerName()));
@@ -269,6 +276,7 @@ public class RecurringPaymentDetectionService {
         rt.setFrequency(frequency);
         rt.setIsIncome(avgAmount.compareTo(BigDecimal.ZERO) > 0);
         rt.setIsActive(true);
+        rt.setUser(currentUser);
         rt = recurringPaymentRepository.save(rt);
 
         // Persist the rules
@@ -282,6 +290,7 @@ public class RecurringPaymentDetectionService {
             persistedRule.setThreshold(rule.getThreshold());
             persistedRule.setAmount(rule.getAmount());
             persistedRule.setFluctuationRange(rule.getFluctuationRange());
+            persistedRule.setUser(currentUser);
             ruleRepository.save(persistedRule);
         }
 

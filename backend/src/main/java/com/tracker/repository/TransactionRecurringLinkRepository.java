@@ -11,4 +11,6 @@ import java.util.UUID;
 public interface TransactionRecurringLinkRepository extends JpaRepository<TransactionRecurringLink, TransactionRecurringLink.TransactionRecurringLinkId> {
 
     List<TransactionRecurringLink> findByRecurringPaymentId(UUID recurringPaymentId);
+
+    List<TransactionRecurringLink> findByRecurringPaymentIdAndUserId(UUID recurringPaymentId, UUID userId);
 }

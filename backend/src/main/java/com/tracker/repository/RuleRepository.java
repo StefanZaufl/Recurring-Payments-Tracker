@@ -16,4 +16,10 @@ public interface RuleRepository extends JpaRepository<Rule, UUID> {
     Optional<Rule> findByIdAndRecurringPaymentId(UUID id, UUID recurringPaymentId);
 
     void deleteByIdAndRecurringPaymentId(UUID id, UUID recurringPaymentId);
+
+    List<Rule> findByRecurringPaymentIdAndUserId(UUID recurringPaymentId, UUID userId);
+
+    Optional<Rule> findByIdAndRecurringPaymentIdAndUserId(UUID id, UUID recurringPaymentId, UUID userId);
+
+    void deleteByIdAndRecurringPaymentIdAndUserId(UUID id, UUID recurringPaymentId, UUID userId);
 }
