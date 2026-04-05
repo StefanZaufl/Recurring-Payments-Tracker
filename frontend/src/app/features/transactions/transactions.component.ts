@@ -55,14 +55,15 @@ type SortDir = 'asc' | 'desc';
             </div>
     
             <!-- Sort -->
+          <div class="flex gap-3 shrink-0">
             <select [ngModel]="sortField"
               (ngModelChange)="onSortChange($event)"
-              class="text-xs bg-card border border-card-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-subtle shrink-0">
+              class="text-xs bg-card border border-card-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-subtle shrink-0 min-w-0 flex-1 sm:flex-none">
             <option value="bookingDate">Sort by date</option>
             <option value="partnerName">Sort by partner</option>
             <option value="amount">Sort by amount</option>
           </select>
-    
+
           <!-- Sort direction -->
           <button (click)="toggleSortDirection()"
             class="w-9 h-9 flex items-center justify-center bg-card border border-card-border rounded-xl text-muted hover:text-white hover:bg-card-hover transition-colors shrink-0"
@@ -79,6 +80,7 @@ type SortDir = 'asc' | 'desc';
               </svg>
             }
           </button>
+          </div>
         </div>
       </div>
     
