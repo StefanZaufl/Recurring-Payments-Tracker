@@ -1,5 +1,6 @@
 package com.tracker.repository;
 
+import com.tracker.model.entity.PaymentType;
 import com.tracker.model.entity.RecurringPayment;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -26,4 +27,7 @@ public interface RecurringPaymentRepository extends JpaRepository<RecurringPayme
     List<RecurringPayment> findByUserId(UUID userId);
 
     Optional<RecurringPayment> findByIdAndUserId(UUID id, UUID userId);
+
+    @EntityGraph(attributePaths = "rules")
+    List<RecurringPayment> findByUserIdAndIsActiveTrueAndPaymentType(UUID userId, PaymentType paymentType);
 }

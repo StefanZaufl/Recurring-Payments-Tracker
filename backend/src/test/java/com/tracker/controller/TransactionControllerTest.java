@@ -1,8 +1,6 @@
 package com.tracker.controller;
 
-import com.tracker.model.entity.FileUpload;
-import com.tracker.model.entity.Transaction;
-import com.tracker.model.entity.User;
+import com.tracker.model.entity.*;
 import com.tracker.repository.*;
 import com.tracker.testutil.CsvMother;
 import com.tracker.testutil.FileUploadMother;
@@ -231,6 +229,36 @@ class TransactionControllerTest {
                 .andExpect(jsonPath("$.content[0].amount").value(-10.00))
                 .andExpect(jsonPath("$.content[1].amount").value(-20.00))
                 .andExpect(jsonPath("$.content[2].amount").value(-30.00));
+    }
+
+    @Test
+    void getTransactions_unlinkedFilter_returnsOnlyUnlinkedTransactions() throws Exception {
+        Transaction tx1 = seedTransaction(TransactionMother.transaction(NETFLIX, LocalDate.now().minusDays(10), TEN));
+        Transaction tx2 = seedTransaction(TransactionMother.transaction(SPOTIFY, LocalDate.now().minusDays(10), TWENTY));
+
+        // Link tx1 to a recurring payment
+        RecurringPayment payment = new RecurringPayment();
+        payment.setName("Netflix");
+        payment.setNormalizedName("netflix");
+        payment.setAverageAmount(new BigDecimal("-10"));
+        payment.setFrequency("MONTHLY");
+        payment.setIsActive(true);
+        payment.setUser(testUser);
+        payment = recurringPaymentRepository.save(payment);
+
+        TransactionRecurringLink link = new TransactionRecurringLink();
+        link.setTransaction(tx1);
+        link.setRecurringPayment(payment);
+        link.setConfidenceScore(BigDecimal.ONE);
+        link.setUser(testUser);
+        linkRepository.save(link);
+
+        mockMvc.perform(get(TRANSACTIONS_URL)
+                        .param("unlinked", "true")
+                        .with(authenticatedUser(testUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].partnerName").value(SPOTIFY));
     }
 
     @Test

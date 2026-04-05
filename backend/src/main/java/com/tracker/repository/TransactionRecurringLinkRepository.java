@@ -13,4 +13,6 @@ public interface TransactionRecurringLinkRepository extends JpaRepository<Transa
     List<TransactionRecurringLink> findByRecurringPaymentId(UUID recurringPaymentId);
 
     List<TransactionRecurringLink> findByRecurringPaymentIdAndUserId(UUID recurringPaymentId, UUID userId);
+
+    void deleteByRecurringPaymentId(UUID recurringPaymentId);
 }

@@ -31,7 +31,7 @@ public class RecurringPaymentDetectionService {
     static final long QUARTERLY_MAX_DAYS = 105;
     static final long YEARLY_MIN_DAYS = 340;
     static final long YEARLY_MAX_DAYS = 395;
-    static final int LOOKBACK_DAYS = 400;
+    static final int LOOKBACK_DAYS = 730;
 
     private final TransactionRepository transactionRepository;
     private final RecurringPaymentRepository recurringPaymentRepository;
@@ -68,34 +68,21 @@ public class RecurringPaymentDetectionService {
         List<RecurringPayment> result = new ArrayList<>();
         List<Transaction> unmatched = new ArrayList<>(newTransactions);
 
-        // Step 1: Match against existing active RTs
+        // Step 1a: Match against existing active RECURRING payments (higher priority)
         UUID currentUserId = userContextService.getCurrentUserId();
-        List<RecurringPayment> existingRts = recurringPaymentRepository.findByUserIdAndIsActiveTrue(currentUserId);
-        log.info("Step 1: Matching against {} existing active RTs", existingRts.size());
-        for (RecurringPayment rt : existingRts) {
-            List<Rule> rules = rt.getRules();
-            log.debug("RT '{}' (id={}) has {} rules: {}", rt.getName(), rt.getId(), rules.size(),
-                    rules.stream().map(r -> r.getRuleType().name()).toList());
-            if (rules.isEmpty()) {
-                log.debug("Skipping RT '{}' — no rules", rt.getName());
-                continue;
-            }
+        List<RecurringPayment> recurringRts = recurringPaymentRepository
+                .findByUserIdAndIsActiveTrueAndPaymentType(currentUserId, PaymentType.RECURRING);
+        log.info("Step 1a: Matching against {} active RECURRING payments", recurringRts.size());
+        matchExistingPayments(recurringRts, unmatched, result);
 
-            List<Transaction> matched = ruleEvaluationService.findMatchingTransactions(rules, unmatched);
-            if (!matched.isEmpty()) {
-                log.info("RT '{}': matched {} new transactions", rt.getName(), matched.size());
-                for (Transaction tx : matched) {
-                    createLink(tx, rt);
-                }
-                updateAmountRuleToNewest(rules, matched);
-                recomputeAverageAmount(rt);
-                recurringPaymentRepository.save(rt);
-                unmatched.removeAll(matched);
-                result.add(rt);
-            } else {
-                log.debug("RT '{}': no matches among {} unmatched transactions", rt.getName(), unmatched.size());
-            }
-        }
+        // Step 1b: Match against existing active GROUPED payments (lower priority)
+        List<RecurringPayment> groupedRts = recurringPaymentRepository
+                .findByUserIdAndIsActiveTrueAndPaymentType(currentUserId, PaymentType.GROUPED);
+        log.info("Step 1b: Matching against {} active GROUPED payments", groupedRts.size());
+        matchExistingPayments(groupedRts, unmatched, result);
+
+        // Step 1c: Recalculate average amounts for all active GROUPED payments
+        recalculateGroupedAverages(groupedRts);
 
         // Step 2: Try to form new RTs from unmatched transactions
         log.info("Step 2: {} unmatched transactions remain, attempting to form new RTs", unmatched.size());
@@ -156,6 +143,65 @@ public class RecurringPaymentDetectionService {
         log.info("Detection complete: {} RTs updated/created from {} new transactions ({} unmatched)",
                 result.size(), newTransactions.size(), unmatched.size());
         return result;
+    }
+
+    private void matchExistingPayments(List<RecurringPayment> payments,
+                                       List<Transaction> unmatched,
+                                       List<RecurringPayment> result) {
+        for (RecurringPayment rt : payments) {
+            List<Rule> rules = rt.getRules();
+            log.debug("RT '{}' (id={}) has {} rules: {}", rt.getName(), rt.getId(), rules.size(),
+                    rules.stream().map(r -> r.getRuleType().name()).toList());
+            if (rules.isEmpty()) {
+                log.debug("Skipping RT '{}' — no rules", rt.getName());
+                continue;
+            }
+
+            List<Transaction> matched = ruleEvaluationService.findMatchingTransactions(rules, unmatched);
+            if (!matched.isEmpty()) {
+                log.info("RT '{}': matched {} new transactions", rt.getName(), matched.size());
+                for (Transaction tx : matched) {
+                    createLink(tx, rt);
+                }
+                updateAmountRuleToNewest(rules, matched);
+                recomputeAverageAmount(rt);
+                recurringPaymentRepository.save(rt);
+                unmatched.removeAll(matched);
+                result.add(rt);
+            } else {
+                log.debug("RT '{}': no matches among {} unmatched transactions", rt.getName(), unmatched.size());
+            }
+        }
+    }
+
+    private void recalculateGroupedAverages(List<RecurringPayment> groupedPayments) {
+        LocalDate now = LocalDate.now();
+        for (RecurringPayment rt : groupedPayments) {
+            LocalDate periodStart = getPeriodStart(now, rt.getFrequency());
+            List<TransactionRecurringLink> links = linkRepository.findByRecurringPaymentId(rt.getId());
+            BigDecimal periodTotal = links.stream()
+                    .map(TransactionRecurringLink::getTransaction)
+                    .filter(tx -> !tx.getBookingDate().isBefore(periodStart))
+                    .map(Transaction::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            if (periodTotal.compareTo(BigDecimal.ZERO) != 0) {
+                rt.setAverageAmount(periodTotal.setScale(2, RoundingMode.HALF_UP));
+                rt.setIsIncome(periodTotal.compareTo(BigDecimal.ZERO) > 0);
+                recurringPaymentRepository.save(rt);
+                log.debug("Recalculated grouped payment '{}' average to {} for period starting {}",
+                        rt.getName(), periodTotal, periodStart);
+            }
+        }
+    }
+
+    private LocalDate getPeriodStart(LocalDate now, String frequency) {
+        if (frequency == null) return now.minusMonths(1);
+        return switch (frequency) {
+            case "QUARTERLY" -> now.minusMonths(3);
+            case "YEARLY" -> now.minusYears(1);
+            default -> now.minusMonths(1);
+        };
     }
 
     /**
@@ -275,6 +321,7 @@ public class RecurringPaymentDetectionService {
         rt.setAverageAmount(avgAmount);
         rt.setFrequency(frequency);
         rt.setIsIncome(avgAmount.compareTo(BigDecimal.ZERO) > 0);
+        rt.setPaymentType(PaymentType.RECURRING);
         rt.setIsActive(true);
         rt.setUser(currentUser);
         rt = recurringPaymentRepository.save(rt);

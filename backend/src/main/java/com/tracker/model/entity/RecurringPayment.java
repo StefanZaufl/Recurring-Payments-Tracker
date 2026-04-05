@@ -38,6 +38,10 @@ public class RecurringPayment {
     @Column(length = 20)
     private String frequency;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_type", length = 20, nullable = false)
+    private PaymentType paymentType = PaymentType.RECURRING;
+
     @Column(name = "is_income")
     private Boolean isIncome = false;
 

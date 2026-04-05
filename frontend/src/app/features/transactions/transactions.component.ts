@@ -280,6 +280,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
       this.from || undefined,
       this.to || undefined,
       this.searchText || undefined,
+      undefined,
       this.page,
       this.pageSize,
       this.sortField,

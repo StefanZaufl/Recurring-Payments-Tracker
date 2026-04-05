@@ -23,6 +23,7 @@ model/categoryDto.ts
 model/changePasswordRequest.ts
 model/changeUsernameRequest.ts
 model/createCategoryRequest.ts
+model/createRecurringPaymentRequest.ts
 model/createRuleRequest.ts
 model/createUserRequest.ts
 model/currentUserResponse.ts
@@ -32,6 +33,8 @@ model/loginRequest.ts
 model/models.ts
 model/monthlyBreakdown.ts
 model/monthlyPrediction.ts
+model/overlappingPaymentDto.ts
+model/paymentType.ts
 model/predictionResponse.ts
 model/recurringPaymentDto.ts
 model/recurringPaymentSummary.ts
@@ -40,6 +43,8 @@ model/ruleDto.ts
 model/ruleType.ts
 model/setupRequest.ts
 model/setupStatusResponse.ts
+model/simulateRulesRequest.ts
+model/simulateRulesResponse.ts
 model/targetField.ts
 model/transactionDto.ts
 model/transactionPage.ts

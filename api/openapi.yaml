@@ -60,6 +60,11 @@ paths:
           description: Search in partner name and details (case-insensitive, partial match)
           schema:
             type: string
+        - name: unlinked
+          in: query
+          description: When true, returns only transactions not linked to any recurring payment (last 2 years)
+          schema:
+            type: boolean
         - name: page
           in: query
           schema:
@@ -150,6 +155,48 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/RecurringPaymentDto'
+    post:
+      operationId: createRecurringPayment
+      summary: Create a new recurring or grouped payment
+      tags: [RecurringPayments]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRecurringPaymentRequest'
+      responses:
+        '201':
+          description: Payment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringPaymentDto'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/recurring-payments/simulate:
+    post:
+      operationId: simulateRules
+      summary: Simulate rules against unlinked transactions
+      tags: [RecurringPayments]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimulateRulesRequest'
+      responses:
+        '200':
+          description: Simulation results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulateRulesResponse'
 
   /api/recurring-payments/{id}:
     put:
@@ -176,6 +223,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RecurringPaymentDto'
+        '404':
+          description: Recurring payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteRecurringPayment
+      summary: Delete a recurring payment
+      tags: [RecurringPayments]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Payment deleted
         '404':
           description: Recurring payment not found
           content:
@@ -999,9 +1066,13 @@ components:
           type: number
           format: double
 
+    PaymentType:
+      type: string
+      enum: [RECURRING, GROUPED]
+
     RecurringPaymentDto:
       type: object
-      required: [id, name, averageAmount, frequency, isIncome, isActive, ruleCount]
+      required: [id, name, averageAmount, frequency, isIncome, isActive, ruleCount, paymentType]
       properties:
         id:
           type: string
@@ -1018,6 +1089,8 @@ components:
           format: double
         frequency:
           $ref: '#/components/schemas/Frequency'
+        paymentType:
+          $ref: '#/components/schemas/PaymentType'
         isIncome:
           type: boolean
         isActive:
@@ -1148,3 +1221,54 @@ components:
         amount:
           type: number
           format: double
+
+    CreateRecurringPaymentRequest:
+      type: object
+      required: [name, paymentType, frequency, rules]
+      properties:
+        name:
+          type: string
+        paymentType:
+          $ref: '#/components/schemas/PaymentType'
+        frequency:
+          $ref: '#/components/schemas/Frequency'
+        rules:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CreateRuleRequest'
+
+    SimulateRulesRequest:
+      type: object
+      required: [rules]
+      properties:
+        rules:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CreateRuleRequest'
+
+    SimulateRulesResponse:
+      type: object
+      required: [matchingTransactions, totalMatchCount, overlappingPayments]
+      properties:
+        matchingTransactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionDto'
+        totalMatchCount:
+          type: integer
+        overlappingPayments:
+          type: array
+          items:
+            $ref: '#/components/schemas/OverlappingPaymentDto'
+
+    OverlappingPaymentDto:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string

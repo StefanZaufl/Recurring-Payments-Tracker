@@ -1,14 +1,15 @@
 package com.tracker.service;
 
-import com.tracker.model.entity.RecurringPayment;
-import com.tracker.model.entity.Transaction;
-import com.tracker.model.entity.TransactionRecurringLink;
+import com.tracker.controller.ResourceNotFoundException;
+import com.tracker.model.entity.*;
 import com.tracker.repository.CategoryRepository;
 import com.tracker.repository.RecurringPaymentRepository;
 import com.tracker.repository.TransactionRecurringLinkRepository;
+import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,15 +21,24 @@ public class RecurringPaymentService {
     private final TransactionRecurringLinkRepository linkRepository;
     private final CategoryRepository categoryRepository;
     private final UserContextService userContextService;
+    private final RuleService ruleService;
+    private final RecurringPaymentDetectionService detectionService;
+    private final EntityManager entityManager;
 
     public RecurringPaymentService(RecurringPaymentRepository recurringPaymentRepository,
                                    TransactionRecurringLinkRepository linkRepository,
                                    CategoryRepository categoryRepository,
-                                   UserContextService userContextService) {
+                                   UserContextService userContextService,
+                                   RuleService ruleService,
+                                   RecurringPaymentDetectionService detectionService,
+                                   EntityManager entityManager) {
         this.recurringPaymentRepository = recurringPaymentRepository;
         this.linkRepository = linkRepository;
         this.categoryRepository = categoryRepository;
         this.userContextService = userContextService;
+        this.ruleService = ruleService;
+        this.detectionService = detectionService;
+        this.entityManager = entityManager;
     }
 
     @Transactional(readOnly = true)
@@ -56,6 +66,48 @@ public class RecurringPaymentService {
             }
             return recurringPaymentRepository.save(payment);
         });
+    }
+
+    @Transactional
+    public RecurringPayment create(String name, PaymentType paymentType, String frequency,
+                                   List<RuleCreateParams> ruleParams) {
+        User currentUser = userContextService.getCurrentUser();
+
+        RecurringPayment payment = new RecurringPayment();
+        payment.setName(name);
+        payment.setNormalizedName(RecurringPaymentDetectionService.normalize(name));
+        payment.setPaymentType(paymentType);
+        payment.setFrequency(frequency);
+        payment.setAverageAmount(BigDecimal.ZERO);
+        payment.setIsActive(true);
+        payment.setUser(currentUser);
+        RecurringPayment savedPayment = recurringPaymentRepository.save(payment);
+        UUID paymentId = savedPayment.getId();
+
+        for (RuleCreateParams rp : ruleParams) {
+            ruleService.createRule(paymentId, rp.ruleType(), rp.targetField(),
+                    rp.text(), rp.strict(), rp.threshold(), rp.amount(), rp.fluctuationRange());
+        }
+
+        detectionService.reEvaluateRecurringPayment(paymentId);
+
+        // Clear persistence context so entity graph reload fetches the newly created rules
+        entityManager.flush();
+        entityManager.clear();
+
+        return recurringPaymentRepository.findByUserId(currentUser.getId()).stream()
+                .filter(p -> p.getId().equals(paymentId))
+                .findFirst()
+                .orElse(savedPayment);
+    }
+
+    @Transactional
+    public void delete(UUID id) {
+        UUID currentUserId = userContextService.getCurrentUserId();
+        RecurringPayment payment = recurringPaymentRepository.findByIdAndUserId(id, currentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Recurring payment not found: " + id));
+        linkRepository.deleteByRecurringPaymentId(payment.getId());
+        recurringPaymentRepository.delete(payment);
     }
 
     @Transactional(readOnly = true)

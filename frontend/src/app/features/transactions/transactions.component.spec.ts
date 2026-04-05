@@ -57,7 +57,7 @@ describe('TransactionsComponent', () => {
   it('should create and load transactions on init', () => {
     expect(component).toBeTruthy();
     expect(service.getTransactions).toHaveBeenCalledWith(
-      undefined, undefined, undefined, 0, 25, 'bookingDate', 'desc'
+      undefined, undefined, undefined, undefined, 0, 25, 'bookingDate', 'desc'
     );
     expect(component.transactions.length).toBe(2);
     expect(component.totalElements).toBe(2);
@@ -72,7 +72,7 @@ describe('TransactionsComponent', () => {
     component.onDateRangeChanged({ from: '2026-01-01', to: '2026-01-31', label: 'January' });
 
     expect(service.getTransactions).toHaveBeenCalledWith(
-      '2026-01-01', '2026-01-31', undefined, 0, 25, 'bookingDate', 'desc'
+      '2026-01-01', '2026-01-31', undefined, undefined, 0, 25, 'bookingDate', 'desc'
     );
     expect(component.page).toBe(0);
   });
@@ -87,7 +87,7 @@ describe('TransactionsComponent', () => {
 
     tick(100);
     expect(service.getTransactions).toHaveBeenCalledWith(
-      undefined, undefined, 'netflix', 0, 25, 'bookingDate', 'desc'
+      undefined, undefined, 'netflix', undefined, 0, 25, 'bookingDate', 'desc'
     );
   }));
 
@@ -99,7 +99,7 @@ describe('TransactionsComponent', () => {
     expect(component.sortField).toBe('partnerName');
     expect(component.page).toBe(0);
     expect(service.getTransactions).toHaveBeenCalledWith(
-      undefined, undefined, undefined, 0, 25, 'partnerName', 'desc'
+      undefined, undefined, undefined, undefined, 0, 25, 'partnerName', 'desc'
     );
   });
 
@@ -109,7 +109,7 @@ describe('TransactionsComponent', () => {
 
     expect(component.sortDir).toBe('asc');
     expect(service.getTransactions).toHaveBeenCalledWith(
-      undefined, undefined, undefined, 0, 25, 'bookingDate', 'asc'
+      undefined, undefined, undefined, undefined, 0, 25, 'bookingDate', 'asc'
     );
   });
 
@@ -124,7 +124,7 @@ describe('TransactionsComponent', () => {
     component.goToPage(1);
     expect(component.page).toBe(1);
     expect(service.getTransactions).toHaveBeenCalledWith(
-      undefined, undefined, undefined, 1, 25, 'bookingDate', 'desc'
+      undefined, undefined, undefined, undefined, 1, 25, 'bookingDate', 'desc'
     );
   });
 

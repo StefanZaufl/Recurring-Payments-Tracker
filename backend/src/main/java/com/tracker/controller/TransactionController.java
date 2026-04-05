@@ -48,8 +48,8 @@ public class TransactionController implements TransactionsApi {
     }
 
     @Override
-    public ResponseEntity<TransactionPage> getTransactions(LocalDate from, LocalDate to, String text, Integer page, Integer size, String sort, String sortDirection) {
-        Page<Transaction> result = transactionService.getTransactions(from, to, text, page, size, sort, sortDirection);
+    public ResponseEntity<TransactionPage> getTransactions(LocalDate from, LocalDate to, String text, Boolean unlinked, Integer page, Integer size, String sort, String sortDirection) {
+        Page<Transaction> result = transactionService.getTransactions(from, to, text, unlinked, page, size, sort, sortDirection);
         TransactionPage transactionPage = new TransactionPage(
                 transactionMapper.toDtoList(result.getContent()),
                 result.getTotalElements(),

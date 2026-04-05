@@ -9,19 +9,14 @@
  */
 import { Frequency } from './frequency';
 import { PaymentType } from './paymentType';
+import { CreateRuleRequest } from './createRuleRequest';
 
 
-export interface RecurringPaymentDto { 
-    id: string;
+export interface CreateRecurringPaymentRequest { 
     name: string;
-    categoryId?: string;
-    categoryName?: string;
-    averageAmount: number;
-    frequency: Frequency;
     paymentType: PaymentType;
-    isIncome: boolean;
-    isActive: boolean;
-    ruleCount: number;
+    frequency: Frequency;
+    rules: Array<CreateRuleRequest>;
 }
 
 

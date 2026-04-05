@@ -66,7 +66,9 @@ public class TransactionService {
     private static final java.util.Set<String> ALLOWED_SORT_FIELDS = java.util.Set.of("bookingDate", "partnerName", "amount");
 
     @Transactional(readOnly = true)
-    public Page<Transaction> getTransactions(LocalDate from, LocalDate to, String text, int page, int size, String sort, String sortDirection) {
+    public Page<Transaction> getTransactions(LocalDate from, LocalDate to, String text,
+                                             Boolean unlinked, int page, int size,
+                                             String sort, String sortDirection) {
         UUID currentUserId = userContextService.getCurrentUserId();
         String sortField = sort != null && ALLOWED_SORT_FIELDS.contains(sort) ? sort : "bookingDate";
         Sort.Direction direction = "asc".equalsIgnoreCase(sortDirection) ? Sort.Direction.ASC : Sort.Direction.DESC;
@@ -75,6 +77,11 @@ public class TransactionService {
             sorting = sorting.and(Sort.by(Sort.Direction.DESC, "bookingDate"));
         }
         PageRequest pageRequest = PageRequest.of(page, size, sorting);
+
+        if (Boolean.TRUE.equals(unlinked)) {
+            LocalDate cutoff = LocalDate.now().minusDays(RecurringPaymentDetectionService.LOOKBACK_DAYS);
+            return transactionRepository.findUnlinkedTransactionsAfterForUserPaged(cutoff, currentUserId, pageRequest);
+        }
 
         Specification<Transaction> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();

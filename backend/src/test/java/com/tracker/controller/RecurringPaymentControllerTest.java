@@ -1,10 +1,6 @@
 package com.tracker.controller;
 
-import com.tracker.model.entity.FileUpload;
-import com.tracker.model.entity.RecurringPayment;
-import com.tracker.model.entity.Transaction;
-import com.tracker.model.entity.TransactionRecurringLink;
-import com.tracker.model.entity.User;
+import com.tracker.model.entity.*;
 import com.tracker.repository.*;
 import com.tracker.testutil.CsvMother;
 import com.tracker.testutil.FileUploadMother;
@@ -203,6 +199,209 @@ class RecurringPaymentControllerTest {
         void returns404ForNonExistentPayment() throws Exception {
             mockMvc.perform(get(RECURRING_URL + "/{id}/transactions", UUID.randomUUID()).with(authenticatedUser(testUser)))
                     .andExpect(status().isNotFound());
+        }
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // POST /api/recurring-payments (create)
+    // ────────────────────────────────────────────────────────────────────
+
+    @Nested
+    class CreateRecurringPayment {
+
+        @Test
+        void createsRecurringPaymentWithRules() throws Exception {
+            mockMvc.perform(post(RECURRING_URL)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                {
+                                  "name": "Groceries",
+                                  "paymentType": "GROUPED",
+                                  "frequency": "MONTHLY",
+                                  "rules": [
+                                    {
+                                      "ruleType": "JARO_WINKLER",
+                                      "targetField": "PARTNER_NAME",
+                                      "text": "rewe",
+                                      "threshold": 0.85,
+                                      "strict": true
+                                    }
+                                  ]
+                                }
+                                """)
+                            .with(authenticatedUser(testUser)))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.name").value("Groceries"))
+                    .andExpect(jsonPath("$.paymentType").value("GROUPED"))
+                    .andExpect(jsonPath("$.frequency").value("MONTHLY"))
+                    .andExpect(jsonPath("$.ruleCount").value(1))
+                    .andExpect(jsonPath("$.isActive").value(true));
+        }
+
+        @Test
+        void createsRecurringTypePayment() throws Exception {
+            mockMvc.perform(post(RECURRING_URL)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                {
+                                  "name": "Netflix",
+                                  "paymentType": "RECURRING",
+                                  "frequency": "MONTHLY",
+                                  "rules": [
+                                    {
+                                      "ruleType": "REGEX",
+                                      "targetField": "PARTNER_NAME",
+                                      "text": "netflix.*",
+                                      "strict": true
+                                    }
+                                  ]
+                                }
+                                """)
+                            .with(authenticatedUser(testUser)))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.paymentType").value("RECURRING"));
+        }
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // DELETE /api/recurring-payments/{id}
+    // ────────────────────────────────────────────────────────────────────
+
+    @Nested
+    class DeleteRecurringPayment {
+
+        @Test
+        void deletesExistingPayment() throws Exception {
+            RecurringPayment payment = seedRecurringPayment("Netflix", "MONTHLY", "-12.99", false);
+
+            mockMvc.perform(delete(RECURRING_URL + "/{id}", payment.getId()).with(authenticatedUser(testUser)))
+                    .andExpect(status().isNoContent());
+
+            mockMvc.perform(get(RECURRING_URL).with(authenticatedUser(testUser)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$", hasSize(0)));
+        }
+
+        @Test
+        void deletesPaymentWithLinkedTransactions() throws Exception {
+            RecurringPayment payment = seedRecurringPayment("Netflix", "MONTHLY", "-12.99", false);
+            Transaction tx = seedTransaction("Netflix", LocalDate.of(2025, 1, 15), "-12.99");
+            seedLink(tx, payment);
+
+            mockMvc.perform(delete(RECURRING_URL + "/{id}", payment.getId()).with(authenticatedUser(testUser)))
+                    .andExpect(status().isNoContent());
+
+            // Payment gone
+            mockMvc.perform(get(RECURRING_URL).with(authenticatedUser(testUser)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$", hasSize(0)));
+        }
+
+        @Test
+        void returns404ForNonExistentPayment() throws Exception {
+            mockMvc.perform(delete(RECURRING_URL + "/{id}", UUID.randomUUID()).with(authenticatedUser(testUser)))
+                    .andExpect(status().isNotFound());
+        }
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // POST /api/recurring-payments/simulate
+    // ────────────────────────────────────────────────────────────────────
+
+    @Nested
+    class SimulateRules {
+
+        @Test
+        void returnsMatchingTransactions() throws Exception {
+            seedTransaction("Netflix", LocalDate.now().minusDays(10), "-12.99");
+            seedTransaction("Spotify", LocalDate.now().minusDays(10), "-9.99");
+
+            mockMvc.perform(post(RECURRING_URL + "/simulate")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                {
+                                  "rules": [
+                                    {
+                                      "ruleType": "JARO_WINKLER",
+                                      "targetField": "PARTNER_NAME",
+                                      "text": "netflix",
+                                      "threshold": 0.85,
+                                      "strict": true
+                                    }
+                                  ]
+                                }
+                                """)
+                            .with(authenticatedUser(testUser)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.totalMatchCount").value(1))
+                    .andExpect(jsonPath("$.matchingTransactions", hasSize(1)))
+                    .andExpect(jsonPath("$.matchingTransactions[0].partnerName").value("Netflix"));
+        }
+
+        @Test
+        void detectsOverlappingPayments() throws Exception {
+            // Create an existing payment with a rule that matches Netflix
+            RecurringPayment existing = seedRecurringPayment("Netflix Subscription", "MONTHLY", "-12.99", false);
+            Rule rule = new Rule();
+            rule.setRecurringPayment(existing);
+            rule.setRuleType(RuleType.JARO_WINKLER);
+            rule.setTargetField(TargetField.PARTNER_NAME);
+            rule.setText("netflix");
+            rule.setThreshold(0.85);
+            rule.setStrict(true);
+            rule.setUser(testUser);
+            ruleRepository.save(rule);
+
+            // Seed an unlinked Netflix transaction
+            seedTransaction("Netflix", LocalDate.now().minusDays(10), "-12.99");
+
+            mockMvc.perform(post(RECURRING_URL + "/simulate")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                {
+                                  "rules": [
+                                    {
+                                      "ruleType": "JARO_WINKLER",
+                                      "targetField": "PARTNER_NAME",
+                                      "text": "netflix",
+                                      "threshold": 0.85,
+                                      "strict": true
+                                    }
+                                  ]
+                                }
+                                """)
+                            .with(authenticatedUser(testUser)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.overlappingPayments", hasSize(1)))
+                    .andExpect(jsonPath("$.overlappingPayments[0].name").value("Netflix Subscription"));
+        }
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // PaymentType in DTO
+    // ────────────────────────────────────────────────────────────────────
+
+    @Nested
+    class PaymentTypeInDto {
+
+        @Test
+        void returnsPaymentTypeInGetResponse() throws Exception {
+            seedRecurringPayment("Netflix", "MONTHLY", "-12.99", false);
+
+            mockMvc.perform(get(RECURRING_URL).with(authenticatedUser(testUser)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].paymentType").value("RECURRING"));
+        }
+
+        @Test
+        void groupedPaymentTypeIsReturned() throws Exception {
+            RecurringPayment payment = seedRecurringPayment("Groceries", "MONTHLY", "-200", false);
+            payment.setPaymentType(PaymentType.GROUPED);
+            recurringPaymentRepository.save(payment);
+
+            mockMvc.perform(get(RECURRING_URL).with(authenticatedUser(testUser)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].paymentType").value("GROUPED"));
         }
     }
 

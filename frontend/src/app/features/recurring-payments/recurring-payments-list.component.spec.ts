@@ -8,23 +8,24 @@ import { RecurringPaymentDto } from '../../api/generated/model/recurringPaymentD
 import { CategoryDto } from '../../api/generated/model/categoryDto';
 import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 import { Frequency } from '../../api/generated/model/frequency';
+import { PaymentType } from '../../api/generated/model/paymentType';
 
 const mockPayments: RecurringPaymentDto[] = [
   {
     id: '1', name: 'Netflix', categoryId: 'cat-1', categoryName: 'Streaming',
-    averageAmount: -12.99, frequency: Frequency.Monthly, isIncome: false, isActive: true, ruleCount: 2,
+    averageAmount: -12.99, frequency: Frequency.Monthly, isIncome: false, isActive: true, ruleCount: 2, paymentType: PaymentType.Recurring,
   },
   {
     id: '2', name: 'Salary', categoryId: undefined, categoryName: undefined,
-    averageAmount: 3000, frequency: Frequency.Monthly, isIncome: true, isActive: true, ruleCount: 2,
+    averageAmount: 3000, frequency: Frequency.Monthly, isIncome: true, isActive: true, ruleCount: 2, paymentType: PaymentType.Recurring,
   },
   {
     id: '3', name: 'Old Gym', categoryId: undefined, categoryName: undefined,
-    averageAmount: -29.99, frequency: Frequency.Monthly, isIncome: false, isActive: false, ruleCount: 0,
+    averageAmount: -29.99, frequency: Frequency.Monthly, isIncome: false, isActive: false, ruleCount: 0, paymentType: PaymentType.Recurring,
   },
   {
     id: '4', name: 'Insurance', categoryId: 'cat-2', categoryName: 'Insurance',
-    averageAmount: -150, frequency: Frequency.Quarterly, isIncome: false, isActive: true, ruleCount: 1,
+    averageAmount: -150, frequency: Frequency.Quarterly, isIncome: false, isActive: true, ruleCount: 1, paymentType: PaymentType.Recurring,
   },
 ];
 
@@ -41,8 +42,9 @@ describe('RecurringPaymentsListComponent', () => {
 
   beforeEach(async () => {
     const recurringServiceMock = {
-      getRecurringPayments: jest.fn().mockReturnValue(of(mockPayments)),
+      getRecurringPayments: jest.fn().mockImplementation(() => of(mockPayments.map(p => ({ ...p })))),
       updateRecurringPayment: jest.fn(),
+      deleteRecurringPayment: jest.fn().mockReturnValue(of(undefined)),
       getRecurringPaymentTransactions: jest.fn().mockReturnValue(of([])),
     };
     const categoriesServiceMock = {
@@ -369,5 +371,69 @@ describe('RecurringPaymentsListComponent', () => {
 
     expect(component.payments.find(p => p.id === '1')?.ruleCount).toBe(5);
     expect(component.rulesPayment?.ruleCount).toBe(5);
+  });
+
+  // Tab tests
+
+  it('should default to RECURRING tab and show correct counts', () => {
+    fixture.detectChanges();
+
+    expect(component.selectedTab).toBe('RECURRING');
+    expect(component.recurringCount).toBe(3); // 3 active RECURRING
+    expect(component.groupedCount).toBe(0);
+  });
+
+  it('should switch to GROUPED tab and show grouped payments', () => {
+    const paymentsWithGrouped = [
+      ...mockPayments,
+      {
+        id: '5', name: 'Groceries', categoryId: undefined, categoryName: undefined,
+        averageAmount: -200, frequency: Frequency.Monthly, isIncome: false, isActive: true, ruleCount: 1, paymentType: PaymentType.Grouped,
+      },
+    ];
+    recurringService.getRecurringPayments.mockReturnValue(of(paymentsWithGrouped));
+    fixture.detectChanges();
+
+    expect(component.recurringCount).toBe(3);
+    expect(component.groupedCount).toBe(1);
+
+    component.selectedTab = 'GROUPED';
+    component.applyFilter();
+
+    expect(component.filteredPayments.length).toBe(1);
+    expect(component.filteredPayments[0].name).toBe('Groceries');
+  });
+
+  // Delete tests
+
+  it('should open delete confirmation dialog', () => {
+    fixture.detectChanges();
+    const netflix = component.payments.find(p => p.name === 'Netflix')!;
+
+    component.confirmDelete(netflix);
+
+    expect(component.deletePayment).toBe(netflix);
+  });
+
+  it('should delete payment and refresh list', () => {
+    fixture.detectChanges();
+    const netflix = component.payments.find(p => p.name === 'Netflix')!;
+    recurringService.deleteRecurringPayment.mockReturnValue(of(undefined));
+    recurringService.getRecurringPayments.mockReturnValue(of(mockPayments.filter(p => p.id !== '1')));
+
+    component.confirmDelete(netflix);
+    component.executeDelete();
+
+    expect(recurringService.deleteRecurringPayment).toHaveBeenCalledWith('1');
+  });
+
+  it('should close delete dialog when cancelled', () => {
+    fixture.detectChanges();
+    const netflix = component.payments.find(p => p.name === 'Netflix')!;
+    component.confirmDelete(netflix);
+
+    component.deletePayment = null;
+
+    expect(component.deletePayment).toBeNull();
   });
 });

@@ -2,6 +2,7 @@ package com.tracker.controller;
 
 import com.tracker.api.model.RecurringPaymentDto;
 import com.tracker.api.model.TransactionDto;
+import com.tracker.model.entity.PaymentType;
 import com.tracker.model.entity.RecurringPayment;
 import com.tracker.model.entity.Transaction;
 import org.mapstruct.Mapper;
@@ -42,5 +43,12 @@ public interface RecurringPaymentMapper {
             return null;
         }
         return com.tracker.api.model.Frequency.fromValue(frequency);
+    }
+
+    default com.tracker.api.model.PaymentType mapPaymentType(PaymentType paymentType) {
+        if (paymentType == null) {
+            return null;
+        }
+        return com.tracker.api.model.PaymentType.fromValue(paymentType.name());
     }
 }
