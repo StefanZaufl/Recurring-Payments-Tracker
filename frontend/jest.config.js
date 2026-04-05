@@ -7,4 +7,7 @@ module.exports = {
   testMatch: ['**/*.spec.ts'],
   collectCoverage: false,
   moduleDirectories: ['node_modules', path.resolve(__dirname, 'node_modules'), rootNodeModules],
+  transformIgnorePatterns: [
+    `node_modules/(?!.*\\.mjs$|lodash-es|ng2-charts)`,
+  ],
 };
