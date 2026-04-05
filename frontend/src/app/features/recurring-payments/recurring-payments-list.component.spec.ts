@@ -251,6 +251,20 @@ describe('RecurringPaymentsListComponent', () => {
     expect(component.dialogPayment).toBeNull();
   });
 
+  it('should update filteredPayments after category change', () => {
+    fixture.detectChanges();
+    const salary = component.payments.find(p => p.name === 'Salary')!;
+    const updatedSalary = { ...salary, categoryId: 'cat-1', categoryName: 'Streaming' };
+    recurringService.updateRecurringPayment.mockReturnValue(of(updatedSalary));
+    component.openCategoryDialog(salary);
+
+    component.onCategorySelected('cat-1');
+
+    const filtered = component.filteredPayments.find(p => p.id === salary.id)!;
+    expect(filtered.categoryName).toBe('Streaming');
+    expect(filtered.categoryId).toBe('cat-1');
+  });
+
   it('should show empty state when no payments', () => {
     recurringService.getRecurringPayments.mockReturnValue(of([]));
     fixture.detectChanges();

@@ -321,6 +321,7 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
         const idx = this.payments.findIndex(p => p.id === payment.id);
         if (idx >= 0) this.payments[idx] = { ...this.payments[idx], ...updated };
         this.closeCategoryDialog();
+        this.applyFilter();
         this.cdr.markForCheck();
       }
     });
