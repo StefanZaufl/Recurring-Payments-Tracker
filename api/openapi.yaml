@@ -1090,6 +1090,8 @@ components:
         percentage:
           type: number
           format: double
+        color:
+          type: string
 
     RecurringPaymentSummary:
       type: object

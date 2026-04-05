@@ -108,19 +108,47 @@ import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
                 </canvas>
               </div>
             </div>
-            <!-- Category doughnut -->
+            <!-- Category chart -->
             <div class="glass-card p-4 sm:p-5">
-              <h2 class="text-sm font-semibold text-white mb-4">By Category</h2>
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="text-sm font-semibold text-white">By Category</h2>
+                @if (overview.byCategory.length > 0) {
+                  <button (click)="toggleCategoryChart()" aria-label="Toggle chart type"
+                    class="w-8 h-8 flex items-center justify-center rounded-lg bg-card border border-card-border text-muted hover:text-white hover:border-subtle transition-all">
+                    @if (categoryChartType === 'doughnut') {
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 12h4l3-9 4 18 3-9h4" />
+                      </svg>
+                    } @else {
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 3v9l6.36 3.64" />
+                      </svg>
+                    }
+                  </button>
+                }
+              </div>
               @if (overview.byCategory.length > 0) {
                 <div class="h-56 sm:h-72 flex items-center justify-center">
-                  <canvas baseChart
-                    role="img"
-                    aria-label="Doughnut chart showing expense breakdown by category"
-                    [datasets]="pieChartData.datasets"
-                    [labels]="pieChartData.labels"
-                    [options]="pieChartOptions"
-                    type="doughnut">
-                  </canvas>
+                  @if (categoryChartType === 'doughnut') {
+                    <canvas baseChart
+                      role="img"
+                      aria-label="Doughnut chart showing expense breakdown by category"
+                      [datasets]="pieChartData.datasets"
+                      [labels]="pieChartData.labels"
+                      [options]="pieChartOptions"
+                      type="doughnut">
+                    </canvas>
+                  } @else {
+                    <canvas baseChart
+                      role="img"
+                      aria-label="Bar chart showing expense breakdown by category"
+                      [datasets]="categoryBarChartData.datasets"
+                      [labels]="categoryBarChartData.labels"
+                      [options]="categoryBarChartOptions"
+                      type="bar">
+                    </canvas>
+                  }
                 </div>
               }
               @if (overview.byCategory.length === 0) {
@@ -214,6 +242,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   };
 
+  categoryChartType: 'doughnut' | 'bar' = 'doughnut';
+
   pieChartData: ChartConfiguration<'doughnut'>['data'] = { labels: [], datasets: [] };
   pieChartOptions: ChartConfiguration<'doughnut'>['options'] = {
     responsive: true,
@@ -227,6 +257,33 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   };
 
+  categoryBarChartData: ChartConfiguration<'bar'>['data'] = { labels: [], datasets: [] };
+  categoryBarChartOptions: ChartConfiguration<'bar'>['options'] = {
+    responsive: true,
+    maintainAspectRatio: false,
+    indexAxis: 'y',
+    plugins: {
+      legend: { display: false }
+    },
+    scales: {
+      x: {
+        beginAtZero: true,
+        grid: { color: CHART_THEME.gridColor },
+        ticks: {
+          color: CHART_THEME.labelColor,
+          font: { family: CHART_THEME.monoFontFamily, size: 10 }
+        }
+      },
+      y: {
+        grid: { display: false },
+        ticks: {
+          color: CHART_THEME.labelColor,
+          font: { family: CHART_THEME.fontFamily, size: 11 }
+        }
+      }
+    }
+  };
+
   ngOnInit(): void {
     this.loadData();
   }
@@ -234,6 +291,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  toggleCategoryChart(): void {
+    this.categoryChartType = this.categoryChartType === 'doughnut' ? 'bar' : 'doughnut';
   }
 
   changeYear(delta: number): void {
@@ -249,6 +310,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.overview = data;
         this.buildBarChart(data);
         this.buildPieChart(data);
+        this.buildCategoryBarChart(data);
         this.loading = false;
         this.cdr.markForCheck();
       },
@@ -283,14 +345,30 @@ export class DashboardComponent implements OnInit, OnDestroy {
     };
   }
 
+  private getCategoryColors(data: AnnualOverview): string[] {
+    return data.byCategory.map((c, i) => c.color || CHART_THEME.categoryColors[i % CHART_THEME.categoryColors.length]);
+  }
+
   private buildPieChart(data: AnnualOverview): void {
     this.pieChartData = {
       labels: data.byCategory.map(c => c.category),
       datasets: [{
         data: data.byCategory.map(c => c.total),
-        backgroundColor: data.byCategory.map((_, i) => CHART_THEME.categoryColors[i % CHART_THEME.categoryColors.length]),
+        backgroundColor: this.getCategoryColors(data),
         borderColor: CHART_THEME.borderColor,
         borderWidth: 2,
+      }]
+    };
+  }
+
+  private buildCategoryBarChart(data: AnnualOverview): void {
+    this.categoryBarChartData = {
+      labels: data.byCategory.map(c => c.category),
+      datasets: [{
+        data: data.byCategory.map(c => c.total),
+        backgroundColor: this.getCategoryColors(data),
+        borderRadius: 4,
+        borderSkipped: false,
       }]
     };
   }

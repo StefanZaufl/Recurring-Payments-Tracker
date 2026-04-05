@@ -105,6 +105,7 @@ public class AnalyticsService {
 
         // Category breakdown (expenses only, from linked transactions within the year)
         Map<String, BigDecimal> categoryTotals = new LinkedHashMap<>();
+        Map<String, String> categoryColors = new LinkedHashMap<>();
         for (RecurringPayment payment : activePayments) {
             if (Boolean.TRUE.equals(payment.getIsIncome())) continue;
 
@@ -113,6 +114,9 @@ public class AnalyticsService {
 
             String categoryName = payment.getCategory() != null ? payment.getCategory().getName() : "Uncategorized";
             categoryTotals.merge(categoryName, amount, BigDecimal::add);
+            if (!categoryColors.containsKey(categoryName) && payment.getCategory() != null) {
+                categoryColors.put(categoryName, payment.getCategory().getColor());
+            }
         }
 
         BigDecimal categoryTotal = categoryTotals.values().stream()
@@ -124,7 +128,7 @@ public class AnalyticsService {
                             ? e.getValue().multiply(BigDecimal.valueOf(100))
                                 .divide(categoryTotal, 2, RoundingMode.HALF_UP).doubleValue()
                             : 0.0;
-                    return new CategoryBreakdownResult(e.getKey(), e.getValue(), percentage);
+                    return new CategoryBreakdownResult(e.getKey(), e.getValue(), percentage, categoryColors.get(e.getKey()));
                 })
                 .sorted(Comparator.comparing(CategoryBreakdownResult::total).reversed())
                 .toList();
@@ -245,7 +249,7 @@ public class AnalyticsService {
 
     public record MonthlyBreakdownResult(int month, BigDecimal income, BigDecimal expenses, BigDecimal surplus) {}
 
-    public record CategoryBreakdownResult(String category, BigDecimal total, double percentage) {}
+    public record CategoryBreakdownResult(String category, BigDecimal total, double percentage, String color) {}
 
     public record RecurringPaymentSummaryResult(String name, BigDecimal monthlyAmount,
                                                  BigDecimal annualAmount, String category) {}
