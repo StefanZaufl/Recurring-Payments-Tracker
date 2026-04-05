@@ -38,7 +38,7 @@ describe('authInterceptor', () => {
   });
 
   it('should redirect to /login on 401 for non-auth URLs', () => {
-    http.get('/api/data').subscribe({ error: () => {} });
+    http.get('/api/data').subscribe({ error: () => { /* expected error */ } });
     const req = httpTesting.expectOne('/api/data');
     req.flush('Unauthorized', { status: 401, statusText: 'Unauthorized' });
 
@@ -46,7 +46,7 @@ describe('authInterceptor', () => {
   });
 
   it('should not redirect on 401 for /api/auth/ URLs', () => {
-    http.get('/api/auth/me').subscribe({ error: () => {} });
+    http.get('/api/auth/me').subscribe({ error: () => { /* expected error */ } });
     const req = httpTesting.expectOne('/api/auth/me');
     req.flush('Unauthorized', { status: 401, statusText: 'Unauthorized' });
 
@@ -54,7 +54,7 @@ describe('authInterceptor', () => {
   });
 
   it('should not redirect on 401 for /api/setup/ URLs', () => {
-    http.get('/api/setup/status').subscribe({ error: () => {} });
+    http.get('/api/setup/status').subscribe({ error: () => { /* expected error */ } });
     const req = httpTesting.expectOne('/api/setup/status');
     req.flush('Unauthorized', { status: 401, statusText: 'Unauthorized' });
 
@@ -62,7 +62,7 @@ describe('authInterceptor', () => {
   });
 
   it('should not redirect on non-401 errors', () => {
-    http.get('/api/data').subscribe({ error: () => {} });
+    http.get('/api/data').subscribe({ error: () => { /* expected error */ } });
     const req = httpTesting.expectOne('/api/data');
     req.flush('Server Error', { status: 500, statusText: 'Internal Server Error' });
 

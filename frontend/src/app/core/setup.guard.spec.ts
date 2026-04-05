@@ -1,8 +1,11 @@
 import { TestBed } from '@angular/core/testing';
-import { Router } from '@angular/router';
-import { of } from 'rxjs';
+import { ActivatedRouteSnapshot, Router, RouterStateSnapshot, UrlTree } from '@angular/router';
+import { Observable, of, throwError } from 'rxjs';
 import { setupGuard } from './setup.guard';
 import { AuthStateService } from './auth-state.service';
+
+const mockRoute = {} as ActivatedRouteSnapshot;
+const mockState = {} as RouterStateSnapshot;
 
 describe('setupGuard', () => {
   let authState: { checkSetupNeeded: jest.Mock };
@@ -23,14 +26,14 @@ describe('setupGuard', () => {
     router = TestBed.inject(Router);
   });
 
-  function runGuard(): any {
-    return TestBed.runInInjectionContext(() => setupGuard({} as any, {} as any));
+  function runGuard(): Observable<boolean | UrlTree> {
+    return TestBed.runInInjectionContext(() => setupGuard(mockRoute, mockState)) as Observable<boolean | UrlTree>;
   }
 
   it('should return true if setup is needed', (done) => {
     authState.checkSetupNeeded.mockReturnValue(of(true));
 
-    runGuard().subscribe((val: any) => {
+    runGuard().subscribe((val) => {
       expect(val).toBe(true);
       done();
     });
@@ -39,10 +42,22 @@ describe('setupGuard', () => {
   it('should redirect to /login if setup is not needed', (done) => {
     authState.checkSetupNeeded.mockReturnValue(of(false));
 
-    runGuard().subscribe((val: any) => {
+    runGuard().subscribe((val) => {
       expect(val).toBe('login-tree');
       expect(router.createUrlTree).toHaveBeenCalledWith(['/login']);
       done();
+    });
+  });
+
+  it('should propagate error when checkSetupNeeded observable fails', (done) => {
+    authState.checkSetupNeeded.mockReturnValue(throwError(() => new Error('Network error')));
+
+    runGuard().subscribe({
+      next: () => done.fail('expected error'),
+      error: (err: Error) => {
+        expect(err.message).toBe('Network error');
+        done();
+      },
     });
   });
 });

@@ -62,6 +62,16 @@ Or start everything at once:
 npm run dev
 ```
 
+### Git Hooks
+
+The repository includes a pre-commit hook that runs `ng lint` on staged frontend files. Install it after cloning:
+
+```bash
+bash tooling/install-hooks.sh
+```
+
+The hook automatically skips linting if the commit does not touch any files under `frontend/`.
+
 ### Docker Deployment
 
 Run the full stack with Docker Compose:
@@ -70,9 +80,14 @@ Run the full stack with Docker Compose:
 # Copy and customize environment variables
 cp .env.example .env
 
-# Build and start all services
-docker compose up --build
+# Build all services
+./build.sh
+
+# Build and start all services in detached mode
+./build.sh up
 ```
+
+The build script enables BuildKit with cache mounts for Maven and npm dependencies, so subsequent builds only download new or changed dependencies.
 
 The application will be available at `http://localhost:3000`.
 
@@ -105,6 +120,8 @@ cd frontend && npm run api:generate
 | `npm run backend:start` | Start Spring Boot backend |
 | `npm run frontend:start` | Start Angular dev server |
 | `npm run frontend:build` | Build Angular for production |
+| `./build.sh` | Build Docker images with dependency caching |
+| `./build.sh up` | Build and start all services in detached mode |
 
 ## CSV Format
 

@@ -97,7 +97,8 @@ class AnalyticsControllerTest {
                     .andExpect(jsonPath("$.recurringPayments[0].category").value("Streaming"))
                     .andExpect(jsonPath("$.byCategory", hasSize(1)))
                     .andExpect(jsonPath("$.byCategory[0].category").value("Streaming"))
-                    .andExpect(jsonPath("$.byCategory[0].percentage").value(100.0));
+                    .andExpect(jsonPath("$.byCategory[0].percentage").value(100.0))
+                    .andExpect(jsonPath("$.byCategory[0].color").value("#FF0000"));
         }
     }
 

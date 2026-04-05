@@ -8,7 +8,8 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(req).pipe(
     catchError(error => {
-      if (error.status === 401 && !req.url.includes('/api/auth/') && !req.url.includes('/api/setup/')) {
+      const pathname = new URL(req.url, window.location.origin).pathname;
+      if (error.status === 401 && !pathname.startsWith('/api/auth/') && !pathname.startsWith('/api/setup/')) {
         router.navigate(['/login']);
       }
       return throwError(() => error);

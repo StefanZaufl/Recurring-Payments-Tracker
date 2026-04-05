@@ -3,6 +3,7 @@ import { provideRouter } from '@angular/router';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { UpcomingPaymentsComponent } from './upcoming-payments.component';
+import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 import { AnalyticsService } from '../../api/generated';
 import { PredictionResponse } from '../../api/generated/model/predictionResponse';
 
@@ -111,8 +112,9 @@ describe('UpcomingPaymentsComponent', () => {
     expect(formatted).toContain('2026');
   });
 
-  it('should format currency in EUR', () => {
-    const formatted = component.formatCurrency(1234.56);
+  it('should format currency in EUR via pipe', () => {
+    const pipe = new CurrencyFormatPipe();
+    const formatted = pipe.transform(1234.56);
     expect(formatted.includes('€') || formatted.includes('EUR')).toBe(true);
   });
 

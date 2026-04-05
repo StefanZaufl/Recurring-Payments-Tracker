@@ -4,6 +4,7 @@ import { of, throwError } from 'rxjs';
 import { TransactionsComponent } from './transactions.component';
 import { TransactionsService } from '../../api/generated';
 import { TransactionPage } from '../../api/generated/model/transactionPage';
+import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 
 const mockPage: TransactionPage = {
   content: [
@@ -77,10 +78,14 @@ describe('TransactionsComponent', () => {
   });
 
   it('should filter by search text with debounce', fakeAsync(() => {
+    service.getTransactions.mockClear();
     service.getTransactions.mockReturnValue(of(mockPage));
     component.onSearchChange('netflix');
-    tick(400);
 
+    tick(300);
+    expect(service.getTransactions).not.toHaveBeenCalled();
+
+    tick(100);
     expect(service.getTransactions).toHaveBeenCalledWith(
       undefined, undefined, 'netflix', 0, 25, 'bookingDate', 'desc'
     );
@@ -148,9 +153,10 @@ describe('TransactionsComponent', () => {
     expect(component.totalElements).toBe(0);
   });
 
-  it('should format amounts correctly', () => {
-    expect(component.formatAmount(-12.99)).toContain('-');
-    expect(component.formatAmount(3500)).toContain('+');
+  it('should format amounts correctly via pipe', () => {
+    const pipe = new CurrencyFormatPipe();
+    expect(pipe.transform(-12.99, true)).toContain('-');
+    expect(pipe.transform(3500, true)).toContain('+');
   });
 
   it('should format dates', () => {

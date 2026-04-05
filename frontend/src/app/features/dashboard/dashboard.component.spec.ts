@@ -5,6 +5,8 @@ import { of, throwError } from 'rxjs';
 import { DashboardComponent } from './dashboard.component';
 import { AnalyticsService } from '../../api/generated';
 import { AnnualOverview } from '../../api/generated/model/annualOverview';
+import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
+import { CHART_THEME } from '../../shared/constants';
 
 const mockOverview: AnnualOverview = {
   totalIncome: 36000,
@@ -17,8 +19,8 @@ const mockOverview: AnnualOverview = {
     surplus: i < 6 ? 2500 : 3000,
   })),
   byCategory: [
-    { category: 'Streaming', total: 2400, percentage: 66.67 },
-    { category: 'Insurance', total: 1200, percentage: 33.33 },
+    { category: 'Streaming', total: 2400, percentage: 66.67, color: '#e040fb' },
+    { category: 'Insurance', total: 1200, percentage: 33.33, color: '#29b6f6' },
   ],
   recurringPayments: [
     { name: 'Netflix', monthlyAmount: 12.99, annualAmount: 155.88, category: 'Streaming' },
@@ -133,8 +135,9 @@ describe('DashboardComponent', () => {
     expect(component.pieChartData.datasets[0].data).toEqual([2400, 1200]);
   });
 
-  it('should format currency in EUR', () => {
-    const formatted = component.formatCurrency(1234.56);
+  it('should format currency in EUR via pipe', () => {
+    const pipe = new CurrencyFormatPipe();
+    const formatted = pipe.transform(1234.56);
     expect(formatted.includes('€') || formatted.includes('EUR')).toBe(true);
   });
 
@@ -154,5 +157,81 @@ describe('DashboardComponent', () => {
     const el: HTMLElement = fixture.nativeElement;
 
     expect(el.textContent).toContain('No recurring payments detected');
+  });
+
+  it('should use category colors from API in pie chart', () => {
+    fixture.detectChanges();
+
+    expect(component.pieChartData.datasets[0].backgroundColor).toEqual(['#e040fb', '#29b6f6']);
+  });
+
+  it('should fall back to theme colors when category color is missing', () => {
+    const overviewNoColors: AnnualOverview = {
+      ...mockOverview,
+      byCategory: [
+        { category: 'Streaming', total: 2400, percentage: 66.67 },
+        { category: 'Insurance', total: 1200, percentage: 33.33 },
+      ],
+    };
+    analyticsService.getAnnualOverview.mockReturnValue(of(overviewNoColors));
+    fixture.detectChanges();
+
+    expect(component.pieChartData.datasets[0].backgroundColor).toEqual([
+      CHART_THEME.categoryColors[0],
+      CHART_THEME.categoryColors[1],
+    ]);
+  });
+
+  it('should build category bar chart data with correct labels and colors', () => {
+    fixture.detectChanges();
+
+    expect(component.categoryBarChartData.labels).toEqual(['Streaming', 'Insurance']);
+    expect(component.categoryBarChartData.datasets[0].data).toEqual([2400, 1200]);
+    expect(component.categoryBarChartData.datasets[0].backgroundColor).toEqual(['#e040fb', '#29b6f6']);
+  });
+
+  it('should default to doughnut chart type', () => {
+    expect(component.categoryChartType).toBe('doughnut');
+  });
+
+  it('should toggle between doughnut and bar chart types', () => {
+    component.toggleCategoryChart();
+    expect(component.categoryChartType).toBe('bar');
+
+    component.toggleCategoryChart();
+    expect(component.categoryChartType).toBe('doughnut');
+  });
+
+  it('should render doughnut chart by default', () => {
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+
+    const doughnutCanvas = el.querySelector('canvas[aria-label*="Doughnut"]');
+    const barCategoryCanvas = el.querySelector('canvas[aria-label*="Bar chart showing expense"]');
+    expect(doughnutCanvas).toBeTruthy();
+    expect(barCategoryCanvas).toBeNull();
+  });
+
+  it('should render bar chart after toggle', () => {
+    fixture.detectChanges();
+    component.toggleCategoryChart();
+    component['cdr'].markForCheck();
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+
+    const doughnutCanvas = el.querySelector('canvas[aria-label*="Doughnut"]');
+    const barCategoryCanvas = el.querySelector('canvas[aria-label*="Bar chart showing expense"]');
+    expect(doughnutCanvas).toBeNull();
+    expect(barCategoryCanvas).toBeTruthy();
+  });
+
+  it('should not show toggle button when no categories', () => {
+    const overviewNoCategories = { ...mockOverview, byCategory: [] };
+    analyticsService.getAnnualOverview.mockReturnValue(of(overviewNoCategories));
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+
+    const toggleButton = el.querySelector('button[aria-label="Toggle chart type"]');
+    expect(toggleButton).toBeNull();
   });
 });

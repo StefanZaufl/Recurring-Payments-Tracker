@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export interface DateRange {
@@ -9,6 +9,7 @@ export interface DateRange {
 
 @Component({
   selector: 'app-date-range-picker',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule],
   template: `
     <!-- Trigger button -->
@@ -21,127 +22,156 @@ export interface DateRange {
         <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
       </svg>
     </button>
-
+    
     <!-- Modal backdrop -->
-    <div *ngIf="open"
-         class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-         (click)="close()">
-      <div class="glass-card w-full max-w-md p-0 animate-slide-up border-subtle"
-           (click)="$event.stopPropagation()">
-
-        <!-- Tabs -->
-        <div class="flex border-b border-card-border">
-          <button (click)="activeTab = 'presets'"
-                  class="flex-1 px-4 py-3 text-sm font-medium transition-colors"
+    @if (open) {
+      <div
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        role="button"
+        tabindex="0"
+        aria-label="Close date picker"
+        (click)="close()"
+        (keydown.enter)="close()">
+        <div class="glass-card w-full max-w-md p-0 animate-slide-up border-subtle"
+          role="dialog"
+          tabindex="-1"
+          (click)="$event.stopPropagation()"
+          (keydown.enter)="$event.stopPropagation()">
+          <!-- Tabs -->
+          <div class="flex border-b border-card-border">
+            <button (click)="activeTab = 'presets'"
+              class="flex-1 px-4 py-3 text-sm font-medium transition-colors"
                   [ngClass]="{
                     'text-white border-b-2 border-accent': activeTab === 'presets',
                     'text-muted hover:text-white': activeTab !== 'presets'
                   }">
-            Presets
-          </button>
-          <button (click)="activeTab = 'custom'"
-                  class="flex-1 px-4 py-3 text-sm font-medium transition-colors"
+              Presets
+            </button>
+            <button (click)="activeTab = 'custom'"
+              class="flex-1 px-4 py-3 text-sm font-medium transition-colors"
                   [ngClass]="{
                     'text-white border-b-2 border-accent': activeTab === 'custom',
                     'text-muted hover:text-white': activeTab !== 'custom'
                   }">
-            Custom
-          </button>
-        </div>
-
-        <!-- Presets tab -->
-        <div *ngIf="activeTab === 'presets'" class="p-4 space-y-1">
-          <button *ngFor="let preset of presets"
+              Custom
+            </button>
+          </div>
+          <!-- Presets tab -->
+          @if (activeTab === 'presets') {
+            <div class="p-4 space-y-1">
+              @for (preset of presets; track preset) {
+                <button
                   (click)="selectPreset(preset)"
                   class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm text-left transition-colors"
                   [ngClass]="{
                     'bg-subtle text-white': isActivePreset(preset),
                     'text-muted hover:bg-card-hover hover:text-white': !isActivePreset(preset)
                   }">
-            <span>{{ preset.label }}</span>
-            <svg *ngIf="isActivePreset(preset)" class="w-4 h-4 text-accent shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-            </svg>
-          </button>
-          <button (click)="clearRange()"
-                  class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm text-left transition-colors"
+                  <span>{{ preset.label }}</span>
+                  @if (isActivePreset(preset)) {
+                    <svg class="w-4 h-4 text-accent shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  }
+                </button>
+              }
+              <button (click)="clearRange()"
+                class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm text-left transition-colors"
                   [ngClass]="{
                     'bg-subtle text-white': !from && !to,
                     'text-muted hover:bg-card-hover hover:text-white': from || to
                   }">
-            <span>All time</span>
-            <svg *ngIf="!from && !to" class="w-4 h-4 text-accent shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-            </svg>
-          </button>
-        </div>
-
-        <!-- Custom tab -->
-        <div *ngIf="activeTab === 'custom'" class="p-4">
-          <div class="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <label class="text-[11px] text-muted uppercase tracking-wider font-medium block mb-1.5">From</label>
-              <input type="date"
-                     [value]="customFrom"
-                     (change)="customFrom = $any($event.target).value"
-                     class="w-full bg-subtle border border-card-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent">
-            </div>
-            <div>
-              <label class="text-[11px] text-muted uppercase tracking-wider font-medium block mb-1.5">To</label>
-              <input type="date"
-                     [value]="customTo"
-                     (change)="customTo = $any($event.target).value"
-                     class="w-full bg-subtle border border-card-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent">
-            </div>
-          </div>
-
-          <!-- Month navigation + calendar -->
-          <div class="grid grid-cols-2 gap-4">
-            <div *ngFor="let month of [calendarLeft, calendarRight]; let i = index">
-              <div class="flex items-center justify-between mb-2">
-                <button *ngIf="i === 0" (click)="prevMonth()" class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-subtle text-muted hover:text-white transition-colors">
-                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                <span>All time</span>
+                @if (!from && !to) {
+                  <svg class="w-4 h-4 text-accent shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
-                </button>
-                <span *ngIf="i === 1" class="w-6"></span>
-                <span class="text-xs font-medium text-white">{{ monthName(month.year, month.month) }}</span>
-                <button *ngIf="i === 1" (click)="nextMonth()" class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-subtle text-muted hover:text-white transition-colors">
-                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                  </svg>
-                </button>
-                <span *ngIf="i === 0" class="w-6"></span>
+                }
+              </button>
+            </div>
+          }
+          <!-- Custom tab -->
+          @if (activeTab === 'custom') {
+            <div class="p-4">
+              <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label for="dateRangeFrom" class="text-[11px] text-muted uppercase tracking-wider font-medium block mb-1.5">From</label>
+                  <input id="dateRangeFrom" type="date"
+                    [value]="customFrom"
+                    (change)="customFrom = $any($event.target).value"
+                    class="w-full bg-subtle border border-card-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent">
+                </div>
+                <div>
+                  <label for="dateRangeTo" class="text-[11px] text-muted uppercase tracking-wider font-medium block mb-1.5">To</label>
+                  <input id="dateRangeTo" type="date"
+                    [value]="customTo"
+                    (change)="customTo = $any($event.target).value"
+                    class="w-full bg-subtle border border-card-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent">
+                </div>
               </div>
-              <!-- Day headers -->
-              <div class="grid grid-cols-7 mb-1">
-                <span *ngFor="let d of dayLabels" class="text-center text-[10px] text-muted font-medium py-0.5">{{ d }}</span>
-              </div>
-              <!-- Days -->
-              <div class="grid grid-cols-7">
-                <button *ngFor="let day of month.days"
-                        (click)="day.day ? selectDay(month.year, month.month, day.day) : null"
-                        class="text-center text-xs py-1 rounded-md transition-colors"
+              <!-- Month navigation + calendar -->
+              <div class="grid grid-cols-2 gap-4">
+                @for (month of [calendarLeft, calendarRight]; track month; let i = $index) {
+                  <div>
+                    <div class="flex items-center justify-between mb-2">
+                      @if (i === 0) {
+                        <button (click)="prevMonth()" aria-label="Previous month" class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-subtle text-muted hover:text-white transition-colors">
+                          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                          </svg>
+                        </button>
+                      }
+                      @if (i === 1) {
+                        <span class="w-6"></span>
+                      }
+                      <span class="text-xs font-medium text-white">{{ monthName(month.year, month.month) }}</span>
+                      @if (i === 1) {
+                        <button (click)="nextMonth()" aria-label="Next month" class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-subtle text-muted hover:text-white transition-colors">
+                          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                          </svg>
+                        </button>
+                      }
+                      @if (i === 0) {
+                        <span class="w-6"></span>
+                      }
+                    </div>
+                    <!-- Day headers -->
+                    <div class="grid grid-cols-7 mb-1">
+                      @for (d of dayLabels; track d) {
+                        <span class="text-center text-[10px] text-muted font-medium py-0.5">{{ d }}</span>
+                      }
+                    </div>
+                    <!-- Days -->
+                    <div class="grid grid-cols-7">
+                      @for (day of month.days; track day) {
+                        <button
+                          [disabled]="!day.day"
+                          (click)="selectDay(month.year, month.month, day.day)"
+                          class="text-center text-xs py-1 rounded-md transition-colors"
                         [ngClass]="{
                           'text-transparent cursor-default': !day.day,
                           'text-muted hover:bg-subtle hover:text-white cursor-pointer': day.day && !day.isSelected && !day.isInRange,
                           'bg-accent text-surface font-medium': day.isSelected,
                           'bg-accent/15 text-accent': day.isInRange && !day.isSelected
                         }">
-                  {{ day.day || '&nbsp;' }}
-                </button>
+                          {{ day.day || '&nbsp;' }}
+                        </button>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+              <div class="flex justify-end gap-2 mt-4">
+                <button (click)="close()" class="px-3 py-1.5 text-xs text-muted hover:text-white transition-colors rounded-lg">Cancel</button>
+                <button (click)="applyCustomRange()" class="px-4 py-1.5 text-xs bg-accent text-surface font-semibold rounded-lg hover:brightness-110 transition-all">Apply</button>
               </div>
             </div>
-          </div>
-
-          <div class="flex justify-end gap-2 mt-4">
-            <button (click)="close()" class="px-3 py-1.5 text-xs text-muted hover:text-white transition-colors rounded-lg">Cancel</button>
-            <button (click)="applyCustomRange()" class="px-4 py-1.5 text-xs bg-accent text-surface font-semibold rounded-lg hover:brightness-110 transition-all">Apply</button>
-          </div>
+          }
         </div>
       </div>
-    </div>
-  `
+    }
+    `
 })
 export class DateRangePickerComponent {
   @Input() from: string | null = null;
@@ -152,8 +182,13 @@ export class DateRangePickerComponent {
   activeTab: 'presets' | 'custom' = 'presets';
   customFrom = '';
   customTo = '';
-  calendarLeft = { year: 2026, month: 2, days: [] as CalendarDay[] };
-  calendarRight = { year: 2026, month: 3, days: [] as CalendarDay[] };
+  private _now = new Date();
+  calendarLeft = { year: this._now.getFullYear(), month: this._now.getMonth(), days: [] as CalendarDay[] };
+  calendarRight = {
+    year: this._now.getMonth() === 11 ? this._now.getFullYear() + 1 : this._now.getFullYear(),
+    month: (this._now.getMonth() + 1) % 12,
+    days: [] as CalendarDay[]
+  };
   dayLabels = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 
   // Custom calendar picking state
@@ -205,7 +240,11 @@ export class DateRangePickerComponent {
   }
 
   toggle(): void {
-    this.open ? this.close() : this.openPicker();
+    if (this.open) {
+      this.close();
+    } else {
+      this.openPicker();
+    }
   }
 
   openPicker(): void {
@@ -330,7 +369,8 @@ export class DateRangePickerComponent {
   }
 
   private formatDisplay(dateStr: string): string {
-    const d = new Date(dateStr + 'T00:00:00');
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const d = new Date(year, month - 1, day);
     return d.toLocaleDateString('en', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 }

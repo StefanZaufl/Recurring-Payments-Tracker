@@ -44,6 +44,7 @@ public class AnalyticsController implements AnalyticsApi {
                     dto.setCategory(cb.category());
                     dto.setTotal(cb.total().doubleValue());
                     dto.setPercentage(cb.percentage());
+                    dto.setColor(cb.color());
                     return dto;
                 })
                 .toList();

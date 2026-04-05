@@ -13,5 +13,6 @@ export interface CategoryBreakdown {
     category: string;
     total: number;
     percentage: number;
+    color?: string;
 }
 

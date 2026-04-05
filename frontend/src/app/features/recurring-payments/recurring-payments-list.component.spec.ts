@@ -5,12 +5,9 @@ import { of, throwError } from 'rxjs';
 import { RecurringPaymentsListComponent } from './recurring-payments-list.component';
 import { RecurringPaymentsService, CategoriesService, RecurringPaymentRulesService } from '../../api/generated';
 import { RecurringPaymentDto } from '../../api/generated/model/recurringPaymentDto';
-import { TransactionDto } from '../../api/generated/model/transactionDto';
 import { CategoryDto } from '../../api/generated/model/categoryDto';
-import { RuleDto } from '../../api/generated/model/ruleDto';
+import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 import { Frequency } from '../../api/generated/model/frequency';
-import { RuleType } from '../../api/generated/model/ruleType';
-import { TargetField } from '../../api/generated/model/targetField';
 
 const mockPayments: RecurringPaymentDto[] = [
   {
@@ -36,40 +33,28 @@ const mockCategories: CategoryDto[] = [
   { id: 'cat-2', name: 'Insurance', color: '#00FF00' },
 ];
 
-const mockTransactions: TransactionDto[] = [
-  { id: 't1', bookingDate: '2026-01-15', partnerName: 'Netflix', amount: -12.99, currency: 'EUR' } as TransactionDto,
-  { id: 't2', bookingDate: '2026-02-15', partnerName: 'Netflix', amount: -12.99, currency: 'EUR' } as TransactionDto,
-  { id: 't3', bookingDate: '2026-03-15', partnerName: 'Netflix', amount: -13.99, currency: 'EUR' } as TransactionDto,
-];
-
-const mockRules: RuleDto[] = [
-  { id: 'r1', ruleType: RuleType.JaroWinkler, targetField: TargetField.PartnerName, text: 'netflix', strict: true, threshold: 0.85 },
-  { id: 'r2', ruleType: RuleType.Amount, amount: -12.99, fluctuationRange: 1.30 },
-];
-
 describe('RecurringPaymentsListComponent', () => {
   let component: RecurringPaymentsListComponent;
   let fixture: ComponentFixture<RecurringPaymentsListComponent>;
   let recurringService: jest.Mocked<RecurringPaymentsService>;
   let categoriesService: jest.Mocked<CategoriesService>;
-  let rulesService: jest.Mocked<RecurringPaymentRulesService>;
 
   beforeEach(async () => {
     const recurringServiceMock = {
       getRecurringPayments: jest.fn().mockReturnValue(of(mockPayments)),
       updateRecurringPayment: jest.fn(),
-      getRecurringPaymentTransactions: jest.fn().mockReturnValue(of(mockTransactions)),
+      getRecurringPaymentTransactions: jest.fn().mockReturnValue(of([])),
     };
     const categoriesServiceMock = {
       getCategories: jest.fn().mockReturnValue(of(mockCategories)),
       createCategory: jest.fn(),
     };
     const rulesServiceMock = {
-      getRules: jest.fn().mockReturnValue(of(mockRules)),
-      createRule: jest.fn().mockReturnValue(of(mockRules[0])),
-      updateRule: jest.fn().mockReturnValue(of(mockRules[0])),
-      deleteRule: jest.fn().mockReturnValue(of(undefined)),
-      reEvaluateRecurringPayment: jest.fn().mockReturnValue(of(mockPayments[0])),
+      getRules: jest.fn().mockReturnValue(of([])),
+      createRule: jest.fn(),
+      updateRule: jest.fn(),
+      deleteRule: jest.fn(),
+      reEvaluateRecurringPayment: jest.fn(),
     };
 
     await TestBed.configureTestingModule({
@@ -88,7 +73,6 @@ describe('RecurringPaymentsListComponent', () => {
 
     recurringService = TestBed.inject(RecurringPaymentsService) as jest.Mocked<RecurringPaymentsService>;
     categoriesService = TestBed.inject(CategoriesService) as jest.Mocked<CategoriesService>;
-    rulesService = TestBed.inject(RecurringPaymentRulesService) as jest.Mocked<RecurringPaymentRulesService>;
     fixture = TestBed.createComponent(RecurringPaymentsListComponent);
     component = fixture.componentInstance;
   });
@@ -232,7 +216,7 @@ describe('RecurringPaymentsListComponent', () => {
     recurringService.updateRecurringPayment.mockReturnValue(of(updatedSalary));
     component.openCategoryDialog(salary);
 
-    component.selectCategory('cat-1');
+    component.onCategorySelected('cat-1');
 
     expect(recurringService.updateRecurringPayment).toHaveBeenCalledWith('2', { categoryId: 'cat-1' });
     expect(component.dialogPayment).toBeNull();
@@ -245,7 +229,7 @@ describe('RecurringPaymentsListComponent', () => {
     recurringService.updateRecurringPayment.mockReturnValue(of(updatedNetflix));
     component.openCategoryDialog(netflix);
 
-    component.selectCategory(null);
+    component.onCategorySelected(null);
 
     expect(recurringService.updateRecurringPayment).toHaveBeenCalledWith('1', { categoryId: undefined });
     expect(component.dialogPayment).toBeNull();
@@ -267,6 +251,20 @@ describe('RecurringPaymentsListComponent', () => {
     expect(component.dialogPayment).toBeNull();
   });
 
+  it('should update filteredPayments after category change', () => {
+    fixture.detectChanges();
+    const salary = component.payments.find(p => p.name === 'Salary')!;
+    const updatedSalary = { ...salary, categoryId: 'cat-1', categoryName: 'Streaming' };
+    recurringService.updateRecurringPayment.mockReturnValue(of(updatedSalary));
+    component.openCategoryDialog(salary);
+
+    component.onCategorySelected('cat-1');
+
+    const filtered = component.filteredPayments.find(p => p.id === salary.id)!;
+    expect(filtered.categoryName).toBe('Streaming');
+    expect(filtered.categoryId).toBe('cat-1');
+  });
+
   it('should show empty state when no payments', () => {
     recurringService.getRecurringPayments.mockReturnValue(of([]));
     fixture.detectChanges();
@@ -283,139 +281,35 @@ describe('RecurringPaymentsListComponent', () => {
     expect(component.loading).toBe(false);
   });
 
-  it('should format currency correctly', () => {
-    const formatted = component.formatCurrency(12.99);
+  it('should format currency correctly via pipe', () => {
+    const pipe = new CurrencyFormatPipe();
+    const formatted = pipe.transform(12.99);
     expect(formatted.includes('12') && formatted.includes('99')).toBe(true);
   });
 
-  it('should return absolute value from abs()', () => {
-    expect(component.abs(-42)).toBe(42);
-    expect(component.abs(42)).toBe(42);
-  });
-
-  // Transactions modal tests
-
-  it('should open transactions modal and load transactions', () => {
+  it('should display negative amount for expenses and positive for income', () => {
     fixture.detectChanges();
-    const netflix = component.payments.find(p => p.name === 'Netflix')!;
 
-    component.openTransactionsModal(netflix);
+    // Verify amounts are rendered directly from averageAmount (negative for expense, positive for income)
+    const salary = component.filteredPayments.find(p => p.name === 'Salary')!;
+    const insurance = component.filteredPayments.find(p => p.name === 'Insurance')!;
 
-    expect(component.transactionsPayment).toBe(netflix);
-    expect(recurringService.getRecurringPaymentTransactions).toHaveBeenCalledWith('1');
-    expect(component.filteredTransactions.length).toBe(3);
-    expect(component.transactionsLoading).toBe(false);
+    // Income should keep its positive averageAmount
+    expect(salary.isIncome).toBe(true);
+    expect(salary.averageAmount).toBeGreaterThan(0);
+
+    // Expense should keep its negative averageAmount
+    expect(insurance.isIncome).toBe(false);
+    expect(insurance.averageAmount).toBeLessThan(0);
+
+    // The rendered text should contain the signed formatted amounts
+    const pipe = new CurrencyFormatPipe();
+    const el: HTMLElement = fixture.nativeElement;
+    // Income shows with + prefix
+    expect(el.textContent).toContain(pipe.transform(salary.averageAmount, true));
+    // Expense shows with - prefix
+    expect(el.textContent).toContain(pipe.transform(insurance.averageAmount, true));
   });
-
-  it('should close transactions modal and reset state', () => {
-    fixture.detectChanges();
-    const netflix = component.payments.find(p => p.name === 'Netflix')!;
-    component.openTransactionsModal(netflix);
-
-    component.closeTransactionsModal();
-
-    expect(component.transactionsPayment).toBeNull();
-    expect(component.allTransactions).toEqual([]);
-    expect(component.filteredTransactions).toEqual([]);
-    expect(component.txFilterFrom).toBeNull();
-    expect(component.txFilterTo).toBeNull();
-    expect(component.transactionsError).toBeNull();
-  });
-
-  it('should filter transactions by date range', () => {
-    fixture.detectChanges();
-    const netflix = component.payments.find(p => p.name === 'Netflix')!;
-    component.openTransactionsModal(netflix);
-
-    component.txFilterFrom = '2026-02-01';
-    component.txFilterTo = '2026-02-28';
-    component.applyTransactionFilter();
-
-    expect(component.filteredTransactions.length).toBe(1);
-    expect(component.filteredTransactions[0].bookingDate).toBe('2026-02-15');
-  });
-
-  it('should show all transactions when date range is cleared', () => {
-    fixture.detectChanges();
-    const netflix = component.payments.find(p => p.name === 'Netflix')!;
-    component.openTransactionsModal(netflix);
-
-    component.txFilterFrom = '2026-02-01';
-    component.txFilterTo = '2026-02-28';
-    component.applyTransactionFilter();
-    expect(component.filteredTransactions.length).toBe(1);
-
-    component.onTxDateRangeChanged({ from: null, to: null, label: 'All time' });
-    expect(component.filteredTransactions.length).toBe(3);
-  });
-
-  it('should sort transactions by date descending', () => {
-    fixture.detectChanges();
-    const netflix = component.payments.find(p => p.name === 'Netflix')!;
-    component.openTransactionsModal(netflix);
-
-    expect(component.filteredTransactions[0].bookingDate).toBe('2026-03-15');
-    expect(component.filteredTransactions[1].bookingDate).toBe('2026-02-15');
-    expect(component.filteredTransactions[2].bookingDate).toBe('2026-01-15');
-  });
-
-  it('should handle API error when loading transactions', () => {
-    fixture.detectChanges();
-    recurringService.getRecurringPaymentTransactions.mockReturnValue(
-      throwError(() => ({ error: { message: 'Server error' } }))
-    );
-    const netflix = component.payments.find(p => p.name === 'Netflix')!;
-
-    component.openTransactionsModal(netflix);
-
-    expect(component.transactionsError).toBe('Server error');
-    expect(component.transactionsLoading).toBe(false);
-    expect(component.filteredTransactions).toEqual([]);
-  });
-
-  it('should handle empty transactions list', () => {
-    fixture.detectChanges();
-    recurringService.getRecurringPaymentTransactions.mockReturnValue(of([]));
-    const netflix = component.payments.find(p => p.name === 'Netflix')!;
-
-    component.openTransactionsModal(netflix);
-
-    expect(component.filteredTransactions).toEqual([]);
-    expect(component.transactionsLoading).toBe(false);
-    expect(component.transactionsError).toBeNull();
-  });
-
-  it('should format transaction amounts correctly', () => {
-    const positive = component.formatAmount(12.99);
-    expect(positive).toContain('+');
-    expect(positive).toContain('12');
-
-    const negative = component.formatAmount(-12.99);
-    expect(negative).not.toMatch(/^\+/);
-    expect(negative).toContain('12');
-  });
-
-  it('should format transaction dates correctly', () => {
-    const formatted = component.formatDate('2026-03-15');
-    expect(formatted).toContain('15');
-    expect(formatted).toContain('Mar');
-    expect(formatted).toContain('2026');
-  });
-
-  it('should update date filter and refilter on date range change', () => {
-    fixture.detectChanges();
-    const netflix = component.payments.find(p => p.name === 'Netflix')!;
-    component.openTransactionsModal(netflix);
-
-    component.onTxDateRangeChanged({ from: '2026-01-01', to: '2026-01-31', label: 'January' });
-
-    expect(component.txFilterFrom).toBe('2026-01-01');
-    expect(component.txFilterTo).toBe('2026-01-31');
-    expect(component.filteredTransactions.length).toBe(1);
-    expect(component.filteredTransactions[0].bookingDate).toBe('2026-01-15');
-  });
-
-  // Rules modal tests
 
   it('should display rule count badge for payments', () => {
     fixture.detectChanges();
@@ -425,19 +319,37 @@ describe('RecurringPaymentsListComponent', () => {
     expect(el.textContent).toContain('1 rule');
   });
 
-  it('should open rules modal and load rules', () => {
+  // Modal open/close tests
+
+  it('should open transactions modal for a payment', () => {
+    fixture.detectChanges();
+    const netflix = component.payments.find(p => p.name === 'Netflix')!;
+
+    component.openTransactionsModal(netflix);
+
+    expect(component.transactionsPayment).toBe(netflix);
+  });
+
+  it('should close transactions modal', () => {
+    fixture.detectChanges();
+    const netflix = component.payments.find(p => p.name === 'Netflix')!;
+    component.openTransactionsModal(netflix);
+
+    component.closeTransactionsModal();
+
+    expect(component.transactionsPayment).toBeNull();
+  });
+
+  it('should open rules modal for a payment', () => {
     fixture.detectChanges();
     const netflix = component.payments.find(p => p.name === 'Netflix')!;
 
     component.openRulesModal(netflix);
 
     expect(component.rulesPayment).toBe(netflix);
-    expect(rulesService.getRules).toHaveBeenCalledWith('1');
-    expect(component.rules).toEqual(mockRules);
-    expect(component.rulesLoading).toBe(false);
   });
 
-  it('should close rules modal and reset state', () => {
+  it('should close rules modal', () => {
     fixture.detectChanges();
     const netflix = component.payments.find(p => p.name === 'Netflix')!;
     component.openRulesModal(netflix);
@@ -445,112 +357,17 @@ describe('RecurringPaymentsListComponent', () => {
     component.closeRulesModal();
 
     expect(component.rulesPayment).toBeNull();
-    expect(component.rules).toEqual([]);
-    expect(component.rulesError).toBeNull();
-    expect(component.editingRule).toBeNull();
   });
 
-  it('should create a new rule and trigger re-evaluation', () => {
+  it('should update payment list when rules modal emits paymentUpdated', () => {
     fixture.detectChanges();
     const netflix = component.payments.find(p => p.name === 'Netflix')!;
-    component.openRulesModal(netflix);
-
-    component.ruleFormType = 'AMOUNT';
-    component.ruleFormAmount = -12.99;
-    component.ruleFormFluctuationRange = 1.30;
-    component.saveRule();
-
-    expect(rulesService.createRule).toHaveBeenCalledWith('1', expect.objectContaining({
-      ruleType: 'AMOUNT',
-      amount: -12.99,
-      fluctuationRange: 1.30,
-    }));
-    expect(rulesService.reEvaluateRecurringPayment).toHaveBeenCalledWith('1');
-  });
-
-  it('should update an existing rule and trigger re-evaluation', () => {
-    fixture.detectChanges();
-    const netflix = component.payments.find(p => p.name === 'Netflix')!;
-    component.openRulesModal(netflix);
-
-    component.startEditRule(mockRules[0]);
-    component.ruleFormText = 'netflix inc';
-    component.saveRule();
-
-    expect(rulesService.updateRule).toHaveBeenCalledWith('1', 'r1', expect.objectContaining({
-      text: 'netflix inc',
-    }));
-    expect(rulesService.reEvaluateRecurringPayment).toHaveBeenCalledWith('1');
-  });
-
-  it('should delete a rule and trigger re-evaluation', () => {
-    fixture.detectChanges();
-    const netflix = component.payments.find(p => p.name === 'Netflix')!;
-    component.openRulesModal(netflix);
-
-    component.deleteRule(mockRules[0]);
-
-    expect(rulesService.deleteRule).toHaveBeenCalledWith('1', 'r1');
-    expect(rulesService.reEvaluateRecurringPayment).toHaveBeenCalledWith('1');
-  });
-
-  it('should handle API error when loading rules', () => {
-    fixture.detectChanges();
-    rulesService.getRules.mockReturnValue(
-      throwError(() => ({ error: { message: 'Failed to load' } }))
-    );
-    const netflix = component.payments.find(p => p.name === 'Netflix')!;
+    const updatedNetflix = { ...netflix, ruleCount: 5 };
 
     component.openRulesModal(netflix);
+    component.onPaymentUpdatedFromRules({ payment: updatedNetflix, ruleCount: 5 });
 
-    expect(component.rulesError).toBe('Failed to load');
-    expect(component.rulesLoading).toBe(false);
-    expect(component.rules).toEqual([]);
-  });
-
-  it('should populate form fields when editing a rule', () => {
-    fixture.detectChanges();
-    const netflix = component.payments.find(p => p.name === 'Netflix')!;
-    component.openRulesModal(netflix);
-
-    component.startEditRule(mockRules[0]);
-
-    expect(component.editingRule).toBe(mockRules[0]);
-    expect(component.ruleFormType).toBe('JARO_WINKLER');
-    expect(component.ruleFormTargetField).toBe('PARTNER_NAME');
-    expect(component.ruleFormText).toBe('netflix');
-    expect(component.ruleFormThreshold).toBe(0.85);
-    expect(component.ruleFormStrict).toBe(true);
-  });
-
-  it('should cancel editing and reset form', () => {
-    fixture.detectChanges();
-    const netflix = component.payments.find(p => p.name === 'Netflix')!;
-    component.openRulesModal(netflix);
-    component.startEditRule(mockRules[0]);
-
-    component.cancelEditRule();
-
-    expect(component.editingRule).toBeNull();
-    expect(component.ruleFormType).toBe('JARO_WINKLER');
-    expect(component.ruleFormText).toBe('');
-  });
-
-  it('should format rule summaries correctly', () => {
-    expect(component.formatRuleSummary(mockRules[0])).toContain('netflix');
-    expect(component.formatRuleSummary(mockRules[0])).toContain('0.85');
-    expect(component.formatRuleSummary(mockRules[1])).toContain('12');
-  });
-
-  it('should format rule types correctly', () => {
-    expect(component.formatRuleType('JARO_WINKLER')).toBe('Jaro-Winkler');
-    expect(component.formatRuleType('REGEX')).toBe('Regex');
-    expect(component.formatRuleType('AMOUNT')).toBe('Amount');
-  });
-
-  it('should format target fields correctly', () => {
-    expect(component.formatTargetField('PARTNER_NAME')).toBe('Partner Name');
-    expect(component.formatTargetField('PARTNER_IBAN')).toBe('Partner IBAN');
-    expect(component.formatTargetField('DETAILS')).toBe('Details');
+    expect(component.payments.find(p => p.id === '1')?.ruleCount).toBe(5);
+    expect(component.rulesPayment?.ruleCount).toBe(5);
   });
 });
