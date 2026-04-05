@@ -62,6 +62,16 @@ Or start everything at once:
 npm run dev
 ```
 
+### Git Hooks
+
+The repository includes a pre-commit hook that runs `ng lint` on staged frontend files. Install it after cloning:
+
+```bash
+bash tooling/install-hooks.sh
+```
+
+The hook automatically skips linting if the commit does not touch any files under `frontend/`.
+
 ### Docker Deployment
 
 Run the full stack with Docker Compose:
