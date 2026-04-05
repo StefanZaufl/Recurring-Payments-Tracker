@@ -108,7 +108,7 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
                 <p class="font-mono text-sm font-semibold shrink-0 ml-3"
                   [class.text-accent]="payment.isIncome"
                   [class.text-coral]="!payment.isIncome">
-                  {{ (payment.isIncome ? payment.averageAmount : -payment.averageAmount) | appCurrency:true }}
+                  {{ payment.averageAmount | appCurrency:true }}
                 </p>
               </div>
               <div class="flex items-center justify-between">
@@ -181,7 +181,7 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
                     <td class="table-cell text-right font-mono text-xs font-medium"
                       [class.text-accent]="payment.isIncome"
                       [class.text-coral]="!payment.isIncome">
-                      {{ (payment.isIncome ? payment.averageAmount : -payment.averageAmount) | appCurrency:true }}
+                      {{ payment.averageAmount | appCurrency:true }}
                     </td>
                     <td class="table-cell">
                       <span class="badge"

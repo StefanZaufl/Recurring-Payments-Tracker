@@ -287,6 +287,30 @@ describe('RecurringPaymentsListComponent', () => {
     expect(formatted.includes('12') && formatted.includes('99')).toBe(true);
   });
 
+  it('should display negative amount for expenses and positive for income', () => {
+    fixture.detectChanges();
+
+    // Verify amounts are rendered directly from averageAmount (negative for expense, positive for income)
+    const salary = component.filteredPayments.find(p => p.name === 'Salary')!;
+    const insurance = component.filteredPayments.find(p => p.name === 'Insurance')!;
+
+    // Income should keep its positive averageAmount
+    expect(salary.isIncome).toBe(true);
+    expect(salary.averageAmount).toBeGreaterThan(0);
+
+    // Expense should keep its negative averageAmount
+    expect(insurance.isIncome).toBe(false);
+    expect(insurance.averageAmount).toBeLessThan(0);
+
+    // The rendered text should contain the signed formatted amounts
+    const pipe = new CurrencyFormatPipe();
+    const el: HTMLElement = fixture.nativeElement;
+    // Income shows with + prefix
+    expect(el.textContent).toContain(pipe.transform(salary.averageAmount, true));
+    // Expense shows with - prefix
+    expect(el.textContent).toContain(pipe.transform(insurance.averageAmount, true));
+  });
+
   it('should display rule count badge for payments', () => {
     fixture.detectChanges();
     const el: HTMLElement = fixture.nativeElement;
