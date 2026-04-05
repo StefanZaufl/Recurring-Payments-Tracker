@@ -3,7 +3,7 @@
 **Project:** Recurring Payments Tracker (Angular 19)  
 **Date:** 2026-04-04 (updated 2026-04-05)  
 **Scope:** All frontend source files, tests, and configuration  
-**Test Suite Status:** 265/265 passing (24 test suites)  
+**Test Suite Status:** 270/270 passing (25 test suites)  
 **Linter:** angular-eslint 21.0.1 -- ~~603 errors (380 generated code, 223 hand-written)~~ → 0 hand-written errors remaining
 
 ---
@@ -634,7 +634,7 @@ The following issues from the original review have been addressed:
 | 30 | Date string manipulation (§4.3) | Replaced fragile `new Date(dateStr + 'T00:00:00')` with explicit `new Date(year, month - 1, day)` in 3 files |
 
 **Lint errors: 223 → 28 → 0** (all lint errors resolved).
-**Tests: 244 → 257 → 265** (8 new tests: error-path tests for 3 guards, 5 guard-chaining integration tests).
+**Tests: 244 → 257 → 265 → 270** (6 new tests: editable-field component tests, pipe migration tests).
 **Build: passing.**
 
 ---
@@ -644,10 +644,23 @@ The following issues from the original review have been addressed:
 All code review items have been addressed. The following items remain deferred as they require broader team decisions:
 
 - **9 high-severity npm audit vulnerabilities (§8.1):** In Angular/openapi-generator dependency trees, requiring Angular 19 → 21 major upgrade
-- **Prettier / pre-commit hooks (§8.2):** Requires team-wide agreement on configuration
 - **Stylelint (§8.2):** Requires team-wide agreement on configuration
 
 ---
+
+#### ~~PR 4 -- Remaining findings~~ ✅ COMPLETED
+
+Resolved in items #38-40 below.
+
+| # | Item | Resolution |
+|---|------|------------|
+| 38 | CurrencyFormatPipe unused (§2.7) | Adopted `appCurrency` pipe in templates across 6 components; removed all inline `formatCurrency`/`formatAmount` methods and `CURRENCY_LOCALE`/`CURRENCY_CODE` direct imports; constants now only consumed by the pipe |
+| 39 | user-management 471 lines (§3.2) | Extracted `<app-editable-field>` shared component with content projection (display/editor slots, save/cancel buttons, aria-label); used for username, role, and password editing; component reduced to 413 lines |
+| 40 | Icon-only buttons missing aria-label (§9.2) | Added `aria-label` to 12 icon-only buttons across 7 files: app (close menu), configure (edit/delete/save/cancel), dashboard (prev/next year), payment-rules-modal (edit/delete rule), transactions (sort toggle), date-range-picker (prev/next month), modal (close) |
+
+#### Pre-commit lint hook
+
+Added `tooling/hooks/pre-commit` and `tooling/install-hooks.sh`. The hook runs `ng lint` when frontend files are staged; skips linting otherwise. Run `bash tooling/install-hooks.sh` after cloning.
 
 #### ~~PR 1 -- Test quality improvements~~ ✅ COMPLETED
 

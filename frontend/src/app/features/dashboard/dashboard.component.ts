@@ -8,12 +8,13 @@ import { AnnualOverview } from '../../api/generated/model/annualOverview';
 import { Subject, takeUntil } from 'rxjs';
 import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component';
 import { ErrorStateComponent } from '../../shared/error-state.component';
-import { CURRENCY_LOCALE, CURRENCY_CODE, CHART_THEME } from '../../shared/constants';
+import { CHART_THEME } from '../../shared/constants';
+import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 
 @Component({
   selector: 'app-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, BaseChartDirective, LoadingSpinnerComponent, ErrorStateComponent],
+  imports: [RouterLink, BaseChartDirective, LoadingSpinnerComponent, ErrorStateComponent, CurrencyFormatPipe],
   template: `
     <div class="animate-fade-in">
       <!-- Header row -->
@@ -23,7 +24,7 @@ import { CURRENCY_LOCALE, CURRENCY_CODE, CHART_THEME } from '../../shared/consta
           <p class="text-sm text-muted mt-0.5">Annual financial overview</p>
         </div>
         <div class="flex items-center gap-1.5 sm:gap-2">
-          <button (click)="changeYear(-1)"
+          <button (click)="changeYear(-1)" aria-label="Previous year"
             class="w-9 h-9 flex items-center justify-center rounded-xl bg-card border border-card-border text-muted hover:text-white hover:border-subtle transition-all">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
@@ -32,7 +33,7 @@ import { CURRENCY_LOCALE, CURRENCY_CODE, CHART_THEME } from '../../shared/consta
           <span class="px-4 py-2 text-sm font-mono font-semibold text-white bg-card border border-card-border rounded-xl min-w-[5.5rem] text-center">
             {{ selectedYear }}
           </span>
-          <button (click)="changeYear(1)"
+          <button (click)="changeYear(1)" aria-label="Next year"
             class="w-9 h-9 flex items-center justify-center rounded-xl bg-card border border-card-border text-muted hover:text-white hover:border-subtle transition-all">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
@@ -72,22 +73,22 @@ import { CURRENCY_LOCALE, CURRENCY_CODE, CHART_THEME } from '../../shared/consta
           <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
             <div class="glass-card p-4 sm:p-5 min-w-0 group hover:border-accent/30 transition-colors">
               <p class="stat-label mb-2">Income</p>
-              <p class="stat-value text-accent">{{ formatCurrency(overview.totalIncome) }}</p>
+              <p class="stat-value text-accent">{{ overview.totalIncome | appCurrency }}</p>
             </div>
             <div class="glass-card p-4 sm:p-5 min-w-0 group hover:border-coral/30 transition-colors">
               <p class="stat-label mb-2">Expenses</p>
-              <p class="stat-value text-coral">{{ formatCurrency(overview.totalExpenses) }}</p>
+              <p class="stat-value text-coral">{{ overview.totalExpenses | appCurrency }}</p>
             </div>
             <div class="glass-card p-4 sm:p-5 min-w-0 group hover:border-amber/30 transition-colors">
               <p class="stat-label mb-2">Recurring</p>
-              <p class="stat-value text-amber">{{ formatCurrency(overview.totalRecurringExpenses) }}</p>
+              <p class="stat-value text-amber">{{ overview.totalRecurringExpenses | appCurrency }}</p>
             </div>
             <div class="glass-card p-4 sm:p-5 min-w-0 group transition-colors">
               <p class="stat-label mb-2">Surplus</p>
               <p class="stat-value"
                 [class.text-accent]="overview.totalIncome - overview.totalExpenses >= 0"
                 [class.text-coral]="overview.totalIncome - overview.totalExpenses < 0">
-                {{ formatCurrency(overview.totalIncome - overview.totalExpenses) }}
+                {{ overview.totalIncome - overview.totalExpenses | appCurrency }}
               </p>
             </div>
           </div>
@@ -159,8 +160,8 @@ import { CURRENCY_LOCALE, CURRENCY_CODE, CHART_THEME } from '../../shared/consta
                         <td class="table-cell">
                           <span class="badge bg-subtle text-muted">{{ payment.category }}</span>
                         </td>
-                        <td class="table-cell text-right font-mono text-coral text-xs">{{ formatCurrency(payment.monthlyAmount) }}</td>
-                        <td class="table-cell text-right font-mono text-coral text-xs">{{ formatCurrency(payment.annualAmount) }}</td>
+                        <td class="table-cell text-right font-mono text-coral text-xs">{{ payment.monthlyAmount | appCurrency }}</td>
+                        <td class="table-cell text-right font-mono text-coral text-xs">{{ payment.annualAmount | appCurrency }}</td>
                       </tr>
                     }
                   </tbody>
@@ -238,10 +239,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
   changeYear(delta: number): void {
     this.selectedYear += delta;
     this.loadData();
-  }
-
-  formatCurrency(value: number): string {
-    return new Intl.NumberFormat(CURRENCY_LOCALE, { style: 'currency', currency: CURRENCY_CODE }).format(value);
   }
 
   loadData(): void {

@@ -5,6 +5,7 @@ import { of, throwError } from 'rxjs';
 import { DashboardComponent } from './dashboard.component';
 import { AnalyticsService } from '../../api/generated';
 import { AnnualOverview } from '../../api/generated/model/annualOverview';
+import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 
 const mockOverview: AnnualOverview = {
   totalIncome: 36000,
@@ -133,8 +134,9 @@ describe('DashboardComponent', () => {
     expect(component.pieChartData.datasets[0].data).toEqual([2400, 1200]);
   });
 
-  it('should format currency in EUR', () => {
-    const formatted = component.formatCurrency(1234.56);
+  it('should format currency in EUR via pipe', () => {
+    const pipe = new CurrencyFormatPipe();
+    const formatted = pipe.transform(1234.56);
     expect(formatted.includes('€') || formatted.includes('EUR')).toBe(true);
   });
 

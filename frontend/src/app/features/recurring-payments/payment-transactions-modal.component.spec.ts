@@ -6,6 +6,7 @@ import { RecurringPaymentsService } from '../../api/generated';
 import { RecurringPaymentDto } from '../../api/generated/model/recurringPaymentDto';
 import { TransactionDto } from '../../api/generated/model/transactionDto';
 import { Frequency } from '../../api/generated/model/frequency';
+import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 
 const mockPayment: RecurringPaymentDto = {
   id: '1', name: 'Netflix', categoryId: 'cat-1', categoryName: 'Streaming',
@@ -106,12 +107,13 @@ describe('PaymentTransactionsModalComponent', () => {
     expect(component.error).toBeNull();
   });
 
-  it('should format transaction amounts correctly', () => {
-    const positive = component.formatAmount(12.99);
+  it('should format transaction amounts correctly via pipe', () => {
+    const pipe = new CurrencyFormatPipe();
+    const positive = pipe.transform(12.99, true);
     expect(positive).toContain('+');
     expect(positive).toContain('12');
 
-    const negative = component.formatAmount(-12.99);
+    const negative = pipe.transform(-12.99, true);
     expect(negative).not.toMatch(/^\+/);
     expect(negative).toContain('12');
   });

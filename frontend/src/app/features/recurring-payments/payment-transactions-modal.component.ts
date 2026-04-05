@@ -5,13 +5,13 @@ import { RecurringPaymentDto } from '../../api/generated/model/recurringPaymentD
 import { TransactionDto } from '../../api/generated/model/transactionDto';
 import { DateRangePickerComponent, DateRange } from '../../shared/date-range-picker.component';
 import { ModalComponent } from '../../shared/modal.component';
-import { CURRENCY_LOCALE, CURRENCY_CODE } from '../../shared/constants';
+import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 import { Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-payment-transactions-modal',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, DateRangePickerComponent, ModalComponent],
+  imports: [CommonModule, DateRangePickerComponent, ModalComponent, CurrencyFormatPipe],
   template: `
     <app-modal
       title="Transactions"
@@ -83,7 +83,7 @@ import { Subject, takeUntil } from 'rxjs';
                 <p class="font-mono text-sm font-semibold shrink-0"
                   [class.text-accent]="tx.amount >= 0"
                   [class.text-coral]="tx.amount < 0">
-                  {{ formatAmount(tx.amount) }}
+                  {{ tx.amount | appCurrency:true }}
                 </p>
               </div>
               <div class="flex items-center justify-between gap-2">
@@ -115,7 +115,7 @@ import { Subject, takeUntil } from 'rxjs';
                 <td class="table-cell text-right font-mono text-xs font-medium whitespace-nowrap"
                   [class.text-accent]="tx.amount >= 0"
                   [class.text-coral]="tx.amount < 0">
-                  {{ formatAmount(tx.amount) }}
+                  {{ tx.amount | appCurrency:true }}
                 </td>
                 <td class="table-cell text-muted/70 max-w-xs truncate">{{ tx.details || '-' }}</td>
               </tr>
@@ -175,11 +175,6 @@ export class PaymentTransactionsModalComponent implements OnInit, OnDestroy {
     this.txFilterFrom = range.from;
     this.txFilterTo = range.to;
     this.applyFilter();
-  }
-
-  formatAmount(amount: number): string {
-    const prefix = amount >= 0 ? '+' : '';
-    return prefix + new Intl.NumberFormat(CURRENCY_LOCALE, { style: 'currency', currency: CURRENCY_CODE }).format(amount);
   }
 
   formatDate(dateStr: string): string {

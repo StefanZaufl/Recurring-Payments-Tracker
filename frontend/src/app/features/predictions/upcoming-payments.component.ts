@@ -8,12 +8,13 @@ import { PredictionResponse } from '../../api/generated/model/predictionResponse
 import { Subject, takeUntil } from 'rxjs';
 import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component';
 import { ErrorStateComponent } from '../../shared/error-state.component';
-import { CURRENCY_LOCALE, CURRENCY_CODE, CHART_THEME } from '../../shared/constants';
+import { CHART_THEME } from '../../shared/constants';
+import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 
 @Component({
   selector: 'app-upcoming-payments',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, BaseChartDirective, LoadingSpinnerComponent, ErrorStateComponent],
+  imports: [RouterLink, BaseChartDirective, LoadingSpinnerComponent, ErrorStateComponent, CurrencyFormatPipe],
   template: `
     <div class="animate-fade-in">
       <div class="mb-6 sm:mb-8">
@@ -81,12 +82,12 @@ import { CURRENCY_LOCALE, CURRENCY_CODE, CHART_THEME } from '../../shared/consta
                     @for (pred of predictions.predictions; track pred) {
                       <tr class="hover:bg-card-hover transition-colors">
                         <td class="table-cell font-medium text-white text-xs">{{ formatMonth(pred.month) }}</td>
-                        <td class="table-cell text-right font-mono text-xs text-accent">{{ formatCurrency(pred.expectedIncome) }}</td>
-                        <td class="table-cell text-right font-mono text-xs text-coral">{{ formatCurrency(pred.expectedExpenses) }}</td>
+                        <td class="table-cell text-right font-mono text-xs text-accent">{{ pred.expectedIncome | appCurrency }}</td>
+                        <td class="table-cell text-right font-mono text-xs text-coral">{{ pred.expectedExpenses | appCurrency }}</td>
                         <td class="table-cell text-right font-mono text-xs font-medium"
                           [class.text-accent]="pred.expectedSurplus >= 0"
                           [class.text-coral]="pred.expectedSurplus < 0">
-                          {{ formatCurrency(pred.expectedSurplus) }}
+                          {{ pred.expectedSurplus | appCurrency }}
                         </td>
                       </tr>
                     }
@@ -117,7 +118,7 @@ import { CURRENCY_LOCALE, CURRENCY_CODE, CHART_THEME } from '../../shared/consta
                       <span class="font-mono text-xs font-medium shrink-0 ml-3"
                         [class.text-accent]="payment.amount > 0"
                         [class.text-coral]="payment.amount <= 0">
-                        {{ formatCurrency(payment.amount) }}
+                        {{ payment.amount | appCurrency }}
                       </span>
                     </li>
                   }
@@ -173,10 +174,6 @@ export class UpcomingPaymentsComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-  }
-
-  formatCurrency(value: number): string {
-    return new Intl.NumberFormat(CURRENCY_LOCALE, { style: 'currency', currency: CURRENCY_CODE }).format(value);
   }
 
   formatMonth(month: string): string {

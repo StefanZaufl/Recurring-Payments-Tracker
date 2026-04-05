@@ -115,7 +115,7 @@ export interface DateRange {
                   <div>
                     <div class="flex items-center justify-between mb-2">
                       @if (i === 0) {
-                        <button (click)="prevMonth()" class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-subtle text-muted hover:text-white transition-colors">
+                        <button (click)="prevMonth()" aria-label="Previous month" class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-subtle text-muted hover:text-white transition-colors">
                           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
                           </svg>
@@ -126,7 +126,7 @@ export interface DateRange {
                       }
                       <span class="text-xs font-medium text-white">{{ monthName(month.year, month.month) }}</span>
                       @if (i === 1) {
-                        <button (click)="nextMonth()" class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-subtle text-muted hover:text-white transition-colors">
+                        <button (click)="nextMonth()" aria-label="Next month" class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-subtle text-muted hover:text-white transition-colors">
                           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                           </svg>

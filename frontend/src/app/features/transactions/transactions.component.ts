@@ -6,7 +6,8 @@ import { TransactionDto } from '../../api/generated/model/transactionDto';
 import { DateRangePickerComponent, DateRange } from '../../shared/date-range-picker.component';
 import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component';
 import { ErrorStateComponent } from '../../shared/error-state.component';
-import { CURRENCY_LOCALE, CURRENCY_CODE, DEFAULT_PAGE_SIZE } from '../../shared/constants';
+import { DEFAULT_PAGE_SIZE } from '../../shared/constants';
+import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 
 type SortField = 'bookingDate' | 'partnerName' | 'amount';
@@ -15,7 +16,7 @@ type SortDir = 'asc' | 'desc';
 @Component({
   selector: 'app-transactions',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, DateRangePickerComponent, LoadingSpinnerComponent, ErrorStateComponent],
+  imports: [CommonModule, FormsModule, DateRangePickerComponent, LoadingSpinnerComponent, ErrorStateComponent, CurrencyFormatPipe],
   template: `
     <div class="animate-fade-in">
       <!-- Header -->
@@ -65,6 +66,7 @@ type SortDir = 'asc' | 'desc';
           <!-- Sort direction -->
           <button (click)="toggleSortDirection()"
             class="w-9 h-9 flex items-center justify-center bg-card border border-card-border rounded-xl text-muted hover:text-white hover:bg-card-hover transition-colors shrink-0"
+            [attr.aria-label]="'Sort ' + (sortDir === 'asc' ? 'ascending' : 'descending')"
             [title]="sortDir === 'asc' ? 'Ascending' : 'Descending'">
             @if (sortDir === 'asc') {
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -113,7 +115,7 @@ type SortDir = 'asc' | 'desc';
                 <p class="font-mono text-sm font-semibold shrink-0"
                   [class.text-accent]="tx.amount >= 0"
                   [class.text-coral]="tx.amount < 0">
-                  {{ formatAmount(tx.amount) }}
+                  {{ tx.amount | appCurrency:true }}
                 </p>
               </div>
               <div class="flex items-center justify-between gap-2">
@@ -148,7 +150,7 @@ type SortDir = 'asc' | 'desc';
                     <td class="table-cell text-right font-mono text-xs font-medium whitespace-nowrap"
                       [class.text-accent]="tx.amount >= 0"
                       [class.text-coral]="tx.amount < 0">
-                      {{ formatAmount(tx.amount) }}
+                      {{ tx.amount | appCurrency:true }}
                     </td>
                     <td class="table-cell text-muted/70 max-w-xs truncate">{{ tx.details || '-' }}</td>
                   </tr>
@@ -294,11 +296,6 @@ export class TransactionsComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       }
     });
-  }
-
-  formatAmount(amount: number): string {
-    const prefix = amount >= 0 ? '+' : '';
-    return prefix + new Intl.NumberFormat(CURRENCY_LOCALE, { style: 'currency', currency: CURRENCY_CODE }).format(amount);
   }
 
   formatDate(dateStr: string): string {

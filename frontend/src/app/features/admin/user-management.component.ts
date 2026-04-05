@@ -6,11 +6,12 @@ import { AuthStateService } from '../../core/auth-state.service';
 import { Subject, takeUntil } from 'rxjs';
 import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component';
 import { ErrorStateComponent } from '../../shared/error-state.component';
+import { EditableFieldComponent } from '../../shared/editable-field.component';
 
 @Component({
   selector: 'app-user-management',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, LoadingSpinnerComponent, ErrorStateComponent],
+  imports: [FormsModule, LoadingSpinnerComponent, ErrorStateComponent, EditableFieldComponent],
   template: `
     <div class="animate-fade-in">
       <div class="flex items-center justify-between mb-6 sm:mb-8">
@@ -109,46 +110,21 @@ import { ErrorStateComponent } from '../../shared/error-state.component';
             <div class="glass-card p-5 flex flex-col gap-3 animate-fade-in">
               <!-- Card Header: Username -->
               <div class="flex items-center justify-between gap-2 min-h-[2rem]">
-                <!-- Display mode -->
-                @if (editingField.get(user.id) !== 'username') {
-                  <div
-                    class="group flex items-center gap-2 cursor-pointer min-w-0"
-                    role="button"
-                    tabindex="0"
-                    (click)="startEditField(user, 'username')"
-                    (keydown.enter)="startEditField(user, 'username')">
-                    <h3 class="text-lg font-semibold text-white truncate">{{ user.username }}</h3>
-                    <svg class="w-3.5 h-3.5 text-muted shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                      fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round"
-                        d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
-                    </svg>
-                  </div>
-                }
-                <!-- Edit mode -->
-                @if (editingField.get(user.id) === 'username') {
-                  <div class="flex items-center gap-1.5 flex-1 min-w-0">
-                    <input
-                      type="text"
-                      [(ngModel)]="editValue"
-                      class="flex-1 min-w-0 px-3 py-1.5 bg-surface border border-card-border rounded-lg text-sm text-white focus:outline-none focus:border-accent/50 transition-colors"
-                      (keydown.enter)="saveFieldEdit(user)"
-                      (keydown.escape)="cancelFieldEdit()"
-                      />
-                    <button (click)="saveFieldEdit(user)"
-                      class="p-1.5 text-accent hover:bg-accent-dim rounded-lg transition-colors shrink-0">
-                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                      </svg>
-                    </button>
-                    <button (click)="cancelFieldEdit()"
-                      class="p-1.5 text-muted hover:bg-subtle rounded-lg transition-colors shrink-0">
-                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                }
+                <app-editable-field
+                  [editing]="editingField.get(user.id) === 'username'"
+                  label="username"
+                  (startEdit)="startEditField(user, 'username')"
+                  (save)="saveFieldEdit(user)"
+                  (cancelEdit)="cancelFieldEdit()">
+                  <h3 display class="text-lg font-semibold text-white truncate">{{ user.username }}</h3>
+                  <input editor
+                    type="text"
+                    [(ngModel)]="editValue"
+                    class="flex-1 min-w-0 px-3 py-1.5 bg-surface border border-card-border rounded-lg text-sm text-white focus:outline-none focus:border-accent/50 transition-colors"
+                    (keydown.enter)="saveFieldEdit(user)"
+                    (keydown.escape)="cancelFieldEdit()"
+                    />
+                </app-editable-field>
                 @if (user.id === currentUserId) {
                   <span class="badge bg-accent-dim text-accent shrink-0">You</span>
                 }
@@ -158,51 +134,25 @@ import { ErrorStateComponent } from '../../shared/error-state.component';
                 <!-- Role -->
                 <div class="flex items-center justify-between min-h-[1.75rem]">
                   <span class="text-xs font-medium text-muted uppercase tracking-wider">Role</span>
-                  <!-- Display mode -->
-                  @if (editingField.get(user.id) !== 'role') {
-                    <div
-                      class="group flex items-center gap-1.5 cursor-pointer"
-                      role="button"
-                      tabindex="0"
-                      (click)="startEditField(user, 'role')"
-                      (keydown.enter)="startEditField(user, 'role')">
-                      <span class="badge" [class]="user.role === UserRole.Admin ? 'bg-amber-500/10 text-amber-400' : 'bg-sky-500/10 text-sky-400'">
-                        @if (user.role === UserRole.Admin) {
-                          <svg class="w-3 h-3 mr-0.5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>
-                        }
-                        {{ user.role === UserRole.Admin ? 'Admin' : 'User' }}
-                      </span>
-                      <svg class="w-3 h-3 text-muted shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                        fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                          d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
-                      </svg>
-                    </div>
-                  }
-                  <!-- Edit mode -->
-                  @if (editingField.get(user.id) === 'role') {
-                    <div class="flex items-center gap-1.5">
-                      <select
-                        [(ngModel)]="editValue"
-                        class="px-3 py-1 bg-surface border border-card-border rounded-lg text-xs text-white focus:outline-none focus:border-accent/50 transition-colors"
-                        >
-                        <option [value]="UserRole.User">User</option>
-                        <option [value]="UserRole.Admin">Admin</option>
-                      </select>
-                      <button (click)="saveFieldEdit(user)"
-                        class="p-1.5 text-accent hover:bg-accent-dim rounded-lg transition-colors shrink-0">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                        </svg>
-                      </button>
-                      <button (click)="cancelFieldEdit()"
-                        class="p-1.5 text-muted hover:bg-subtle rounded-lg transition-colors shrink-0">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                  }
+                  <app-editable-field
+                    [editing]="editingField.get(user.id) === 'role'"
+                    label="role"
+                    (startEdit)="startEditField(user, 'role')"
+                    (save)="saveFieldEdit(user)"
+                    (cancelEdit)="cancelFieldEdit()">
+                    <span display class="badge" [class]="user.role === UserRole.Admin ? 'bg-amber-500/10 text-amber-400' : 'bg-sky-500/10 text-sky-400'">
+                      @if (user.role === UserRole.Admin) {
+                        <svg class="w-3 h-3 mr-0.5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>
+                      }
+                      {{ user.role === UserRole.Admin ? 'Admin' : 'User' }}
+                    </span>
+                    <select editor
+                      [(ngModel)]="editValue"
+                      class="px-3 py-1 bg-surface border border-card-border rounded-lg text-xs text-white focus:outline-none focus:border-accent/50 transition-colors">
+                      <option [value]="UserRole.User">User</option>
+                      <option [value]="UserRole.Admin">Admin</option>
+                    </select>
+                  </app-editable-field>
                 </div>
                 <!-- Status -->
                 <div class="flex items-center justify-between min-h-[1.75rem]">
@@ -235,8 +185,12 @@ import { ErrorStateComponent } from '../../shared/error-state.component';
                     </div>
                   }
                   @if (passwordUserId === user.id) {
-                    <div class="flex items-center gap-1.5">
-                      <input
+                    <app-editable-field
+                      [editing]="true"
+                      label="password"
+                      (save)="savePassword(user)"
+                      (cancelEdit)="cancelPasswordEdit()">
+                      <input editor
                         type="password"
                         [(ngModel)]="newPassword"
                         autocomplete="new-password"
@@ -245,19 +199,7 @@ import { ErrorStateComponent } from '../../shared/error-state.component';
                         (keydown.enter)="savePassword(user)"
                         (keydown.escape)="cancelPasswordEdit()"
                         />
-                      <button (click)="savePassword(user)"
-                        class="p-1.5 text-accent hover:bg-accent-dim rounded-lg transition-colors shrink-0">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                        </svg>
-                      </button>
-                      <button (click)="cancelPasswordEdit()"
-                        class="p-1.5 text-muted hover:bg-subtle rounded-lg transition-colors shrink-0">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
+                    </app-editable-field>
                   }
                 </div>
               </div>

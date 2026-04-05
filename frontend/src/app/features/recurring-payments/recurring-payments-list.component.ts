@@ -8,7 +8,7 @@ import { CategoryDto } from '../../api/generated/model/categoryDto';
 import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component';
 import { ErrorStateComponent } from '../../shared/error-state.component';
 import { FrequencyBadgeComponent } from '../../shared/frequency-badge.component';
-import { CURRENCY_LOCALE, CURRENCY_CODE } from '../../shared/constants';
+import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 import { PaymentCategoryDialogComponent } from './payment-category-dialog.component';
 import { PaymentTransactionsModalComponent } from './payment-transactions-modal.component';
 import { PaymentRulesModalComponent } from './payment-rules-modal.component';
@@ -17,7 +17,7 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
 @Component({
   selector: 'app-recurring-payments-list',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RouterLink, LoadingSpinnerComponent, ErrorStateComponent, FrequencyBadgeComponent, PaymentCategoryDialogComponent, PaymentTransactionsModalComponent, PaymentRulesModalComponent],
+  imports: [CommonModule, FormsModule, RouterLink, LoadingSpinnerComponent, ErrorStateComponent, FrequencyBadgeComponent, CurrencyFormatPipe, PaymentCategoryDialogComponent, PaymentTransactionsModalComponent, PaymentRulesModalComponent],
   template: `
     <div class="animate-fade-in">
       <!-- Header -->
@@ -108,7 +108,7 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
                 <p class="font-mono text-sm font-semibold shrink-0 ml-3"
                   [class.text-accent]="payment.isIncome"
                   [class.text-coral]="!payment.isIncome">
-                  {{ payment.isIncome ? '+' : '-' }}{{ formatCurrency(abs(payment.averageAmount)) }}
+                  {{ (payment.isIncome ? payment.averageAmount : -payment.averageAmount) | appCurrency:true }}
                 </p>
               </div>
               <div class="flex items-center justify-between">
@@ -181,7 +181,7 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
                     <td class="table-cell text-right font-mono text-xs font-medium"
                       [class.text-accent]="payment.isIncome"
                       [class.text-coral]="!payment.isIncome">
-                      {{ payment.isIncome ? '+' : '-' }}{{ formatCurrency(abs(payment.averageAmount)) }}
+                      {{ (payment.isIncome ? payment.averageAmount : -payment.averageAmount) | appCurrency:true }}
                     </td>
                     <td class="table-cell">
                       <span class="badge"
@@ -273,14 +273,6 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-  }
-
-  formatCurrency(value: number): string {
-    return new Intl.NumberFormat(CURRENCY_LOCALE, { style: 'currency', currency: CURRENCY_CODE }).format(value);
-  }
-
-  abs(value: number): number {
-    return Math.abs(value);
   }
 
   applyFilter(): void {

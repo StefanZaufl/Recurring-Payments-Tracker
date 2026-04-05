@@ -6,6 +6,7 @@ import { RecurringPaymentsListComponent } from './recurring-payments-list.compon
 import { RecurringPaymentsService, CategoriesService, RecurringPaymentRulesService } from '../../api/generated';
 import { RecurringPaymentDto } from '../../api/generated/model/recurringPaymentDto';
 import { CategoryDto } from '../../api/generated/model/categoryDto';
+import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 import { Frequency } from '../../api/generated/model/frequency';
 
 const mockPayments: RecurringPaymentDto[] = [
@@ -266,14 +267,10 @@ describe('RecurringPaymentsListComponent', () => {
     expect(component.loading).toBe(false);
   });
 
-  it('should format currency correctly', () => {
-    const formatted = component.formatCurrency(12.99);
+  it('should format currency correctly via pipe', () => {
+    const pipe = new CurrencyFormatPipe();
+    const formatted = pipe.transform(12.99);
     expect(formatted.includes('12') && formatted.includes('99')).toBe(true);
-  });
-
-  it('should return absolute value from abs()', () => {
-    expect(component.abs(-42)).toBe(42);
-    expect(component.abs(42)).toBe(42);
   });
 
   it('should display rule count badge for payments', () => {
