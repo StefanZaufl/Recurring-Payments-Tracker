@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+#
+# Pre-commit hook: runs angular-eslint on staged frontend files.
+# Skips linting entirely if no frontend files are in the commit.
+
+FRONTEND_DIR="frontend"
+
+# Check if any staged files are under the frontend directory
+STAGED_FRONTEND_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep "^${FRONTEND_DIR}/")
+
+if [ -z "$STAGED_FRONTEND_FILES" ]; then
+  echo "[pre-commit] No frontend files staged — skipping lint."
+  exit 0
+fi
+
+echo "[pre-commit] Frontend files detected — running lint..."
+cd "$FRONTEND_DIR" || exit 1
+npx ng lint
+LINT_EXIT=$?
+
+if [ $LINT_EXIT -ne 0 ]; then
+  echo ""
+  echo "[pre-commit] Lint failed. Please fix the errors above before committing."
+  exit 1
+fi
+
+echo "[pre-commit] Lint passed."
+exit 0
