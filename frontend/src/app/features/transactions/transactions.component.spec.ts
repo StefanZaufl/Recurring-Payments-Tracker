@@ -77,10 +77,14 @@ describe('TransactionsComponent', () => {
   });
 
   it('should filter by search text with debounce', fakeAsync(() => {
+    service.getTransactions.mockClear();
     service.getTransactions.mockReturnValue(of(mockPage));
     component.onSearchChange('netflix');
-    tick(400);
 
+    tick(300);
+    expect(service.getTransactions).not.toHaveBeenCalled();
+
+    tick(100);
     expect(service.getTransactions).toHaveBeenCalledWith(
       undefined, undefined, 'netflix', 0, 25, 'bookingDate', 'desc'
     );

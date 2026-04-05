@@ -85,20 +85,20 @@ describe('DateRangePickerComponent', () => {
     component.activeTab = 'custom';
 
     component.selectDay(2026, 3, 5); // first click sets from
-    expect(component['customFrom']).toBe('2026-04-05');
-    expect(component['customTo']).toBe('');
+    expect(component.customFrom).toBe('2026-04-05');
+    expect(component.customTo).toBe('');
 
     component.selectDay(2026, 3, 15); // second click sets to
-    expect(component['customFrom']).toBe('2026-04-05');
-    expect(component['customTo']).toBe('2026-04-15');
+    expect(component.customFrom).toBe('2026-04-05');
+    expect(component.customTo).toBe('2026-04-15');
   });
 
   it('should swap from/to when selecting earlier date second', () => {
     component.openPicker();
     component.selectDay(2026, 3, 20);
     component.selectDay(2026, 3, 5);
-    expect(component['customFrom']).toBe('2026-04-05');
-    expect(component['customTo']).toBe('2026-04-20');
+    expect(component.customFrom).toBe('2026-04-05');
+    expect(component.customTo).toBe('2026-04-20');
   });
 
   it('should have four presets', () => {

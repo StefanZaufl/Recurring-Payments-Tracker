@@ -2,14 +2,14 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { AccountComponent } from './account.component';
-import { AccountService, UserRole } from '../../api/generated';
+import { AccountService, CurrentUserResponse, UserRole } from '../../api/generated';
 import { AuthStateService } from '../../core/auth-state.service';
 
 describe('AccountComponent', () => {
   let component: AccountComponent;
   let fixture: ComponentFixture<AccountComponent>;
   let accountService: jest.Mocked<AccountService>;
-  let authState: { currentUser: any; refreshUser: jest.Mock };
+  let authState: { currentUser: CurrentUserResponse | null; refreshUser: jest.Mock };
 
   beforeEach(async () => {
     const accountServiceMock = {
@@ -60,7 +60,7 @@ describe('AccountComponent', () => {
   });
 
   it('should change username successfully', () => {
-    accountService.changeUsername.mockReturnValue(of(undefined as any));
+    accountService.changeUsername.mockReturnValue(of(undefined));
 
     component.newUsername = 'newadmin';
     component.onChangeUsername();
@@ -93,7 +93,7 @@ describe('AccountComponent', () => {
   });
 
   it('should display username success in template', () => {
-    accountService.changeUsername.mockReturnValue(of(undefined as any));
+    accountService.changeUsername.mockReturnValue(of(undefined));
 
     component.newUsername = 'newadmin';
     component.onChangeUsername();
@@ -131,7 +131,7 @@ describe('AccountComponent', () => {
   });
 
   it('should change password successfully', () => {
-    accountService.changePassword.mockReturnValue(of(undefined as any));
+    accountService.changePassword.mockReturnValue(of(undefined));
 
     component.currentPassword = 'oldpass';
     component.newPassword = 'newpassword';
@@ -173,7 +173,7 @@ describe('AccountComponent', () => {
     component.usernameSuccess = 'old success';
     component.usernameError = 'old error';
 
-    accountService.changeUsername.mockReturnValue(of(undefined as any));
+    accountService.changeUsername.mockReturnValue(of(undefined));
     component.newUsername = 'new';
     component.onChangeUsername();
 

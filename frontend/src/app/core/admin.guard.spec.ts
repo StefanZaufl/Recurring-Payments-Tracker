@@ -1,12 +1,14 @@
 import { TestBed } from '@angular/core/testing';
-import { Router } from '@angular/router';
-import { of } from 'rxjs';
+import { ActivatedRouteSnapshot, Router, RouterStateSnapshot, UrlTree } from '@angular/router';
+import { Observable, of, throwError } from 'rxjs';
 import { adminGuard } from './admin.guard';
 import { AuthStateService } from './auth-state.service';
 import { CurrentUserResponse, UserRole } from '../api/generated';
 
 const adminUser: CurrentUserResponse = { id: 'u1', username: 'admin', role: UserRole.Admin };
 const regularUser: CurrentUserResponse = { id: 'u2', username: 'user', role: UserRole.User };
+const mockRoute = {} as ActivatedRouteSnapshot;
+const mockState = {} as RouterStateSnapshot;
 
 describe('adminGuard', () => {
   let authState: { currentUser: CurrentUserResponse | null; checkSession: jest.Mock };
@@ -28,8 +30,8 @@ describe('adminGuard', () => {
     router = TestBed.inject(Router);
   });
 
-  function runGuard(): any {
-    return TestBed.runInInjectionContext(() => adminGuard({} as any, {} as any));
+  function runGuard(): boolean | Observable<boolean | UrlTree> {
+    return TestBed.runInInjectionContext(() => adminGuard(mockRoute, mockState)) as boolean | Observable<boolean | UrlTree>;
   }
 
   it('should return true if current user is admin', () => {
@@ -48,7 +50,7 @@ describe('adminGuard', () => {
     authState.checkSession.mockReturnValue(of(adminUser));
 
     const result = runGuard();
-    result.subscribe((val: any) => {
+    (result as Observable<boolean | UrlTree>).subscribe((val) => {
       expect(val).toBe(true);
       done();
     });
@@ -59,7 +61,7 @@ describe('adminGuard', () => {
     authState.checkSession.mockReturnValue(of(regularUser));
 
     const result = runGuard();
-    result.subscribe((val: any) => {
+    (result as Observable<boolean | UrlTree>).subscribe((val) => {
       expect(val).toBe('dashboard-tree');
       done();
     });
@@ -70,9 +72,23 @@ describe('adminGuard', () => {
     authState.checkSession.mockReturnValue(of(null));
 
     const result = runGuard();
-    result.subscribe((val: any) => {
+    (result as Observable<boolean | UrlTree>).subscribe((val) => {
       expect(val).toBe('dashboard-tree');
       done();
+    });
+  });
+
+  it('should propagate error when checkSession observable fails', (done) => {
+    authState.currentUser = null;
+    authState.checkSession.mockReturnValue(throwError(() => new Error('Network error')));
+
+    const result = runGuard();
+    (result as Observable<boolean | UrlTree>).subscribe({
+      next: () => done.fail('expected error'),
+      error: (err: Error) => {
+        expect(err.message).toBe('Network error');
+        done();
+      },
     });
   });
 });

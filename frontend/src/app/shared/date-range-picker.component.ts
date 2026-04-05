@@ -146,7 +146,8 @@ export interface DateRange {
                     <div class="grid grid-cols-7">
                       @for (day of month.days; track day) {
                         <button
-                          (click)="day.day ? selectDay(month.year, month.month, day.day) : null"
+                          [disabled]="!day.day"
+                          (click)="selectDay(month.year, month.month, day.day)"
                           class="text-center text-xs py-1 rounded-md transition-colors"
                         [ngClass]="{
                           'text-transparent cursor-default': !day.day,
@@ -239,7 +240,11 @@ export class DateRangePickerComponent {
   }
 
   toggle(): void {
-    this.open ? this.close() : this.openPicker();
+    if (this.open) {
+      this.close();
+    } else {
+      this.openPicker();
+    }
   }
 
   openPicker(): void {
