@@ -1084,6 +1084,8 @@ components:
           format: uuid
         categoryName:
           type: string
+        categoryColor:
+          type: string
         averageAmount:
           type: number
           format: double

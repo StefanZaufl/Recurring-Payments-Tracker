@@ -14,7 +14,7 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
 @Component({
   selector: 'app-payment-rules-modal',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, ModalComponent, CurrencyFormatPipe],
+  imports: [CommonModule, FormsModule, ModalComponent],
   template: `
     <app-modal
       title="Detection Rules"

@@ -12,7 +12,7 @@ import { PaymentType } from '../../api/generated/model/paymentType';
 
 const mockPayments: RecurringPaymentDto[] = [
   {
-    id: '1', name: 'Netflix', categoryId: 'cat-1', categoryName: 'Streaming',
+    id: '1', name: 'Netflix', categoryId: 'cat-1', categoryName: 'Streaming', categoryColor: '#FF0000',
     averageAmount: -12.99, frequency: Frequency.Monthly, isIncome: false, isActive: true, ruleCount: 2, paymentType: PaymentType.Recurring,
   },
   {
@@ -24,7 +24,7 @@ const mockPayments: RecurringPaymentDto[] = [
     averageAmount: -29.99, frequency: Frequency.Monthly, isIncome: false, isActive: false, ruleCount: 0, paymentType: PaymentType.Recurring,
   },
   {
-    id: '4', name: 'Insurance', categoryId: 'cat-2', categoryName: 'Insurance',
+    id: '4', name: 'Insurance', categoryId: 'cat-2', categoryName: 'Insurance', categoryColor: '#00FF00',
     averageAmount: -150, frequency: Frequency.Quarterly, isIncome: false, isActive: true, ruleCount: 1, paymentType: PaymentType.Recurring,
   },
 ];
@@ -163,6 +163,18 @@ describe('RecurringPaymentsListComponent', () => {
 
     expect(el.textContent).toContain('Streaming');
     expect(el.textContent).toContain('Uncategorized');
+  });
+
+  it('should show colored dot for categorized payments and none for uncategorized', () => {
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+
+    const dots = el.querySelectorAll('span[style*="background-color"]');
+    expect(dots.length).toBeGreaterThanOrEqual(2);
+
+    const colors = Array.from(dots).map(d => (d as HTMLElement).style.backgroundColor);
+    expect(colors).toContain('rgb(255, 0, 0)'); // #FF0000 for Streaming
+    expect(colors).toContain('rgb(0, 255, 0)'); // #00FF00 for Insurance
   });
 
   it('should display frequency badges', () => {
