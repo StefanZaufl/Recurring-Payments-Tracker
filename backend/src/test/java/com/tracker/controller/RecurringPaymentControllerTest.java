@@ -375,6 +375,39 @@ class RecurringPaymentControllerTest {
                     .andExpect(jsonPath("$.overlappingPayments", hasSize(1)))
                     .andExpect(jsonPath("$.overlappingPayments[0].name").value("Netflix Subscription"));
         }
+
+        @Test
+        void detectsOverlapViaLinkedTransactions() throws Exception {
+            // Create an existing payment with a linked Netflix transaction (no unlinked ones)
+            RecurringPayment existing = seedRecurringPayment("Netflix Subscription", "MONTHLY", "-12.99", false);
+            Transaction linkedTx = seedTransaction("Netflix", LocalDate.now().minusDays(10), "-12.99");
+            seedLink(linkedTx, existing);
+
+            // Seed an unlinked Spotify transaction so the simulation has something to match
+            seedTransaction("Spotify", LocalDate.now().minusDays(5), "-9.99");
+
+            // Simulate rules that would match Netflix (which is already linked to the existing payment)
+            mockMvc.perform(post(RECURRING_URL + "/simulate")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                {
+                                  "rules": [
+                                    {
+                                      "ruleType": "JARO_WINKLER",
+                                      "targetField": "PARTNER_NAME",
+                                      "text": "netflix",
+                                      "threshold": 0.85,
+                                      "strict": true
+                                    }
+                                  ]
+                                }
+                                """)
+                            .with(authenticatedUser(testUser)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.matchingTransactions", hasSize(0)))
+                    .andExpect(jsonPath("$.overlappingPayments", hasSize(1)))
+                    .andExpect(jsonPath("$.overlappingPayments[0].name").value("Netflix Subscription"));
+        }
     }
 
     // ────────────────────────────────────────────────────────────────────

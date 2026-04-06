@@ -204,7 +204,7 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
                 <tbody class="divide-y divide-card-border">
                   @for (payment of filteredPayments; track payment) {
                     <tr
-                      class="hover:bg-card-hover transition-colors cursor-pointer"
+                      class="group hover:bg-card-hover transition-colors cursor-pointer"
                       [class.opacity-40]="!payment.isActive"
                       (click)="openTransactionsModal(payment)">
                       <td class="table-cell font-medium text-white">{{ payment.name }}</td>

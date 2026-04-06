@@ -249,6 +249,7 @@ interface LocalRule {
             }
 
             <!-- Add/edit rule form -->
+            @if (showRuleForm || editingRule || rules.length === 0) {
             <div class="px-5 py-4 border-t border-card-border space-y-3">
               <p class="text-[11px] text-muted uppercase tracking-wider font-medium">
                 {{ editingRule ? 'Edit rule' : 'Add rule' }}
@@ -324,8 +325,8 @@ interface LocalRule {
                   class="text-xs font-medium bg-subtle hover:bg-card-hover text-white px-4 py-2 rounded-lg transition-colors">
                   {{ editingRule ? 'Update' : 'Add Rule' }}
                 </button>
-                @if (editingRule) {
-                  <button (click)="cancelEditRule()"
+                @if (editingRule || (showRuleForm && rules.length > 0)) {
+                  <button (click)="cancelRuleForm()"
                     class="text-xs text-muted hover:text-white transition-colors px-3 py-2">
                     Cancel
                   </button>
@@ -335,6 +336,17 @@ interface LocalRule {
                 }
               </div>
             </div>
+            } @else {
+              <div class="px-5 py-4 border-t border-card-border">
+                <button (click)="showRuleForm = true"
+                  class="text-xs font-medium text-accent hover:text-white transition-colors flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                  Add Rule
+                </button>
+              </div>
+            }
           </div>
 
           <!-- Overlap warning -->
@@ -418,6 +430,7 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
   rules: LocalRule[] = [];
 
   // Rule form
+  showRuleForm = false;
   editingRule: LocalRule | null = null;
   ruleFormType = 'JARO_WINKLER';
   ruleFormTargetField = 'PARTNER_NAME';
@@ -565,10 +578,14 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
       const idx = this.rules.findIndex(r => r.id === this.editingRule!.id);
       if (idx >= 0) this.rules[idx] = rule;
     } else {
+      if (this.rules.length === 0) {
+        this.showOnlyMatches = true;
+      }
       this.rules = [...this.rules, rule];
     }
 
     this.editingRule = null;
+    this.showRuleForm = false;
     this.resetRuleForm();
     this.rulesChanged$.next();
   }
@@ -585,8 +602,9 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
     this.ruleFormError = null;
   }
 
-  cancelEditRule(): void {
+  cancelRuleForm(): void {
     this.editingRule = null;
+    this.showRuleForm = false;
     this.resetRuleForm();
   }
 

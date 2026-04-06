@@ -3,7 +3,9 @@ package com.tracker.service;
 import com.tracker.model.entity.RecurringPayment;
 import com.tracker.model.entity.Rule;
 import com.tracker.model.entity.Transaction;
+import com.tracker.model.entity.TransactionRecurringLink;
 import com.tracker.repository.RecurringPaymentRepository;
+import com.tracker.repository.TransactionRecurringLinkRepository;
 import com.tracker.repository.TransactionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,15 +24,18 @@ public class SimulationService {
 
     private final TransactionRepository transactionRepository;
     private final RecurringPaymentRepository recurringPaymentRepository;
+    private final TransactionRecurringLinkRepository linkRepository;
     private final RuleEvaluationService ruleEvaluationService;
     private final UserContextService userContextService;
 
     public SimulationService(TransactionRepository transactionRepository,
                              RecurringPaymentRepository recurringPaymentRepository,
+                             TransactionRecurringLinkRepository linkRepository,
                              RuleEvaluationService ruleEvaluationService,
                              UserContextService userContextService) {
         this.transactionRepository = transactionRepository;
         this.recurringPaymentRepository = recurringPaymentRepository;
+        this.linkRepository = linkRepository;
         this.ruleEvaluationService = ruleEvaluationService;
         this.userContextService = userContextService;
     }
@@ -46,22 +51,43 @@ public class SimulationService {
         List<Transaction> matchingTransactions = ruleEvaluationService.findMatchingTransactions(transientRules, unlinked);
         log.debug("Simulation: {} transactions match the provided rules", matchingTransactions.size());
 
-        // Overlap detection: check which existing active payments also match any of the same transactions
         List<RecurringPayment> activePayments = recurringPaymentRepository.findByUserIdAndIsActiveTrue(currentUserId);
+        List<OverlappingPayment> overlapping = detectOverlaps(transientRules, matchingTransactions, activePayments);
+
+        return new SimulationResult(matchingTransactions, overlapping);
+    }
+
+    private List<OverlappingPayment> detectOverlaps(List<Rule> simulatedRules,
+                                                     List<Transaction> matchingUnlinked,
+                                                     List<RecurringPayment> activePayments) {
         List<OverlappingPayment> overlapping = new ArrayList<>();
 
         for (RecurringPayment rt : activePayments) {
             List<Rule> rtRules = rt.getRules();
-            if (rtRules.isEmpty()) continue;
 
-            List<Transaction> rtMatches = ruleEvaluationService.findMatchingTransactions(rtRules, matchingTransactions);
-            if (!rtMatches.isEmpty()) {
-                overlapping.add(new OverlappingPayment(rt.getId(), rt.getName()));
-                log.debug("Simulation: overlap detected with '{}' ({} shared transactions)", rt.getName(), rtMatches.size());
+            // Check 1: do the existing payment's rules match any of the simulated matching (unlinked) transactions?
+            if (!rtRules.isEmpty()) {
+                List<Transaction> rtMatches = ruleEvaluationService.findMatchingTransactions(rtRules, matchingUnlinked);
+                if (!rtMatches.isEmpty()) {
+                    overlapping.add(new OverlappingPayment(rt.getId(), rt.getName()));
+                    log.debug("Simulation: overlap detected with '{}' ({} shared unlinked transactions)", rt.getName(), rtMatches.size());
+                    continue;
+                }
+            }
+
+            // Check 2: do the simulated rules match any of this payment's already-linked transactions?
+            List<Transaction> linkedTransactions = linkRepository.findByRecurringPaymentId(rt.getId())
+                    .stream().map(TransactionRecurringLink::getTransaction).toList();
+            if (!linkedTransactions.isEmpty()) {
+                List<Transaction> simMatches = ruleEvaluationService.findMatchingTransactions(simulatedRules, linkedTransactions);
+                if (!simMatches.isEmpty()) {
+                    overlapping.add(new OverlappingPayment(rt.getId(), rt.getName()));
+                    log.debug("Simulation: overlap detected with '{}' ({} linked transactions match simulated rules)", rt.getName(), simMatches.size());
+                }
             }
         }
 
-        return new SimulationResult(matchingTransactions, overlapping);
+        return overlapping;
     }
 
     public record SimulationResult(
