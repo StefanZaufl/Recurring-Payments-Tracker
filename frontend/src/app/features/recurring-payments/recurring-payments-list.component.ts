@@ -166,6 +166,9 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
                           'bg-subtle text-muted': payment.categoryName,
                           'bg-subtle text-muted/50': !payment.categoryName
                         }">
+                      @if (getCategoryColor(payment.categoryId)) {
+                        <span class="inline-block w-2 h-2 rounded-full mr-1" [style.background-color]="getCategoryColor(payment.categoryId)"></span>
+                      }
                       {{ payment.categoryName || 'Uncategorized' }}
                       <svg class="w-3 h-3 ml-1 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
@@ -215,6 +218,9 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
                               'bg-subtle text-muted': payment.categoryName,
                               'bg-subtle text-muted/50': !payment.categoryName
                             }">
+                          @if (getCategoryColor(payment.categoryId)) {
+                            <span class="inline-block w-2 h-2 rounded-full mr-1" [style.background-color]="getCategoryColor(payment.categoryId)"></span>
+                          }
                           {{ payment.categoryName || 'Uncategorized' }}
                           <svg class="w-3 h-3 ml-1 inline-block opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
@@ -381,6 +387,11 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       }
     });
+  }
+
+  getCategoryColor(categoryId: string | undefined): string | null {
+    if (!categoryId) return null;
+    return this.categories.find(c => c.id === categoryId)?.color ?? null;
   }
 
   // Delete

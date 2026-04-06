@@ -125,7 +125,7 @@ interface LocalRule {
               </div>
 
               <!-- Pagination -->
-              @if (totalPages > 1) {
+              @if (totalPages > 1 && !(showOnlyMatches && simulationActive)) {
                 <div class="px-5 py-3 border-t border-card-border flex items-center justify-between">
                   <span class="text-[11px] text-muted">Page {{ currentPage + 1 }} of {{ totalPages }}</span>
                   <div class="flex items-center gap-1">
@@ -187,6 +187,11 @@ interface LocalRule {
                   Grouped
                 </button>
               </div>
+              @if (paymentType === 'RECURRING') {
+                <p class="text-[11px] text-muted/70 mt-1.5">Matches fixed, predictable payments like subscriptions or salary.</p>
+              } @else if (paymentType === 'GROUPED') {
+                <p class="text-[11px] text-muted/70 mt-1.5">Tracks irregular but related expenses like groceries or fuel, averaging the total per period.</p>
+              }
             </div>
 
             <!-- Frequency -->
