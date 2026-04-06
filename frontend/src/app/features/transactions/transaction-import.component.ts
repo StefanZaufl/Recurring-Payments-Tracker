@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { TransactionsService, UploadResponse } from '../../api/generated';
 import { TransactionCsvImportMapping } from '../../api/generated/model/transactionCsvImportMapping';
 
-type ExpectedField = 'ignore' | 'bookingDate' | 'amount' | 'partnerName' | 'details';
+type ExpectedField = 'ignore' | 'bookingDate' | 'amount' | 'partnerName' | 'details' | 'detailsFallback';
 type RequiredField = 'bookingDate' | 'amount';
 
 interface CsvPreview {
@@ -21,6 +21,33 @@ interface FieldOption {
   selector: 'app-transaction-import',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, RouterLink],
+  styles: [`
+    .preview-scroll {
+      scrollbar-width: auto;
+      scrollbar-color: #6b7194 #1d2132;
+      scrollbar-gutter: stable both-edges;
+      padding-bottom: 0.5rem;
+    }
+
+    .preview-scroll::-webkit-scrollbar {
+      height: 16px;
+    }
+
+    .preview-scroll::-webkit-scrollbar-track {
+      background: #1d2132;
+      border-radius: 9999px;
+    }
+
+    .preview-scroll::-webkit-scrollbar-thumb {
+      background: linear-gradient(90deg, #6b7194, #8f96bb);
+      border-radius: 9999px;
+      border: 3px solid #1d2132;
+    }
+
+    .preview-scroll::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(90deg, #7b82a8, #a1a8cb);
+    }
+  `],
   template: `
     <div class="animate-fade-in">
       <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6 sm:mb-8">
@@ -117,7 +144,7 @@ interface FieldOption {
               </div>
             }
 
-            <div class="overflow-x-auto">
+            <div class="preview-scroll overflow-x-auto">
               <table class="min-w-full border-separate border-spacing-0">
                 <thead>
                   <tr>
@@ -134,14 +161,6 @@ interface FieldOption {
                           }
                         </select>
 
-                        <div class="mt-3 text-[11px] uppercase tracking-wide text-muted/70">Details Fallback</div>
-                        <select
-                          class="mt-1 w-full rounded-lg border border-card-border bg-subtle px-3 py-2 text-xs text-white focus:outline-none focus:border-accent"
-                          [value]="detailsFallbackIndex === i ? 'fallback' : 'none'"
-                          (change)="onDetailsFallbackChange(i, $any($event.target).value)">
-                          <option value="none">No fallback</option>
-                          <option [disabled]="columnMappings[i] === 'details'" value="fallback">Use when details is empty</option>
-                        </select>
                       </th>
                     }
                   </tr>
@@ -174,14 +193,14 @@ export class TransactionImportComponent {
     { value: 'bookingDate', label: 'Booking date' },
     { value: 'amount', label: 'Amount' },
     { value: 'partnerName', label: 'Partner name' },
-    { value: 'details', label: 'Details' }
+    { value: 'details', label: 'Details' },
+    { value: 'detailsFallback', label: 'Details Fallback' }
   ];
 
   selectedFile: File | null = null;
   selectedFileName: string | null = null;
   preview: CsvPreview | null = null;
   columnMappings: ExpectedField[] = [];
-  detailsFallbackIndex: number | null = null;
   parseError: string | null = null;
   mappingError: string | null = null;
   uploadError: string | null = null;
@@ -205,16 +224,11 @@ export class TransactionImportComponent {
       const preview = this.buildPreview(text);
       this.preview = preview;
       this.columnMappings = this.deduplicateMappings(preview.headers.map((header) => this.suggestField(header)));
-      this.detailsFallbackIndex = this.suggestDetailsFallbackIndex(preview.headers);
-      if (this.detailsFallbackIndex !== null && this.columnMappings[this.detailsFallbackIndex] === 'details') {
-        this.detailsFallbackIndex = null;
-      }
       this.parseError = null;
       this.updateMappingError();
     } catch (error) {
       this.preview = null;
       this.columnMappings = [];
-      this.detailsFallbackIndex = null;
       this.parseError = error instanceof Error ? error.message : 'Failed to read CSV file.';
       this.mappingError = null;
     }
@@ -231,21 +245,6 @@ export class TransactionImportComponent {
     }
 
     this.columnMappings[columnIndex] = value;
-
-    if (value === 'details' && this.detailsFallbackIndex === columnIndex) {
-      this.detailsFallbackIndex = null;
-    }
-
-    this.uploadResult = null;
-    this.uploadError = null;
-    this.updateMappingError();
-  }
-
-  onDetailsFallbackChange(columnIndex: number, value: string): void {
-    this.detailsFallbackIndex = value === 'fallback' ? columnIndex : this.detailsFallbackIndex === columnIndex ? null : this.detailsFallbackIndex;
-    if (this.detailsFallbackIndex === columnIndex && this.columnMappings[columnIndex] === 'details') {
-      this.detailsFallbackIndex = null;
-    }
 
     this.uploadResult = null;
     this.uploadError = null;
@@ -388,6 +387,9 @@ export class TransactionImportComponent {
     if (this.matchesAny(normalized, ['partnername', 'payee', 'partner', 'name', 'empfaenger'])) {
       return 'partnerName';
     }
+    if (this.matchesAny(normalized, ['verwendungszweck', 'purpose', 'remittanceinfo', 'reference', 'memo'])) {
+      return 'detailsFallback';
+    }
     if (this.matchesAny(normalized, ['buchungsdetails', 'details', 'description', 'verwendungszweck', 'memo', 'reference'])) {
       return 'details';
     }
@@ -406,18 +408,6 @@ export class TransactionImportComponent {
       assigned.add(mapping);
       return mapping;
     });
-  }
-
-  private suggestDetailsFallbackIndex(headers: string[]): number | null {
-    const detailsIndex = this.columnMappings.findIndex((mapping) => mapping === 'details');
-    const fallbackIndex = headers.findIndex((header, index) => {
-      if (index === detailsIndex) {
-        return false;
-      }
-      const normalized = this.normalizeHeader(header);
-      return this.matchesAny(normalized, ['verwendungszweck', 'purpose', 'remittanceinfo', 'reference', 'memo']);
-    });
-    return fallbackIndex >= 0 ? fallbackIndex : null;
   }
 
   private normalizeHeader(value: string): string {
@@ -475,8 +465,9 @@ export class TransactionImportComponent {
     if (details) {
       payload.details = details;
     }
-    if (this.preview && this.detailsFallbackIndex !== null) {
-      payload.detailsFallback = this.preview.headers[this.detailsFallbackIndex];
+    const detailsFallback = this.findHeaderForField('detailsFallback');
+    if (detailsFallback) {
+      payload.detailsFallback = detailsFallback;
     }
 
     return payload;

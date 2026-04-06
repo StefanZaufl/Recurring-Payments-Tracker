@@ -55,9 +55,8 @@ describe('TransactionImportComponent', () => {
       'partnerName',
       'amount',
       'details',
-      'ignore'
+      'detailsFallback'
     ]);
-    expect(component.detailsFallbackIndex).toBe(4);
     expect(component.mappingError).toBeNull();
   });
 
@@ -95,7 +94,7 @@ describe('TransactionImportComponent', () => {
     expect(component.uploadResult).toEqual(mockUploadResponse);
   });
 
-  it('keeps only one fallback column selected', async () => {
+  it('keeps only one details fallback mapping selected', async () => {
     const file = new File([
       'Buchungsdatum;Partnername;Betrag;Memo;Reference\n' +
       '15.01.2025;Netflix;-12,99;Abo;Extra\n'
@@ -103,11 +102,12 @@ describe('TransactionImportComponent', () => {
 
     await component.onFileSelected({ target: { files: [file], value: 'x' } } as unknown as Event);
 
-    component.onDetailsFallbackChange(1, 'fallback');
-    expect(component.detailsFallbackIndex).toBe(1);
+    component.onFieldMappingChange(3, 'detailsFallback');
+    expect(component.columnMappings[3]).toBe('detailsFallback');
 
-    component.onDetailsFallbackChange(4, 'fallback');
-    expect(component.detailsFallbackIndex).toBe(4);
+    component.onFieldMappingChange(4, 'detailsFallback');
+    expect(component.columnMappings[3]).toBe('ignore');
+    expect(component.columnMappings[4]).toBe('detailsFallback');
   });
 
   it('shows backend upload errors', async () => {
