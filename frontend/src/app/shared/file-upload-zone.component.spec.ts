@@ -9,6 +9,7 @@ import { UploadResponse } from '../api/generated/model/uploadResponse';
 const mockUploadResponse: UploadResponse = {
   uploadId: 'abc-123',
   transactionCount: 42,
+  skippedDuplicates: 3,
   recurringPaymentsDetected: 5,
 };
 
@@ -94,6 +95,8 @@ describe('FileUploadZoneComponent', () => {
     expect(el.textContent).toContain('Upload successful');
     expect(el.textContent).toContain('42');
     expect(el.textContent).toContain('transactions imported');
+    expect(el.textContent).toContain('3');
+    expect(el.textContent).toContain('duplicates skipped');
     expect(el.textContent).toContain('5');
     expect(el.textContent).toContain('recurring payments detected');
   });

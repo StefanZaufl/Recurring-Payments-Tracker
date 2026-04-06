@@ -474,6 +474,7 @@ class RecurringPaymentControllerTest {
             mockMvc.perform(multipart("/api/transactions/csv").file(file).param("mapping", TRANSACTION_MAPPING_JSON).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.transactionCount").value(7))
+                    .andExpect(jsonPath("$.skippedDuplicates").value(0))
                     .andExpect(jsonPath("$.recurringPaymentsDetected").value(2));
 
             // Verify recurring payments were persisted
@@ -494,6 +495,7 @@ class RecurringPaymentControllerTest {
 
             mockMvc.perform(multipart("/api/transactions/csv").file(file).param("mapping", TRANSACTION_MAPPING_JSON).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.skippedDuplicates").value(0))
                     .andExpect(jsonPath("$.recurringPaymentsDetected").value(0));
         }
 
@@ -509,6 +511,7 @@ class RecurringPaymentControllerTest {
 
             mockMvc.perform(multipart("/api/transactions/csv").file(file1).param("mapping", TRANSACTION_MAPPING_JSON).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.skippedDuplicates").value(0))
                     .andExpect(jsonPath("$.recurringPaymentsDetected").value(1));
 
             // Second upload: adds Spotify monthly — incremental detection creates new RT
@@ -520,6 +523,7 @@ class RecurringPaymentControllerTest {
 
             mockMvc.perform(multipart("/api/transactions/csv").file(file2).param("mapping", TRANSACTION_MAPPING_JSON).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.skippedDuplicates").value(0))
                     .andExpect(jsonPath("$.recurringPaymentsDetected").value(1));
 
             // Should have exactly 2 recurring payments total (Netflix from first, Spotify from second)

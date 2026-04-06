@@ -14,6 +14,7 @@ describe('FileUploadComponent', () => {
       uploadCsv: jest.fn().mockReturnValue(of({
         uploadId: 'abc-123',
         transactionCount: 42,
+        skippedDuplicates: 0,
         recurringPaymentsDetected: 5,
       })),
     };

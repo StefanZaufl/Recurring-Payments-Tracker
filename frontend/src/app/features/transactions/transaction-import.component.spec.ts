@@ -8,6 +8,7 @@ import { UploadResponse } from '../../api/generated/model/uploadResponse';
 const mockUploadResponse: UploadResponse = {
   uploadId: 'upload-1',
   transactionCount: 2,
+  skippedDuplicates: 1,
   recurringPaymentsDetected: 1
 };
 

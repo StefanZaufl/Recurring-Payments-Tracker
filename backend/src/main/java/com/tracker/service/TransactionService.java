@@ -15,8 +15,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -44,23 +46,25 @@ public class TransactionService {
     public UploadResult uploadCsv(CsvUploadRequest request) {
         User currentUser = userContextService.getCurrentUser();
         List<Transaction> transactions = csvParserService.parse(request.content(), request.mapping());
+        DuplicateFilterResult duplicateFilterResult = filterDuplicates(currentUser.getId(), transactions);
+        List<Transaction> newTransactions = duplicateFilterResult.newTransactions();
 
         FileUpload upload = new FileUpload();
         upload.setFilename(request.filename());
         upload.setMimeType(request.mimeType());
-        upload.setRowCount(transactions.size());
+        upload.setRowCount(newTransactions.size());
         upload.setUser(currentUser);
         upload = fileUploadRepository.save(upload);
 
-        for (Transaction tx : transactions) {
+        for (Transaction tx : newTransactions) {
             tx.setUpload(upload);
             tx.setUser(currentUser);
         }
-        List<Transaction> savedTransactions = transactionRepository.saveAll(transactions);
+        List<Transaction> savedTransactions = transactionRepository.saveAll(newTransactions);
 
         int recurringCount = detectionService.detectRecurringPayments(savedTransactions).size();
 
-        return new UploadResult(upload.getId(), transactions.size(), recurringCount);
+        return new UploadResult(upload.getId(), newTransactions.size(), duplicateFilterResult.skippedDuplicates(), recurringCount);
     }
 
     private static final java.util.Set<String> ALLOWED_SORT_FIELDS = java.util.Set.of("bookingDate", "partnerName", "amount");
@@ -112,10 +116,54 @@ public class TransactionService {
                 .filter(tx -> tx.getUser() != null && tx.getUser().getId().equals(currentUserId));
     }
 
+    private DuplicateFilterResult filterDuplicates(UUID userId, List<Transaction> transactions) {
+        Set<TransactionSignature> existingSignatures = transactionRepository.findByUserId(userId).stream()
+                .map(TransactionSignature::from)
+                .collect(java.util.stream.Collectors.toCollection(HashSet::new));
+
+        List<Transaction> newTransactions = new ArrayList<>();
+        int skippedDuplicates = 0;
+        for (Transaction transaction : transactions) {
+            TransactionSignature signature = TransactionSignature.from(transaction);
+            if (!existingSignatures.add(signature)) {
+                skippedDuplicates += 1;
+                continue;
+            }
+            newTransactions.add(transaction);
+        }
+
+        return new DuplicateFilterResult(newTransactions, skippedDuplicates);
+    }
+
     public record CsvUploadRequest(String filename,
                                    String mimeType,
                                    byte[] content,
                                    CsvParserService.CsvImportMapping mapping) {}
 
-    public record UploadResult(UUID uploadId, int transactionCount, int recurringPaymentsDetected) {}
+    public record UploadResult(UUID uploadId, int transactionCount, int skippedDuplicates, int recurringPaymentsDetected) {}
+
+    private record DuplicateFilterResult(List<Transaction> newTransactions, int skippedDuplicates) {}
+
+    private record TransactionSignature(LocalDate bookingDate,
+                                        String partnerName,
+                                        java.math.BigDecimal amount,
+                                        String details) {
+
+        static TransactionSignature from(Transaction transaction) {
+            return new TransactionSignature(
+                    transaction.getBookingDate(),
+                    normalize(transaction.getPartnerName()),
+                    transaction.getAmount() == null ? null : transaction.getAmount().stripTrailingZeros(),
+                    normalize(transaction.getDetails())
+            );
+        }
+
+        private static String normalize(String value) {
+            if (value == null) {
+                return null;
+            }
+            String trimmed = value.trim();
+            return trimmed.isEmpty() ? null : trimmed;
+        }
+    }
 }

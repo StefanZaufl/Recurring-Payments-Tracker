@@ -101,6 +101,7 @@ class TransactionControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.uploadId").isNotEmpty())
                 .andExpect(jsonPath("$.transactionCount").value(2))
+                .andExpect(jsonPath("$.skippedDuplicates").value(0))
                 .andExpect(jsonPath("$.recurringPaymentsDetected").value(0));
     }
 
@@ -136,10 +137,27 @@ class TransactionControllerTest {
                                 """)
                         .with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.transactionCount").value(1));
+                .andExpect(jsonPath("$.transactionCount").value(1))
+                .andExpect(jsonPath("$.skippedDuplicates").value(0));
 
         Transaction saved = transactionRepository.findAll().getFirst();
         assertThat(saved.getDetails(), is("Fallback details"));
+    }
+
+    @Test
+    void uploadCsv_duplicateTransactionsAreSkippedAndReported() throws Exception {
+        MockMultipartFile file = CsvMother.validTwoRowFile();
+
+        mockMvc.perform(multipart(UPLOAD_URL).file(file).param(MAPPING_PARAM, DEFAULT_MAPPING_JSON).with(authenticatedUser(testUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.transactionCount").value(2))
+                .andExpect(jsonPath("$.skippedDuplicates").value(0));
+
+        mockMvc.perform(multipart(UPLOAD_URL).file(file).param(MAPPING_PARAM, DEFAULT_MAPPING_JSON).with(authenticatedUser(testUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.transactionCount").value(0))
+                .andExpect(jsonPath("$.skippedDuplicates").value(2))
+                .andExpect(jsonPath("$.recurringPaymentsDetected").value(0));
     }
 
     @Test

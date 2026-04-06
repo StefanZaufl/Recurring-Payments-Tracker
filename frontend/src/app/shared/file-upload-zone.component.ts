@@ -73,6 +73,9 @@ import { Subject, takeUntil } from 'rxjs';
               <span class="font-mono text-white">{{ result.transactionCount }}</span> transactions imported
             </p>
             <p class="text-xs text-muted">
+              <span class="font-mono text-white">{{ result.skippedDuplicates }}</span> duplicates skipped
+            </p>
+            <p class="text-xs text-muted">
               <span class="font-mono text-white">{{ result.recurringPaymentsDetected }}</span> recurring payments detected
             </p>
             <a routerLink="/dashboard" class="inline-flex items-center gap-1 mt-3 text-xs text-accent hover:text-accent/80 transition-colors">

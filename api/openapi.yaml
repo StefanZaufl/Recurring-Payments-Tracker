@@ -938,12 +938,14 @@ components:
 
     UploadResponse:
       type: object
-      required: [uploadId, transactionCount, recurringPaymentsDetected]
+      required: [uploadId, transactionCount, skippedDuplicates, recurringPaymentsDetected]
       properties:
         uploadId:
           type: string
           format: uuid
         transactionCount:
+          type: integer
+        skippedDuplicates:
           type: integer
         recurringPaymentsDetected:
           type: integer

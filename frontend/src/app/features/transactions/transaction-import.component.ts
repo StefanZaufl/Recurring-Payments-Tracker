@@ -140,7 +140,7 @@ interface FieldOption {
 
             @if (uploadResult) {
               <div class="mb-4 rounded-xl border border-accent/20 bg-accent-dim px-4 py-3 text-sm text-accent">
-                Imported {{ uploadResult.transactionCount }} transactions and detected {{ uploadResult.recurringPaymentsDetected }} recurring payments.
+                Imported {{ uploadResult.transactionCount }} transactions, skipped {{ uploadResult.skippedDuplicates }} duplicates, and detected {{ uploadResult.recurringPaymentsDetected }} recurring payments.
               </div>
             }
 
