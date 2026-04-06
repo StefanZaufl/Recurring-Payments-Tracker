@@ -52,6 +52,30 @@ public class AnalyticsService {
             transactionsByMonth.get(tx.getBookingDate().getMonthValue() - 1).add(tx);
         }
 
+        // Build map of recurring payment ID -> total amount and per-month recurring expenses
+        BigDecimal[] monthlyRecurringExpenses = new BigDecimal[12];
+        Arrays.fill(monthlyRecurringExpenses, BigDecimal.ZERO);
+
+        Map<UUID, BigDecimal> yearTotalByPayment = new HashMap<>();
+        for (RecurringPayment payment : activePayments) {
+            BigDecimal paymentTotal = BigDecimal.ZERO;
+            List<TransactionRecurringLink> links = linkRepository.findByRecurringPaymentId(payment.getId());
+            for (TransactionRecurringLink link : links) {
+                LocalDate date = link.getTransaction().getBookingDate();
+                if (!date.isBefore(startOfYear) && !date.isAfter(endOfYear)) {
+                    BigDecimal absAmount = link.getTransaction().getAmount().abs();
+                    paymentTotal = paymentTotal.add(absAmount);
+                    if (!Boolean.TRUE.equals(payment.getIsIncome())) {
+                        int monthIndex = date.getMonthValue() - 1;
+                        monthlyRecurringExpenses[monthIndex] = monthlyRecurringExpenses[monthIndex].add(absAmount);
+                    }
+                }
+            }
+            if (paymentTotal.compareTo(BigDecimal.ZERO) > 0) {
+                yearTotalByPayment.put(payment.getId(), paymentTotal);
+            }
+        }
+
         // Calculate monthly breakdown from presorted buckets
         List<MonthlyBreakdownResult> monthlyBreakdown = new ArrayList<>();
         for (int month = 1; month <= 12; month++) {
@@ -68,7 +92,7 @@ public class AnalyticsService {
             }
             expenses = expenses.abs();
 
-            monthlyBreakdown.add(new MonthlyBreakdownResult(month, income, expenses, income.subtract(expenses)));
+            monthlyBreakdown.add(new MonthlyBreakdownResult(month, income, expenses, income.subtract(expenses), monthlyRecurringExpenses[month - 1]));
         }
 
         // Total income and expenses for the year
@@ -78,22 +102,6 @@ public class AnalyticsService {
         BigDecimal totalExpenses = monthlyBreakdown.stream()
                 .map(MonthlyBreakdownResult::expenses)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        // Build map of recurring payment ID -> total amount from linked transactions within the year
-        Map<UUID, BigDecimal> yearTotalByPayment = new HashMap<>();
-        for (RecurringPayment payment : activePayments) {
-            BigDecimal paymentTotal = BigDecimal.ZERO;
-            List<TransactionRecurringLink> links = linkRepository.findByRecurringPaymentId(payment.getId());
-            for (TransactionRecurringLink link : links) {
-                LocalDate date = link.getTransaction().getBookingDate();
-                if (!date.isBefore(startOfYear) && !date.isAfter(endOfYear)) {
-                    paymentTotal = paymentTotal.add(link.getTransaction().getAmount().abs());
-                }
-            }
-            if (paymentTotal.compareTo(BigDecimal.ZERO) > 0) {
-                yearTotalByPayment.put(payment.getId(), paymentTotal);
-            }
-        }
 
         // Recurring expenses total
         BigDecimal totalRecurringExpenses = BigDecimal.ZERO;
@@ -247,7 +255,7 @@ public class AnalyticsService {
             List<CategoryBreakdownResult> byCategory,
             List<RecurringPaymentSummaryResult> recurringPayments) {}
 
-    public record MonthlyBreakdownResult(int month, BigDecimal income, BigDecimal expenses, BigDecimal surplus) {}
+    public record MonthlyBreakdownResult(int month, BigDecimal income, BigDecimal expenses, BigDecimal surplus, BigDecimal recurringExpenses) {}
 
     public record CategoryBreakdownResult(String category, BigDecimal total, double percentage, String color) {}
 

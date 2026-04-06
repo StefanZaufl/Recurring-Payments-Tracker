@@ -11,6 +11,7 @@ export const CHART_THEME = {
   borderColor: '#181a23',
   incomeColor: 'rgba(34,197,94,0.7)',
   expenseColor: 'rgba(248,113,113,0.7)',
+  recurringExpenseColor: 'rgba(251,191,36,0.7)',
   categoryColors: [
     '#22c55e', '#f87171', '#38bdf8', '#fbbf24', '#a78bfa',
     '#f472b6', '#06b6d4', '#84cc16', '#fb923c', '#818cf8'

@@ -14,5 +14,6 @@ export interface MonthlyBreakdown {
     income: number;
     expenses: number;
     surplus: number;
+    recurringExpenses: number;
 }
 

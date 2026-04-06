@@ -59,6 +59,7 @@ class AnalyticsControllerTest {
                     .andExpect(jsonPath("$.totalExpenses").value(0.0))
                     .andExpect(jsonPath("$.totalRecurringExpenses").value(0.0))
                     .andExpect(jsonPath("$.monthlyBreakdown", hasSize(12)))
+                    .andExpect(jsonPath("$.monthlyBreakdown[0].recurringExpenses").value(0.0))
                     .andExpect(jsonPath("$.byCategory", hasSize(0)))
                     .andExpect(jsonPath("$.recurringPayments", hasSize(0)));
         }
@@ -75,7 +76,8 @@ class AnalyticsControllerTest {
                     .andExpect(jsonPath("$.totalExpenses").value(12.99))
                     .andExpect(jsonPath("$.monthlyBreakdown[2].month").value(3))
                     .andExpect(jsonPath("$.monthlyBreakdown[2].income").value(3000.0))
-                    .andExpect(jsonPath("$.monthlyBreakdown[2].expenses").value(12.99));
+                    .andExpect(jsonPath("$.monthlyBreakdown[2].expenses").value(12.99))
+                    .andExpect(jsonPath("$.monthlyBreakdown[2].recurringExpenses").value(0.0));
         }
 
         @Test
@@ -102,7 +104,9 @@ class AnalyticsControllerTest {
                     .andExpect(jsonPath("$.byCategory", hasSize(1)))
                     .andExpect(jsonPath("$.byCategory[0].category").value("Streaming"))
                     .andExpect(jsonPath("$.byCategory[0].percentage").value(100.0))
-                    .andExpect(jsonPath("$.byCategory[0].color").value("#FF0000"));
+                    .andExpect(jsonPath("$.byCategory[0].color").value("#FF0000"))
+                    .andExpect(jsonPath("$.monthlyBreakdown[0].recurringExpenses").value(closeTo(12.99, 0.01)))
+                    .andExpect(jsonPath("$.monthlyBreakdown[6].recurringExpenses").value(closeTo(12.99, 0.01)));
         }
     }
 

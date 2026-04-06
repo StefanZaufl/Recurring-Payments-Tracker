@@ -1167,7 +1167,7 @@ components:
 
     MonthlyBreakdown:
       type: object
-      required: [month, income, expenses, surplus]
+      required: [month, income, expenses, surplus, recurringExpenses]
       properties:
         month:
           type: integer
@@ -1178,6 +1178,9 @@ components:
           type: number
           format: double
         surplus:
+          type: number
+          format: double
+        recurringExpenses:
           type: number
           format: double
 

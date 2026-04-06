@@ -17,6 +17,7 @@ const mockOverview: AnnualOverview = {
     month: i + 1,
     income: 3000,
     expenses: i < 6 ? 500 : 0,
+    recurringExpenses: i < 6 ? 300 : 0,
     surplus: i < 6 ? 2500 : 3000,
   })),
   byCategory: [
@@ -136,10 +137,13 @@ describe('DashboardComponent', () => {
     expect(component.barChartData.labels).toEqual(
       ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     );
-    expect(component.barChartData.datasets.length).toBe(2);
+    expect(component.barChartData.datasets.length).toBe(3);
     expect(component.barChartData.datasets[0].label).toBe('Income');
-    expect(component.barChartData.datasets[1].label).toBe('Expenses');
+    expect(component.barChartData.datasets[1].label).toBe('Recurring Expenses');
+    expect(component.barChartData.datasets[2].label).toBe('Additional Expenses');
     expect(component.barChartData.datasets[0].data).toEqual(Array(12).fill(3000));
+    expect(component.barChartData.datasets[1].data).toEqual([...Array(6).fill(300), ...Array(6).fill(0)]);
+    expect(component.barChartData.datasets[2].data).toEqual([...Array(6).fill(200), ...Array(6).fill(0)]);
   });
 
   it('should build pie chart data from category breakdown', () => {

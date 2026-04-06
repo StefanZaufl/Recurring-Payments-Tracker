@@ -503,8 +503,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
           borderSkipped: false,
         },
         {
-          label: 'Expenses',
-          data: data.monthlyBreakdown.map(m => m.expenses),
+          label: 'Recurring Expenses',
+          data: data.monthlyBreakdown.map(m => m.recurringExpenses),
+          backgroundColor: CHART_THEME.recurringExpenseColor,
+          borderRadius: 4,
+          borderSkipped: false,
+        },
+        {
+          label: 'Additional Expenses',
+          data: data.monthlyBreakdown.map(m => Math.max(0, m.expenses - m.recurringExpenses)),
           backgroundColor: CHART_THEME.expenseColor,
           borderRadius: 4,
           borderSkipped: false,
