@@ -272,6 +272,34 @@ paths:
                 items:
                   $ref: '#/components/schemas/TransactionDto'
 
+  /api/recurring-payments/{id}/history:
+    get:
+      operationId: getRecurringPaymentHistory
+      summary: Get period amount history for a recurring payment
+      tags: [RecurringPayments]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of period history entries sorted by periodStart ascending
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PaymentPeriodHistoryEntry'
+        '404':
+          description: Recurring payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/recurring-payments/{recurringPaymentId}/rules:
     get:
       operationId: getRules
@@ -1170,8 +1198,11 @@ components:
 
     RecurringPaymentSummary:
       type: object
-      required: [name, monthlyAmount, annualAmount, category]
+      required: [id, name, monthlyAmount, annualAmount, category]
       properties:
+        id:
+          type: string
+          format: uuid
         name:
           type: string
         monthlyAmount:
@@ -1274,3 +1305,20 @@ components:
           format: uuid
         name:
           type: string
+
+    PaymentPeriodHistoryEntry:
+      type: object
+      required: [id, periodStart, periodEnd, amount]
+      properties:
+        id:
+          type: string
+          format: uuid
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
+        amount:
+          type: number
+          format: double

@@ -231,7 +231,7 @@ class RecurringPaymentDetectionServiceTest {
     // ────────────────────────────────────────────────────────────────────
 
     private static RecurringPaymentDetectionService createService() {
-        return new RecurringPaymentDetectionService(null, null, null, null, null, null);
+        return new RecurringPaymentDetectionService(null, null, null, null, null, null, null);
     }
 
     static Transaction tx(String partnerName, LocalDate date, String amount) {

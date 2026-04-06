@@ -34,6 +34,7 @@ model/models.ts
 model/monthlyBreakdown.ts
 model/monthlyPrediction.ts
 model/overlappingPaymentDto.ts
+model/paymentPeriodHistoryEntry.ts
 model/paymentType.ts
 model/predictionResponse.ts
 model/recurringPaymentDto.ts

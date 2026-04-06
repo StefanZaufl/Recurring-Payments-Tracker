@@ -39,19 +39,22 @@ public class RecurringPaymentDetectionService {
     private final RuleRepository ruleRepository;
     private final RuleEvaluationService ruleEvaluationService;
     private final UserContextService userContextService;
+    private final PaymentPeriodHistoryService historyService;
 
     public RecurringPaymentDetectionService(TransactionRepository transactionRepository,
                                             RecurringPaymentRepository recurringPaymentRepository,
                                             TransactionRecurringLinkRepository linkRepository,
                                             RuleRepository ruleRepository,
                                             RuleEvaluationService ruleEvaluationService,
-                                            UserContextService userContextService) {
+                                            UserContextService userContextService,
+                                            PaymentPeriodHistoryService historyService) {
         this.transactionRepository = transactionRepository;
         this.recurringPaymentRepository = recurringPaymentRepository;
         this.linkRepository = linkRepository;
         this.ruleRepository = ruleRepository;
         this.ruleEvaluationService = ruleEvaluationService;
         this.userContextService = userContextService;
+        this.historyService = historyService;
     }
 
     /**
@@ -165,6 +168,12 @@ public class RecurringPaymentDetectionService {
                 }
                 updateAmountRuleToNewest(rules, matched);
                 recomputeAverageAmount(rt);
+                historyService.recomputeHistory(rt);
+                BigDecimal rollingAvg = historyService.getRollingAverage(rt.getId(), 4);
+                if (rollingAvg != null) {
+                    rt.setAverageAmount(rollingAvg);
+                    rt.setIsIncome(rollingAvg.compareTo(BigDecimal.ZERO) > 0);
+                }
                 recurringPaymentRepository.save(rt);
                 unmatched.removeAll(matched);
                 result.add(rt);
@@ -175,33 +184,16 @@ public class RecurringPaymentDetectionService {
     }
 
     private void recalculateGroupedAverages(List<RecurringPayment> groupedPayments) {
-        LocalDate now = LocalDate.now();
         for (RecurringPayment rt : groupedPayments) {
-            LocalDate periodStart = getPeriodStart(now, rt.getFrequency());
-            List<TransactionRecurringLink> links = linkRepository.findByRecurringPaymentId(rt.getId());
-            BigDecimal periodTotal = links.stream()
-                    .map(TransactionRecurringLink::getTransaction)
-                    .filter(tx -> !tx.getBookingDate().isBefore(periodStart))
-                    .map(Transaction::getAmount)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            if (periodTotal.compareTo(BigDecimal.ZERO) != 0) {
-                rt.setAverageAmount(periodTotal.setScale(2, RoundingMode.HALF_UP));
-                rt.setIsIncome(periodTotal.compareTo(BigDecimal.ZERO) > 0);
+            historyService.recomputeHistory(rt);
+            BigDecimal rollingAvg = historyService.getRollingAverage(rt.getId(), 4);
+            if (rollingAvg != null) {
+                rt.setAverageAmount(rollingAvg);
+                rt.setIsIncome(rollingAvg.compareTo(BigDecimal.ZERO) > 0);
                 recurringPaymentRepository.save(rt);
-                log.debug("Recalculated grouped payment '{}' average to {} for period starting {}",
-                        rt.getName(), periodTotal, periodStart);
+                log.debug("Recalculated grouped payment '{}' rolling average to {}", rt.getName(), rollingAvg);
             }
         }
-    }
-
-    private LocalDate getPeriodStart(LocalDate now, String frequency) {
-        if (frequency == null) return now.minusMonths(1);
-        return switch (frequency) {
-            case "QUARTERLY" -> now.minusMonths(3);
-            case "YEARLY" -> now.minusYears(1);
-            default -> now.minusMonths(1);
-        };
     }
 
     /**
@@ -234,6 +226,12 @@ public class RecurringPaymentDetectionService {
 
         if (!newMatches.isEmpty()) {
             recomputeAverageAmount(rt);
+            historyService.recomputeHistory(rt);
+            BigDecimal rollingAvg = historyService.getRollingAverage(rt.getId(), 4);
+            if (rollingAvg != null) {
+                rt.setAverageAmount(rollingAvg);
+                rt.setIsIncome(rollingAvg.compareTo(BigDecimal.ZERO) > 0);
+            }
             // Recompute frequency with all linked transactions
             List<Transaction> allTxs = getAllLinkedTransactions(recurringPaymentId);
             allTxs.addAll(newMatches);
@@ -344,6 +342,15 @@ public class RecurringPaymentDetectionService {
         // Create links
         for (Transaction tx : allMatched) {
             createLink(tx, rt);
+        }
+
+        // Populate period history and compute rolling average
+        historyService.recomputeHistory(rt);
+        BigDecimal rollingAvg = historyService.getRollingAverage(rt.getId(), 4);
+        if (rollingAvg != null) {
+            rt.setAverageAmount(rollingAvg);
+            rt.setIsIncome(rollingAvg.compareTo(BigDecimal.ZERO) > 0);
+            recurringPaymentRepository.save(rt);
         }
 
         return rt;

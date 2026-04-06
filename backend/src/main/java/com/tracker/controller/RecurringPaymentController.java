@@ -6,6 +6,8 @@ import com.tracker.model.entity.PaymentType;
 import com.tracker.model.entity.Rule;
 import com.tracker.model.entity.RuleType;
 import com.tracker.model.entity.TargetField;
+import com.tracker.model.entity.PaymentPeriodHistory;
+import com.tracker.service.PaymentPeriodHistoryService;
 import com.tracker.service.RecurringPaymentService;
 import com.tracker.service.RuleCreateParams;
 import com.tracker.service.SimulationService;
@@ -23,13 +25,16 @@ public class RecurringPaymentController implements RecurringPaymentsApi {
     private final RecurringPaymentService recurringPaymentService;
     private final RecurringPaymentMapper recurringPaymentMapper;
     private final SimulationService simulationService;
+    private final PaymentPeriodHistoryService historyService;
 
     public RecurringPaymentController(RecurringPaymentService recurringPaymentService,
                                       RecurringPaymentMapper recurringPaymentMapper,
-                                      SimulationService simulationService) {
+                                      SimulationService simulationService,
+                                      PaymentPeriodHistoryService historyService) {
         this.recurringPaymentService = recurringPaymentService;
         this.recurringPaymentMapper = recurringPaymentMapper;
         this.simulationService = simulationService;
+        this.historyService = historyService;
     }
 
     @Override
@@ -114,5 +119,21 @@ public class RecurringPaymentController implements RecurringPaymentsApi {
         );
 
         return ResponseEntity.ok(response);
+    }
+
+    @Override
+    public ResponseEntity<List<PaymentPeriodHistoryEntry>> getRecurringPaymentHistory(UUID id) {
+        List<PaymentPeriodHistory> history = historyService.getHistory(id);
+        List<PaymentPeriodHistoryEntry> entries = history.stream()
+                .map(h -> {
+                    PaymentPeriodHistoryEntry entry = new PaymentPeriodHistoryEntry();
+                    entry.setId(h.getId());
+                    entry.setPeriodStart(h.getPeriodStart());
+                    entry.setPeriodEnd(h.getPeriodEnd());
+                    entry.setAmount(h.getAmount().doubleValue());
+                    return entry;
+                })
+                .toList();
+        return ResponseEntity.ok(entries);
     }
 }

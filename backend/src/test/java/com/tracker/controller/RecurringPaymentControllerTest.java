@@ -1,6 +1,7 @@
 package com.tracker.controller;
 
 import com.tracker.model.entity.*;
+import com.tracker.model.entity.PaymentPeriodHistory;
 import com.tracker.repository.*;
 import com.tracker.testutil.CsvMother;
 import com.tracker.testutil.FileUploadMother;
@@ -56,10 +57,14 @@ class RecurringPaymentControllerTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private PaymentPeriodHistoryRepository historyRepository;
+
     private User testUser;
 
     @BeforeEach
     void setUp() {
+        historyRepository.deleteAll();
         linkRepository.deleteAll();
         ruleRepository.deleteAll();
         recurringPaymentRepository.deleteAll();
@@ -521,6 +526,48 @@ class RecurringPaymentControllerTest {
     }
 
     // ────────────────────────────────────────────────────────────────────
+    // GET /api/recurring-payments/{id}/history
+    // ────────────────────────────────────────────────────────────────────
+
+    @Nested
+    class GetRecurringPaymentHistory {
+
+        @Test
+        void returnsHistoryForPaymentWithLinkedTransactions() throws Exception {
+            RecurringPayment payment = seedRecurringPayment("Netflix", "MONTHLY", "-12.99", false);
+            Transaction tx1 = seedTransaction("Netflix", LocalDate.of(2025, 1, 15), "-12.99");
+            Transaction tx2 = seedTransaction("Netflix", LocalDate.of(2025, 2, 15), "-12.99");
+            Transaction tx3 = seedTransaction("Netflix", LocalDate.of(2025, 3, 15), "-12.99");
+            seedLink(tx1, payment);
+            seedLink(tx2, payment);
+            seedLink(tx3, payment);
+
+            // Seed history entries
+            seedHistory(payment, LocalDate.of(2025, 1, 1), LocalDate.of(2025, 1, 31), "-12.99");
+            seedHistory(payment, LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 28), "-12.99");
+            seedHistory(payment, LocalDate.of(2025, 3, 1), LocalDate.of(2025, 3, 31), "-12.99");
+
+            mockMvc.perform(get(RECURRING_URL + "/{id}/history", payment.getId()).with(authenticatedUser(testUser)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$", hasSize(3)))
+                    .andExpect(jsonPath("$[0].periodStart").value("2025-01-01"))
+                    .andExpect(jsonPath("$[0].periodEnd").value("2025-01-31"))
+                    .andExpect(jsonPath("$[0].amount").value(-12.99))
+                    .andExpect(jsonPath("$[1].periodStart").value("2025-02-01"))
+                    .andExpect(jsonPath("$[2].periodStart").value("2025-03-01"));
+        }
+
+        @Test
+        void returnsEmptyListForPaymentWithNoHistory() throws Exception {
+            RecurringPayment payment = seedRecurringPayment("Netflix", "MONTHLY", "-12.99", false);
+
+            mockMvc.perform(get(RECURRING_URL + "/{id}/history", payment.getId()).with(authenticatedUser(testUser)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$", hasSize(0)));
+        }
+    }
+
+    // ────────────────────────────────────────────────────────────────────
     // Test helpers
     // ────────────────────────────────────────────────────────────────────
 
@@ -556,5 +603,15 @@ class RecurringPaymentControllerTest {
         link.setConfidenceScore(new BigDecimal("0.95"));
         link.setUser(testUser);
         linkRepository.save(link);
+    }
+
+    private void seedHistory(RecurringPayment payment, LocalDate periodStart, LocalDate periodEnd, String amount) {
+        PaymentPeriodHistory history = new PaymentPeriodHistory();
+        history.setRecurringPayment(payment);
+        history.setPeriodStart(periodStart);
+        history.setPeriodEnd(periodEnd);
+        history.setAmount(new BigDecimal(amount));
+        history.setUser(testUser);
+        historyRepository.save(history);
     }
 }

@@ -141,7 +141,7 @@ public class AnalyticsService {
                     BigDecimal annualAmount = yearTotalByPayment.get(p.getId());
                     BigDecimal monthlyAmount = annualAmount.divide(BigDecimal.valueOf(12), 2, RoundingMode.HALF_UP);
                     String categoryName = p.getCategory() != null ? p.getCategory().getName() : "Uncategorized";
-                    return new RecurringPaymentSummaryResult(p.getName(), monthlyAmount, annualAmount, categoryName);
+                    return new RecurringPaymentSummaryResult(p.getId(), p.getName(), monthlyAmount, annualAmount, categoryName);
                 })
                 .sorted(Comparator.comparing(RecurringPaymentSummaryResult::annualAmount).reversed())
                 .toList();
@@ -251,7 +251,7 @@ public class AnalyticsService {
 
     public record CategoryBreakdownResult(String category, BigDecimal total, double percentage, String color) {}
 
-    public record RecurringPaymentSummaryResult(String name, BigDecimal monthlyAmount,
+    public record RecurringPaymentSummaryResult(UUID id, String name, BigDecimal monthlyAmount,
                                                  BigDecimal annualAmount, String category) {}
 
     public record PredictionResult(List<MonthlyPredictionResult> predictions,

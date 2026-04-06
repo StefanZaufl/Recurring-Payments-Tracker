@@ -15,6 +15,7 @@ export * from './loginRequest';
 export * from './monthlyBreakdown';
 export * from './monthlyPrediction';
 export * from './overlappingPaymentDto';
+export * from './paymentPeriodHistoryEntry';
 export * from './paymentType';
 export * from './predictionResponse';
 export * from './recurringPaymentDto';

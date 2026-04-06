@@ -9,11 +9,10 @@
  */
 
 
-export interface RecurringPaymentSummary { 
+export interface PaymentPeriodHistoryEntry { 
     id: string;
-    name: string;
-    monthlyAmount: number;
-    annualAmount: number;
-    category: string;
+    periodStart: string;
+    periodEnd: string;
+    amount: number;
 }
 

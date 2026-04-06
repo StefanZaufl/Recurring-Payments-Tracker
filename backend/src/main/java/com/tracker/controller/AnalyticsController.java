@@ -53,6 +53,7 @@ public class AnalyticsController implements AnalyticsApi {
         List<RecurringPaymentSummary> payments = result.recurringPayments().stream()
                 .map(rp -> {
                     RecurringPaymentSummary dto = new RecurringPaymentSummary();
+                    dto.setId(rp.id());
                     dto.setName(rp.name());
                     dto.setMonthlyAmount(rp.monthlyAmount().doubleValue());
                     dto.setAnnualAmount(rp.annualAmount().doubleValue());

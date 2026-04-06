@@ -3,8 +3,9 @@ import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDe
 import { RouterLink } from '@angular/router';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration } from 'chart.js';
-import { AnalyticsService } from '../../api/generated';
+import { AnalyticsService, RecurringPaymentsService } from '../../api/generated';
 import { AnnualOverview } from '../../api/generated/model/annualOverview';
+import { PaymentPeriodHistoryEntry } from '../../api/generated/model/paymentPeriodHistoryEntry';
 import { Subject, takeUntil } from 'rxjs';
 import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component';
 import { ErrorStateComponent } from '../../shared/error-state.component';
@@ -181,16 +182,62 @@ import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-card-border">
-                    @for (payment of overview.recurringPayments; track payment) {
-                      <tr
-                        class="hover:bg-card-hover transition-colors">
-                        <td class="table-cell font-medium text-white">{{ payment.name }}</td>
+                    @for (payment of overview.recurringPayments; track payment.id) {
+                      <tr (click)="togglePaymentHistory(payment.id)"
+                        class="cursor-pointer transition-colors duration-150 select-none"
+                        [class.bg-card-hover]="expandedPaymentId === payment.id"
+                        [class.hover:bg-card-hover]="expandedPaymentId !== payment.id">
+                        <td class="table-cell font-medium text-white">
+                          <div class="flex items-center gap-2.5">
+                            <svg class="w-3.5 h-3.5 text-muted/60 transition-transform duration-200 shrink-0"
+                                 [style.transform]="expandedPaymentId === payment.id ? 'rotate(90deg)' : 'rotate(0deg)'"
+                                 fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                            </svg>
+                            {{ payment.name }}
+                          </div>
+                        </td>
                         <td class="table-cell">
                           <span class="badge bg-subtle text-muted">{{ payment.category }}</span>
                         </td>
                         <td class="table-cell text-right font-mono text-coral text-xs">{{ payment.monthlyAmount | appCurrency }}</td>
                         <td class="table-cell text-right font-mono text-coral text-xs">{{ payment.annualAmount | appCurrency }}</td>
                       </tr>
+                      @if (expandedPaymentId === payment.id) {
+                        <tr class="history-row">
+                          <td colspan="4" class="p-0 border-none">
+                            <div class="history-panel">
+                              <div class="px-5 pt-3 pb-4 border-t border-card-border/50" style="background: linear-gradient(180deg, rgba(24,26,35,0.6) 0%, transparent 100%);">
+                                @if (historyLoading) {
+                                  <div class="h-40 flex items-center justify-center gap-2.5">
+                                    <div class="w-5 h-5 border-2 border-sky-400/30 border-t-sky-400 rounded-full animate-spin"></div>
+                                    <span class="text-xs text-muted">Loading history...</span>
+                                  </div>
+                                } @else if (historyData.labels && historyData.labels.length > 0) {
+                                  <div class="flex items-center justify-between mb-3">
+                                    <span class="text-[11px] font-semibold text-muted uppercase tracking-wider">Amount History</span>
+                                    <span class="text-[11px] text-muted font-mono">{{ historyData.labels!.length }} periods</span>
+                                  </div>
+                                  <div class="h-40">
+                                    <canvas baseChart
+                                      role="img"
+                                      [attr.aria-label]="'Line chart showing payment amount history for ' + payment.name"
+                                      [datasets]="historyData.datasets"
+                                      [labels]="historyData.labels"
+                                      [options]="historyChartOptions"
+                                      type="line">
+                                    </canvas>
+                                  </div>
+                                } @else {
+                                  <div class="h-40 flex items-center justify-center">
+                                    <p class="text-xs text-muted">No history data available.</p>
+                                  </div>
+                                }
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      }
                     }
                   </tbody>
                 </table>
@@ -200,10 +247,30 @@ import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
         </div>
       }
     </div>
-    `
+    `,
+  styles: [`
+    .history-row td {
+      padding: 0 !important;
+    }
+    .history-panel {
+      animation: historyReveal 250ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      overflow: hidden;
+    }
+    @keyframes historyReveal {
+      from {
+        max-height: 0;
+        opacity: 0;
+      }
+      to {
+        max-height: 280px;
+        opacity: 1;
+      }
+    }
+  `]
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   private analyticsService = inject(AnalyticsService);
+  private recurringPaymentsService = inject(RecurringPaymentsService);
   private cdr = inject(ChangeDetectorRef);
 
   private destroy$ = new Subject<void>();
@@ -211,6 +278,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   loading = false;
   error: string | null = null;
   overview: AnnualOverview | null = null;
+
+  expandedPaymentId: string | null = null;
+  historyLoading = false;
+  historyData: ChartConfiguration<'line'>['data'] = { labels: [], datasets: [] };
 
   private readonly monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -284,6 +355,40 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   };
 
+  historyChartOptions: ChartConfiguration<'line'>['options'] = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: 'rgba(24,26,35,0.95)',
+        borderColor: 'rgba(56,189,248,0.3)',
+        borderWidth: 1,
+        titleFont: { family: CHART_THEME.fontFamily, size: 11 },
+        bodyFont: { family: CHART_THEME.monoFontFamily, size: 12 },
+        titleColor: CHART_THEME.labelColor,
+        bodyColor: '#fff',
+        padding: 10,
+        cornerRadius: 8,
+        displayColors: false,
+      }
+    },
+    scales: {
+      x: {
+        grid: { color: 'rgba(42,45,62,0.3)' },
+        ticks: { color: CHART_THEME.labelColor, font: { family: CHART_THEME.fontFamily, size: 10 }, maxRotation: 0 }
+      },
+      y: {
+        beginAtZero: true,
+        grid: { color: 'rgba(42,45,62,0.3)' },
+        ticks: {
+          color: CHART_THEME.labelColor,
+          font: { family: CHART_THEME.monoFontFamily, size: 10 }
+        }
+      }
+    }
+  };
+
   ngOnInit(): void {
     this.loadData();
   }
@@ -299,7 +404,70 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   changeYear(delta: number): void {
     this.selectedYear += delta;
+    this.expandedPaymentId = null;
     this.loadData();
+  }
+
+  togglePaymentHistory(paymentId: string): void {
+    if (this.expandedPaymentId === paymentId) {
+      this.expandedPaymentId = null;
+      return;
+    }
+    this.expandedPaymentId = paymentId;
+    this.historyLoading = true;
+    this.historyData = { labels: [], datasets: [] };
+    this.cdr.markForCheck();
+
+    this.recurringPaymentsService.getRecurringPaymentHistory(paymentId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (entries) => {
+          this.buildHistoryChart(entries);
+          this.historyLoading = false;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.historyLoading = false;
+          this.expandedPaymentId = null;
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  private buildHistoryChart(entries: PaymentPeriodHistoryEntry[]): void {
+    this.historyData = {
+      labels: entries.map(e => this.formatPeriodLabel(e.periodStart, e.periodEnd)),
+      datasets: [{
+        label: 'Amount',
+        data: entries.map(e => Math.abs(e.amount)),
+        borderColor: CHART_THEME.categoryColors[2],
+        backgroundColor: 'rgba(56, 189, 248, 0.08)',
+        fill: true,
+        tension: 0.35,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        pointBackgroundColor: CHART_THEME.categoryColors[2],
+        pointBorderColor: 'transparent',
+        pointHoverBorderColor: '#fff',
+        pointHoverBorderWidth: 2,
+        borderWidth: 2,
+      }]
+    };
+  }
+
+  private formatPeriodLabel(periodStart: string, periodEnd: string): string {
+    const start = new Date(periodStart);
+    const end = new Date(periodEnd);
+    const durationDays = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+
+    if (durationDays > 200) {
+      return `${start.getFullYear()}`;
+    }
+    if (durationDays > 60) {
+      const quarter = Math.floor(start.getMonth() / 3) + 1;
+      return `Q${quarter} ${start.getFullYear()}`;
+    }
+    return start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
   }
 
   loadData(): void {

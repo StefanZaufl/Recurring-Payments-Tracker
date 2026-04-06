@@ -3,8 +3,9 @@ import { provideRouter } from '@angular/router';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { DashboardComponent } from './dashboard.component';
-import { AnalyticsService } from '../../api/generated';
+import { AnalyticsService, RecurringPaymentsService } from '../../api/generated';
 import { AnnualOverview } from '../../api/generated/model/annualOverview';
+import { PaymentPeriodHistoryEntry } from '../../api/generated/model/paymentPeriodHistoryEntry';
 import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 import { CHART_THEME } from '../../shared/constants';
 
@@ -23,19 +24,30 @@ const mockOverview: AnnualOverview = {
     { category: 'Insurance', total: 1200, percentage: 33.33, color: '#29b6f6' },
   ],
   recurringPayments: [
-    { name: 'Netflix', monthlyAmount: 12.99, annualAmount: 155.88, category: 'Streaming' },
-    { name: 'Spotify', monthlyAmount: 9.99, annualAmount: 119.88, category: 'Streaming' },
+    { id: 'aaa-111', name: 'Netflix', monthlyAmount: 12.99, annualAmount: 155.88, category: 'Streaming' },
+    { id: 'bbb-222', name: 'Spotify', monthlyAmount: 9.99, annualAmount: 119.88, category: 'Streaming' },
   ],
 };
+
+const mockHistoryEntries: PaymentPeriodHistoryEntry[] = [
+  { id: 'h1', periodStart: '2025-01-01', periodEnd: '2025-01-31', amount: 12.99 },
+  { id: 'h2', periodStart: '2025-02-01', periodEnd: '2025-02-28', amount: 12.99 },
+  { id: 'h3', periodStart: '2025-03-01', periodEnd: '2025-03-31', amount: 12.99 },
+];
 
 describe('DashboardComponent', () => {
   let component: DashboardComponent;
   let fixture: ComponentFixture<DashboardComponent>;
   let analyticsService: jest.Mocked<AnalyticsService>;
+  let recurringPaymentsService: jest.Mocked<RecurringPaymentsService>;
 
   beforeEach(async () => {
     const analyticsServiceMock = {
       getAnnualOverview: jest.fn().mockReturnValue(of(mockOverview)),
+    };
+
+    const recurringPaymentsServiceMock = {
+      getRecurringPaymentHistory: jest.fn().mockReturnValue(of(mockHistoryEntries)),
     };
 
     await TestBed.configureTestingModule({
@@ -43,6 +55,7 @@ describe('DashboardComponent', () => {
       providers: [
         provideRouter([]),
         { provide: AnalyticsService, useValue: analyticsServiceMock },
+        { provide: RecurringPaymentsService, useValue: recurringPaymentsServiceMock },
       ],
     })
     .overrideComponent(DashboardComponent, {
@@ -51,6 +64,7 @@ describe('DashboardComponent', () => {
     .compileComponents();
 
     analyticsService = TestBed.inject(AnalyticsService) as jest.Mocked<AnalyticsService>;
+    recurringPaymentsService = TestBed.inject(RecurringPaymentsService) as jest.Mocked<RecurringPaymentsService>;
     fixture = TestBed.createComponent(DashboardComponent);
     component = fixture.componentInstance;
   });
@@ -233,5 +247,114 @@ describe('DashboardComponent', () => {
 
     const toggleButton = el.querySelector('button[aria-label="Toggle chart type"]');
     expect(toggleButton).toBeNull();
+  });
+
+  // ────────────────────────────────────────────────────────────────────
+  // Expandable payment history rows
+  // ────────────────────────────────────────────────────────────────────
+
+  it('should start with no expanded payment', () => {
+    fixture.detectChanges();
+    expect(component.expandedPaymentId).toBeNull();
+  });
+
+  it('should expand a payment row and fetch history', () => {
+    fixture.detectChanges();
+    component.togglePaymentHistory('aaa-111');
+    fixture.detectChanges();
+
+    expect(component.expandedPaymentId).toBe('aaa-111');
+    expect(recurringPaymentsService.getRecurringPaymentHistory).toHaveBeenCalledWith('aaa-111');
+    expect(component.historyLoading).toBe(false);
+    expect(component.historyData.labels!.length).toBe(3);
+  });
+
+  it('should collapse an expanded payment when clicked again', () => {
+    fixture.detectChanges();
+    component.togglePaymentHistory('aaa-111');
+    fixture.detectChanges();
+
+    component.togglePaymentHistory('aaa-111');
+    fixture.detectChanges();
+
+    expect(component.expandedPaymentId).toBeNull();
+  });
+
+  it('should collapse current and expand new when clicking a different payment', () => {
+    fixture.detectChanges();
+    component.togglePaymentHistory('aaa-111');
+    fixture.detectChanges();
+
+    component.togglePaymentHistory('bbb-222');
+    fixture.detectChanges();
+
+    expect(component.expandedPaymentId).toBe('bbb-222');
+    expect(recurringPaymentsService.getRecurringPaymentHistory).toHaveBeenCalledWith('bbb-222');
+  });
+
+  it('should collapse expanded row when changing year', () => {
+    fixture.detectChanges();
+    component.togglePaymentHistory('aaa-111');
+    fixture.detectChanges();
+
+    component.changeYear(-1);
+    expect(component.expandedPaymentId).toBeNull();
+  });
+
+  it('should format monthly period labels correctly', () => {
+    fixture.detectChanges();
+    component.togglePaymentHistory('aaa-111');
+    fixture.detectChanges();
+
+    expect(component.historyData.labels).toEqual(['Jan 2025', 'Feb 2025', 'Mar 2025']);
+  });
+
+  it('should format quarterly period labels correctly', () => {
+    const quarterlyEntries: PaymentPeriodHistoryEntry[] = [
+      { id: 'q1', periodStart: '2025-01-01', periodEnd: '2025-03-31', amount: 200 },
+      { id: 'q2', periodStart: '2025-04-01', periodEnd: '2025-06-30', amount: 210 },
+    ];
+    recurringPaymentsService.getRecurringPaymentHistory.mockReturnValue(of(quarterlyEntries));
+    fixture.detectChanges();
+    component.togglePaymentHistory('aaa-111');
+    fixture.detectChanges();
+
+    expect(component.historyData.labels).toEqual(['Q1 2025', 'Q2 2025']);
+  });
+
+  it('should format yearly period labels correctly', () => {
+    const yearlyEntries: PaymentPeriodHistoryEntry[] = [
+      { id: 'y1', periodStart: '2024-01-01', periodEnd: '2024-12-31', amount: 120 },
+      { id: 'y2', periodStart: '2025-01-01', periodEnd: '2025-12-31', amount: 130 },
+    ];
+    recurringPaymentsService.getRecurringPaymentHistory.mockReturnValue(of(yearlyEntries));
+    fixture.detectChanges();
+    component.togglePaymentHistory('aaa-111');
+    fixture.detectChanges();
+
+    expect(component.historyData.labels).toEqual(['2024', '2025']);
+  });
+
+  it('should use absolute amounts in chart data', () => {
+    const negativeEntries: PaymentPeriodHistoryEntry[] = [
+      { id: 'n1', periodStart: '2025-01-01', periodEnd: '2025-01-31', amount: -12.99 },
+      { id: 'n2', periodStart: '2025-02-01', periodEnd: '2025-02-28', amount: -12.99 },
+    ];
+    recurringPaymentsService.getRecurringPaymentHistory.mockReturnValue(of(negativeEntries));
+    fixture.detectChanges();
+    component.togglePaymentHistory('aaa-111');
+    fixture.detectChanges();
+
+    expect(component.historyData.datasets[0].data).toEqual([12.99, 12.99]);
+  });
+
+  it('should handle history API error by collapsing the row', () => {
+    recurringPaymentsService.getRecurringPaymentHistory.mockReturnValue(throwError(() => new Error('fail')));
+    fixture.detectChanges();
+    component.togglePaymentHistory('aaa-111');
+    fixture.detectChanges();
+
+    expect(component.expandedPaymentId).toBeNull();
+    expect(component.historyLoading).toBe(false);
   });
 });

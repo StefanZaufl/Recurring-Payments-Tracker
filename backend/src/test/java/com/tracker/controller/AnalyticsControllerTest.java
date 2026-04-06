@@ -2,6 +2,7 @@ package com.tracker.controller;
 
 import com.tracker.model.entity.*;
 import com.tracker.repository.*;
+import com.tracker.repository.PaymentPeriodHistoryRepository;
 import com.tracker.testutil.SecurityTestUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -32,11 +33,13 @@ class AnalyticsControllerTest {
     @Autowired private CategoryRepository categoryRepository;
     @Autowired private FileUploadRepository fileUploadRepository;
     @Autowired private UserRepository userRepository;
+    @Autowired private PaymentPeriodHistoryRepository historyRepository;
 
     private User testUser;
 
     @BeforeEach
     void setUp() {
+        historyRepository.deleteAll();
         linkRepository.deleteAll();
         transactionRepository.deleteAll();
         recurringPaymentRepository.deleteAll();
@@ -93,6 +96,7 @@ class AnalyticsControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.totalRecurringExpenses").value(closeTo(155.88, 0.01)))
                     .andExpect(jsonPath("$.recurringPayments", hasSize(1)))
+                    .andExpect(jsonPath("$.recurringPayments[0].id").value(payment.getId().toString()))
                     .andExpect(jsonPath("$.recurringPayments[0].name").value("Netflix"))
                     .andExpect(jsonPath("$.recurringPayments[0].category").value("Streaming"))
                     .andExpect(jsonPath("$.byCategory", hasSize(1)))
