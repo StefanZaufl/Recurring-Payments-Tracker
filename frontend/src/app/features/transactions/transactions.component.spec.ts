@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
+import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { TransactionsComponent } from './transactions.component';
 import { TransactionsService } from '../../api/generated';
@@ -43,6 +44,7 @@ describe('TransactionsComponent', () => {
     await TestBed.configureTestingModule({
       imports: [TransactionsComponent],
       providers: [
+        provideRouter([]),
         { provide: TransactionsService, useValue: serviceMock },
       ],
       schemas: [NO_ERRORS_SCHEMA],

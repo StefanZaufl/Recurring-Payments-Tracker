@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { TransactionsService } from '../../api/generated';
 import { TransactionDto } from '../../api/generated/model/transactionDto';
 import { DateRangePickerComponent, DateRange } from '../../shared/date-range-picker.component';
@@ -16,7 +17,7 @@ type SortDir = 'asc' | 'desc';
 @Component({
   selector: 'app-transactions',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, DateRangePickerComponent, LoadingSpinnerComponent, ErrorStateComponent, CurrencyFormatPipe],
+  imports: [CommonModule, FormsModule, RouterLink, DateRangePickerComponent, LoadingSpinnerComponent, ErrorStateComponent, CurrencyFormatPipe],
   template: `
     <div class="animate-fade-in">
       <!-- Header -->
@@ -25,11 +26,20 @@ type SortDir = 'asc' | 'desc';
           <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Transactions</h1>
           <p class="text-sm text-muted mt-0.5">Browse and search all imported transactions</p>
         </div>
-        @if (totalElements > 0) {
-          <div class="text-xs text-muted">
-            {{ totalElements }} transaction{{ totalElements === 1 ? '' : 's' }}
-          </div>
-        }
+        <div class="flex items-center gap-3 flex-wrap">
+          @if (totalElements > 0) {
+            <div class="text-xs text-muted">
+              {{ totalElements }} transaction{{ totalElements === 1 ? '' : 's' }}
+            </div>
+          }
+          <a routerLink="/transactions/import"
+            class="btn-primary text-xs flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V4.5m0 0L7.5 9m4.5-4.5L16.5 9M4.5 15.75v2.25A1.5 1.5 0 006 19.5h12a1.5 1.5 0 001.5-1.5v-2.25" />
+            </svg>
+            Import
+          </a>
+        </div>
       </div>
     
       <!-- Filter bar -->

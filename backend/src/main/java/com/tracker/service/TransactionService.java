@@ -43,7 +43,7 @@ public class TransactionService {
     @Transactional
     public UploadResult uploadCsv(CsvUploadRequest request) {
         User currentUser = userContextService.getCurrentUser();
-        List<Transaction> transactions = csvParserService.parse(request.content());
+        List<Transaction> transactions = csvParserService.parse(request.content(), request.mapping());
 
         FileUpload upload = new FileUpload();
         upload.setFilename(request.filename());
@@ -112,7 +112,10 @@ public class TransactionService {
                 .filter(tx -> tx.getUser() != null && tx.getUser().getId().equals(currentUserId));
     }
 
-    public record CsvUploadRequest(String filename, String mimeType, byte[] content) {}
+    public record CsvUploadRequest(String filename,
+                                   String mimeType,
+                                   byte[] content,
+                                   CsvParserService.CsvImportMapping mapping) {}
 
     public record UploadResult(UUID uploadId, int transactionCount, int recurringPaymentsDetected) {}
 }

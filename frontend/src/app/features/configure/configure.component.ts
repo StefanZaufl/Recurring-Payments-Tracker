@@ -6,40 +6,20 @@ import { CategoryDto } from '../../api/generated/model/categoryDto';
 import { CategoryCreateComponent } from '../../shared/category-create.component';
 import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component';
 import { ErrorStateComponent } from '../../shared/error-state.component';
-import { FileUploadZoneComponent } from '../../shared/file-upload-zone.component';
 import { Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-configure',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, CategoryCreateComponent, LoadingSpinnerComponent, ErrorStateComponent, FileUploadZoneComponent],
+  imports: [FormsModule, CategoryCreateComponent, LoadingSpinnerComponent, ErrorStateComponent],
   template: `
     <div class="animate-fade-in min-w-0 overflow-hidden">
       <div class="mb-6 sm:mb-8">
         <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Configure</h1>
-        <p class="text-sm text-muted mt-0.5">Import data and manage categories</p>
+        <p class="text-sm text-muted mt-0.5">Manage categories</p>
       </div>
     
       <div class="grid gap-6 lg:gap-8">
-        <!-- ─── Upload Section ─── -->
-        <section>
-          <div class="flex items-center gap-2 mb-4">
-            <div class="w-7 h-7 rounded-lg bg-accent-dim flex items-center justify-center shrink-0">
-              <svg class="w-3.5 h-3.5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-              </svg>
-            </div>
-            <h2 class="text-base font-semibold text-white">Import Transactions</h2>
-          </div>
-    
-          <div class="max-w-lg">
-            <app-file-upload-zone size="sm" />
-          </div>
-        </section>
-    
-        <!-- ─── Divider ─── -->
-        <div class="border-t border-card-border"></div>
-    
         <!-- ─── Categories Section ─── -->
         <section>
           <div class="flex items-center justify-between mb-4">

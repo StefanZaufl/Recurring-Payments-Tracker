@@ -149,7 +149,12 @@ export class FileUploadZoneComponent implements OnDestroy {
     this.uploading = true;
     this.result = null;
     this.error = null;
-    this.transactionsService.uploadCsv(file).pipe(takeUntil(this.destroy$)).subscribe({
+    this.transactionsService.uploadCsv(file, JSON.stringify({
+      bookingDate: 'Buchungsdatum',
+      amount: 'Betrag',
+      partnerName: 'Partnername',
+      details: 'Buchungs-Details'
+    })).pipe(takeUntil(this.destroy$)).subscribe({
       next: (res) => {
         this.result = res;
         this.uploading = false;

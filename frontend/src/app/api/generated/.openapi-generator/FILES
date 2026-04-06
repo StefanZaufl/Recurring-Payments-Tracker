@@ -47,6 +47,7 @@ model/setupStatusResponse.ts
 model/simulateRulesRequest.ts
 model/simulateRulesResponse.ts
 model/targetField.ts
+model/transactionCsvImportMapping.ts
 model/transactionDto.ts
 model/transactionPage.ts
 model/upcomingPayment.ts

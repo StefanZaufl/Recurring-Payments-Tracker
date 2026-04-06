@@ -23,6 +23,7 @@ import static com.tracker.controller.TransactionController.*;
 import static com.tracker.testutil.CsvMother.*;
 import static com.tracker.testutil.SecurityTestUtil.authenticatedUser;
 import static com.tracker.testutil.TransactionMother.*;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -41,6 +42,10 @@ class TransactionControllerTest {
     private static final String TEXT_PARAM = "text";
     private static final String SORT_PARAM = "sort";
     private static final String SORT_DIR_PARAM = "sortDirection";
+    private static final String MAPPING_PARAM = "mapping";
+    private static final String DEFAULT_MAPPING_JSON = """
+            {"bookingDate":"Buchungsdatum","amount":"Betrag","partnerName":"Partnername","details":"Buchungs-Details"}
+            """;
 
     private static final int PAGE_SIZE_2 = 2;
     private static final int TOTAL_PAGING_ITEMS = 3;
@@ -92,7 +97,7 @@ class TransactionControllerTest {
     void uploadCsv_validFile_returnsUploadResponse() throws Exception {
         MockMultipartFile file = CsvMother.validTwoRowFile();
 
-        mockMvc.perform(multipart(UPLOAD_URL).file(file).with(authenticatedUser(testUser)))
+        mockMvc.perform(multipart(UPLOAD_URL).file(file).param(MAPPING_PARAM, DEFAULT_MAPPING_JSON).with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.uploadId").isNotEmpty())
                 .andExpect(jsonPath("$.transactionCount").value(2))
@@ -103,7 +108,7 @@ class TransactionControllerTest {
     void uploadCsv_missingRequiredColumn_returns400() throws Exception {
         MockMultipartFile file = CsvMother.multipartFile(INVALID_HEADER, "01.01.2025;Test;-10,00");
 
-        mockMvc.perform(multipart(UPLOAD_URL).file(file).with(authenticatedUser(testUser)))
+        mockMvc.perform(multipart(UPLOAD_URL).file(file).param(MAPPING_PARAM, DEFAULT_MAPPING_JSON).with(authenticatedUser(testUser)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", containsString("Buchungsdatum")));
     }
@@ -112,9 +117,29 @@ class TransactionControllerTest {
     void uploadCsv_invalidDate_returns400() throws Exception {
         MockMultipartFile file = CsvMother.multipartFile(HEADER, INVALID_DATE_ROW);
 
-        mockMvc.perform(multipart(UPLOAD_URL).file(file).with(authenticatedUser(testUser)))
+        mockMvc.perform(multipart(UPLOAD_URL).file(file).param(MAPPING_PARAM, DEFAULT_MAPPING_JSON).with(authenticatedUser(testUser)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", containsString("date")));
+    }
+
+    @Test
+    void uploadCsv_usesDetailsFallbackWhenPrimaryDetailsEmpty() throws Exception {
+        MockMultipartFile file = CsvMother.multipartFile(
+                "Buchungsdatum;Partnername;Betrag;Buchungs-Details;Verwendungszweck",
+                "15.01.2025;Test;-10,00;;Fallback details"
+        );
+
+        mockMvc.perform(multipart(UPLOAD_URL)
+                        .file(file)
+                        .param(MAPPING_PARAM, """
+                                {"bookingDate":"Buchungsdatum","amount":"Betrag","partnerName":"Partnername","details":"Buchungs-Details","detailsFallback":"Verwendungszweck"}
+                                """)
+                        .with(authenticatedUser(testUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.transactionCount").value(1));
+
+        Transaction saved = transactionRepository.findAll().getFirst();
+        assertThat(saved.getDetails(), is("Fallback details"));
     }
 
     @Test

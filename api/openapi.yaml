@@ -20,11 +20,14 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              required: [file]
+              required: [file, mapping]
               properties:
                 file:
                   type: string
                   format: binary
+                mapping:
+                  type: string
+                  description: JSON-serialized transaction CSV column mapping.
       responses:
         '200':
           description: Upload successful
@@ -944,6 +947,29 @@ components:
           type: integer
         recurringPaymentsDetected:
           type: integer
+
+    TransactionCsvImportMapping:
+      type: object
+      required: [bookingDate, amount]
+      properties:
+        bookingDate:
+          type: string
+          description: Source CSV header mapped to booking date.
+        amount:
+          type: string
+          description: Source CSV header mapped to amount.
+        partnerName:
+          type: string
+          nullable: true
+          description: Source CSV header mapped to partner name.
+        details:
+          type: string
+          nullable: true
+          description: Source CSV header mapped to details.
+        detailsFallback:
+          type: string
+          nullable: true
+          description: Optional source CSV header used only when details is blank.
 
     TransactionDto:
       type: object

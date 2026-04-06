@@ -4,6 +4,7 @@ import com.tracker.api.TransactionsApi;
 import com.tracker.api.model.TransactionDto;
 import com.tracker.api.model.TransactionPage;
 import com.tracker.api.model.UploadResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tracker.model.entity.Transaction;
 import com.tracker.service.CsvParserService;
 import com.tracker.service.TransactionService;
@@ -26,17 +27,20 @@ public class TransactionController implements TransactionsApi {
 
     private final TransactionService transactionService;
     private final TransactionMapper transactionMapper;
+    private final ObjectMapper objectMapper;
 
-    public TransactionController(TransactionService transactionService, TransactionMapper transactionMapper) {
+    public TransactionController(TransactionService transactionService, TransactionMapper transactionMapper, ObjectMapper objectMapper) {
         this.transactionService = transactionService;
         this.transactionMapper = transactionMapper;
+        this.objectMapper = objectMapper;
     }
 
     @Override
-    public ResponseEntity<UploadResponse> uploadCsv(MultipartFile file) {
+    public ResponseEntity<UploadResponse> uploadCsv(MultipartFile file, String mapping) {
         try {
+            CsvParserService.CsvImportMapping parsedMapping = objectMapper.readValue(mapping, CsvParserService.CsvImportMapping.class);
             var request = new TransactionService.CsvUploadRequest(
-                    file.getOriginalFilename(), file.getContentType(), file.getBytes());
+                    file.getOriginalFilename(), file.getContentType(), file.getBytes(), parsedMapping);
             TransactionService.UploadResult result = transactionService.uploadCsv(request);
             UploadResponse response = new UploadResponse(result.uploadId(), result.transactionCount(), result.recurringPaymentsDetected());
             return ResponseEntity.ok(response);

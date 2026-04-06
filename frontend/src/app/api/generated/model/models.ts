@@ -28,6 +28,7 @@ export * from './setupStatusResponse';
 export * from './simulateRulesRequest';
 export * from './simulateRulesResponse';
 export * from './targetField';
+export * from './transactionCsvImportMapping';
 export * from './transactionDto';
 export * from './transactionPage';
 export * from './upcomingPayment';

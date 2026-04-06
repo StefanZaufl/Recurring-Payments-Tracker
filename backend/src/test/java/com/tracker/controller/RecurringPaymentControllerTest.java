@@ -30,6 +30,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class RecurringPaymentControllerTest {
+    private static final String TRANSACTION_MAPPING_JSON = """
+            {"bookingDate":"Buchungsdatum","amount":"Betrag","partnerName":"Partnername"}
+            """;
+
 
     private static final String RECURRING_URL = "/api/recurring-payments";
 
@@ -467,7 +471,7 @@ class RecurringPaymentControllerTest {
             byte[] csvBytes = CsvMother.bytes(header, row1, row2, row3, row4, row5, row6, row7);
             MockMultipartFile file = new MockMultipartFile("file", "export.csv", "text/csv", csvBytes);
 
-            mockMvc.perform(multipart("/api/transactions/csv").file(file).with(authenticatedUser(testUser)))
+            mockMvc.perform(multipart("/api/transactions/csv").file(file).param("mapping", TRANSACTION_MAPPING_JSON).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.transactionCount").value(7))
                     .andExpect(jsonPath("$.recurringPaymentsDetected").value(2));
@@ -488,7 +492,7 @@ class RecurringPaymentControllerTest {
             byte[] csvBytes = CsvMother.bytes(header, row1, row2);
             MockMultipartFile file = new MockMultipartFile("file", "export.csv", "text/csv", csvBytes);
 
-            mockMvc.perform(multipart("/api/transactions/csv").file(file).with(authenticatedUser(testUser)))
+            mockMvc.perform(multipart("/api/transactions/csv").file(file).param("mapping", TRANSACTION_MAPPING_JSON).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.recurringPaymentsDetected").value(0));
         }
@@ -503,7 +507,7 @@ class RecurringPaymentControllerTest {
                     "15.03.2025;Netflix;-12,99");
             MockMultipartFile file1 = new MockMultipartFile("file", "export1.csv", "text/csv", csv1);
 
-            mockMvc.perform(multipart("/api/transactions/csv").file(file1).with(authenticatedUser(testUser)))
+            mockMvc.perform(multipart("/api/transactions/csv").file(file1).param("mapping", TRANSACTION_MAPPING_JSON).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.recurringPaymentsDetected").value(1));
 
@@ -514,7 +518,7 @@ class RecurringPaymentControllerTest {
                     "05.03.2025;Spotify;-9,99");
             MockMultipartFile file2 = new MockMultipartFile("file", "export2.csv", "text/csv", csv2);
 
-            mockMvc.perform(multipart("/api/transactions/csv").file(file2).with(authenticatedUser(testUser)))
+            mockMvc.perform(multipart("/api/transactions/csv").file(file2).param("mapping", TRANSACTION_MAPPING_JSON).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.recurringPaymentsDetected").value(1));
 

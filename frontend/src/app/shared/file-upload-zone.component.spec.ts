@@ -62,7 +62,15 @@ describe('FileUploadZoneComponent', () => {
 
     component.onFileSelected(event);
 
-    expect(transactionsService.uploadCsv).toHaveBeenCalledWith(file);
+    expect(transactionsService.uploadCsv).toHaveBeenCalledWith(
+      file,
+      JSON.stringify({
+        bookingDate: 'Buchungsdatum',
+        amount: 'Betrag',
+        partnerName: 'Partnername',
+        details: 'Buchungs-Details'
+      })
+    );
     expect(component.result).toEqual(mockUploadResponse);
     expect(component.uploading).toBe(false);
   });
@@ -135,7 +143,15 @@ describe('FileUploadZoneComponent', () => {
 
     expect(event.preventDefault).toHaveBeenCalled();
     expect(component.isDragging).toBe(false);
-    expect(transactionsService.uploadCsv).toHaveBeenCalledWith(file);
+    expect(transactionsService.uploadCsv).toHaveBeenCalledWith(
+      file,
+      JSON.stringify({
+        bookingDate: 'Buchungsdatum',
+        amount: 'Betrag',
+        partnerName: 'Partnername',
+        details: 'Buchungs-Details'
+      })
+    );
   });
 
   it('should handle drop without file', () => {

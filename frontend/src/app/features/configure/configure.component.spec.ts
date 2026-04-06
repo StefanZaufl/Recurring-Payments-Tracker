@@ -3,7 +3,7 @@ import { provideRouter } from '@angular/router';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { ConfigureComponent } from './configure.component';
-import { TransactionsService, CategoriesService } from '../../api/generated';
+import { CategoriesService } from '../../api/generated';
 import { CategoryDto } from '../../api/generated/model/categoryDto';
 
 const mockCategories: CategoryDto[] = [
@@ -17,13 +17,6 @@ describe('ConfigureComponent', () => {
   let categoriesService: jest.Mocked<CategoriesService>;
 
   beforeEach(async () => {
-    const transactionsServiceMock = {
-      uploadCsv: jest.fn().mockReturnValue(of({
-        uploadId: 'abc-123',
-        transactionCount: 42,
-        recurringPaymentsDetected: 5,
-      })),
-    };
     const categoriesServiceMock = {
       getCategories: jest.fn().mockReturnValue(of(mockCategories)),
       createCategory: jest.fn(),
@@ -35,7 +28,6 @@ describe('ConfigureComponent', () => {
       imports: [ConfigureComponent],
       providers: [
         provideRouter([]),
-        { provide: TransactionsService, useValue: transactionsServiceMock },
         { provide: CategoriesService, useValue: categoriesServiceMock },
       ],
     })
@@ -57,19 +49,7 @@ describe('ConfigureComponent', () => {
     fixture.detectChanges();
     const el: HTMLElement = fixture.nativeElement;
     expect(el.textContent).toContain('Configure');
-    expect(el.textContent).toContain('Import data and manage categories');
-  });
-
-  it('should render the Import Transactions section header', () => {
-    fixture.detectChanges();
-    const el: HTMLElement = fixture.nativeElement;
-    expect(el.textContent).toContain('Import Transactions');
-  });
-
-  it('should render the file upload zone child component', () => {
-    fixture.detectChanges();
-    const el: HTMLElement = fixture.nativeElement;
-    expect(el.querySelector('app-file-upload-zone')).toBeTruthy();
+    expect(el.textContent).toContain('Manage categories');
   });
 
   it('should render the Categories section header', () => {
