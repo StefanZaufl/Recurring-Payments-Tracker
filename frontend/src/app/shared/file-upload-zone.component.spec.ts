@@ -70,7 +70,8 @@ describe('FileUploadZoneComponent', () => {
         amount: 'Betrag',
         partnerName: 'Partnername',
         details: 'Buchungs-Details'
-      })
+      }),
+      'utf-8'
     );
     expect(component.result).toEqual(mockUploadResponse);
     expect(component.uploading).toBe(false);
@@ -153,7 +154,8 @@ describe('FileUploadZoneComponent', () => {
         amount: 'Betrag',
         partnerName: 'Partnername',
         details: 'Buchungs-Details'
-      })
+      }),
+      'utf-8'
     );
   });
 

@@ -157,7 +157,7 @@ export class FileUploadZoneComponent implements OnDestroy {
       amount: 'Betrag',
       partnerName: 'Partnername',
       details: 'Buchungs-Details'
-    })).pipe(takeUntil(this.destroy$)).subscribe({
+    }), 'utf-8').pipe(takeUntil(this.destroy$)).subscribe({
       next: (res) => {
         this.result = res;
         this.uploading = false;

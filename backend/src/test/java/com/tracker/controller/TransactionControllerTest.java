@@ -16,6 +16,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -101,7 +102,7 @@ class TransactionControllerTest {
     void uploadCsv_validFile_returnsUploadResponse() throws Exception {
         MockMultipartFile file = CsvMother.validTwoRowFile();
 
-        mockMvc.perform(multipart(UPLOAD_URL).file(file).param(MAPPING_PARAM, DEFAULT_MAPPING_JSON).with(authenticatedUser(testUser)))
+        mockMvc.perform(multipart(UPLOAD_URL).file(file).param(MAPPING_PARAM, DEFAULT_MAPPING_JSON).header(HEADER_CSV_CHARSET, StandardCharsets.UTF_8.name()).with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.uploadId").isNotEmpty())
                 .andExpect(jsonPath("$.transactionCount").value(2))
@@ -113,7 +114,7 @@ class TransactionControllerTest {
     void uploadCsv_missingRequiredColumn_returns400() throws Exception {
         MockMultipartFile file = CsvMother.multipartFile(INVALID_HEADER, "01.01.2025;Test;-10,00");
 
-        mockMvc.perform(multipart(UPLOAD_URL).file(file).param(MAPPING_PARAM, DEFAULT_MAPPING_JSON).with(authenticatedUser(testUser)))
+        mockMvc.perform(multipart(UPLOAD_URL).file(file).param(MAPPING_PARAM, DEFAULT_MAPPING_JSON).header(HEADER_CSV_CHARSET, StandardCharsets.UTF_8.name()).with(authenticatedUser(testUser)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", containsString("Buchungsdatum")));
     }
@@ -122,7 +123,7 @@ class TransactionControllerTest {
     void uploadCsv_invalidDate_returns400() throws Exception {
         MockMultipartFile file = CsvMother.multipartFile(HEADER, INVALID_DATE_ROW);
 
-        mockMvc.perform(multipart(UPLOAD_URL).file(file).param(MAPPING_PARAM, DEFAULT_MAPPING_JSON).with(authenticatedUser(testUser)))
+        mockMvc.perform(multipart(UPLOAD_URL).file(file).param(MAPPING_PARAM, DEFAULT_MAPPING_JSON).header(HEADER_CSV_CHARSET, StandardCharsets.UTF_8.name()).with(authenticatedUser(testUser)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", containsString("date")));
     }
@@ -139,6 +140,7 @@ class TransactionControllerTest {
                         .param(MAPPING_PARAM, """
                                 {"bookingDate":"Buchungsdatum","amount":"Betrag","partnerName":"Partnername","details":"Buchungs-Details","detailsFallback":"Verwendungszweck"}
                                 """)
+                        .header(HEADER_CSV_CHARSET, StandardCharsets.UTF_8.name())
                         .with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.transactionCount").value(1))
@@ -160,6 +162,7 @@ class TransactionControllerTest {
                         .param(MAPPING_PARAM, """
                                 {"bookingDate":"Buchungsdatum","amount":"Betrag","account":"Auftragskonto","partnerIban":"Partner IBAN"}
                                 """)
+                        .header(HEADER_CSV_CHARSET, StandardCharsets.UTF_8.name())
                         .with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.transactionCount").value(1));
@@ -189,6 +192,7 @@ class TransactionControllerTest {
                         .param(MAPPING_PARAM, """
                                 {"bookingDate":"Buchungsdatum","amount":"Betrag","account":"Auftragskonto","partnerIban":"Partner IBAN"}
                                 """)
+                        .header(HEADER_CSV_CHARSET, StandardCharsets.UTF_8.name())
                         .with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.transactionCount").value(1))
@@ -202,16 +206,39 @@ class TransactionControllerTest {
     void uploadCsv_duplicateTransactionsAreSkippedAndReported() throws Exception {
         MockMultipartFile file = CsvMother.validTwoRowFile();
 
-        mockMvc.perform(multipart(UPLOAD_URL).file(file).param(MAPPING_PARAM, DEFAULT_MAPPING_JSON).with(authenticatedUser(testUser)))
+        mockMvc.perform(multipart(UPLOAD_URL).file(file).param(MAPPING_PARAM, DEFAULT_MAPPING_JSON).header(HEADER_CSV_CHARSET, StandardCharsets.UTF_8.name()).with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.transactionCount").value(2))
                 .andExpect(jsonPath("$.skippedDuplicates").value(0));
 
-        mockMvc.perform(multipart(UPLOAD_URL).file(file).param(MAPPING_PARAM, DEFAULT_MAPPING_JSON).with(authenticatedUser(testUser)))
+        mockMvc.perform(multipart(UPLOAD_URL).file(file).param(MAPPING_PARAM, DEFAULT_MAPPING_JSON).header(HEADER_CSV_CHARSET, StandardCharsets.UTF_8.name()).with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.transactionCount").value(0))
                 .andExpect(jsonPath("$.skippedDuplicates").value(2))
                 .andExpect(jsonPath("$.recurringPaymentsDetected").value(0));
+    }
+
+    @Test
+    void uploadCsv_withUnsupportedCharset_returns400() throws Exception {
+        MockMultipartFile file = CsvMother.validTwoRowFile();
+
+        mockMvc.perform(multipart(UPLOAD_URL)
+                        .file(file)
+                        .param(MAPPING_PARAM, DEFAULT_MAPPING_JSON)
+                        .header(HEADER_CSV_CHARSET, "NOT-A-CHARSET")
+                        .with(authenticatedUser(testUser)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message", containsString("Unsupported CSV charset")));
+    }
+
+    @Test
+    void uploadCsv_corsPreflight_allowsCsvCharsetHeader() throws Exception {
+        mockMvc.perform(options(UPLOAD_URL)
+                        .header("Origin", "http://localhost:4200")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers", "X-Csv-Charset,Content-Type"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Headers", containsString(HEADER_CSV_CHARSET)));
     }
 
     @Test

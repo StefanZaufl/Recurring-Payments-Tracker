@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -24,6 +25,7 @@ public class TransactionController implements TransactionsApi {
     static final String HEADER_PAGE = "X-Page";
     static final String HEADER_PAGE_SIZE = "X-Page-Size";
     static final String HEADER_TOTAL_PAGES = "X-Total-Pages";
+    static final String HEADER_CSV_CHARSET = "X-Csv-Charset";
 
     private final TransactionService transactionService;
     private final TransactionMapper transactionMapper;
@@ -36,11 +38,12 @@ public class TransactionController implements TransactionsApi {
     }
 
     @Override
-    public ResponseEntity<UploadResponse> uploadCsv(MultipartFile file, String mapping) {
+    public ResponseEntity<UploadResponse> uploadCsv(MultipartFile file, String mapping, String xCsvCharset) {
         try {
             CsvParserService.CsvImportMapping parsedMapping = objectMapper.readValue(mapping, CsvParserService.CsvImportMapping.class);
+            String charset = (xCsvCharset == null || xCsvCharset.isBlank()) ? StandardCharsets.UTF_8.name() : xCsvCharset;
             var request = new TransactionService.CsvUploadRequest(
-                    file.getOriginalFilename(), file.getContentType(), file.getBytes(), parsedMapping);
+                    file.getOriginalFilename(), file.getContentType(), file.getBytes(), parsedMapping, charset);
             TransactionService.UploadResult result = transactionService.uploadCsv(request);
             UploadResponse response = new UploadResponse();
             response.setUploadId(result.uploadId());

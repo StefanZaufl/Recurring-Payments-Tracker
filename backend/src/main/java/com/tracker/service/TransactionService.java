@@ -51,7 +51,7 @@ public class TransactionService {
     @Transactional
     public UploadResult uploadCsv(CsvUploadRequest request) {
         User currentUser = userContextService.getCurrentUser();
-        List<Transaction> transactions = csvParserService.parse(request.content(), request.mapping());
+        List<Transaction> transactions = csvParserService.parse(request.content(), request.mapping(), request.charset());
         DuplicateFilterResult duplicateFilterResult = filterDuplicates(currentUser.getId(), transactions);
         List<Transaction> newTransactions = duplicateFilterResult.newTransactions();
 
@@ -154,7 +154,8 @@ public class TransactionService {
     public record CsvUploadRequest(String filename,
                                    String mimeType,
                                    byte[] content,
-                                   CsvParserService.CsvImportMapping mapping) {}
+                                   CsvParserService.CsvImportMapping mapping,
+                                   String charset) {}
 
     public record UploadResult(UUID uploadId, int transactionCount, int skippedDuplicates, int recurringPaymentsDetected) {}
 
