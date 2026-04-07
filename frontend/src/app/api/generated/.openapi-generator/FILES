@@ -7,6 +7,7 @@ api/adminUsers.service.ts
 api/analytics.service.ts
 api/api.ts
 api/auth.service.ts
+api/bankAccounts.service.ts
 api/categories.service.ts
 api/recurringPaymentRules.service.ts
 api/recurringPayments.service.ts
@@ -18,10 +19,12 @@ git_push.sh
 index.ts
 model/adminUserDto.ts
 model/annualOverview.ts
+model/bankAccountDto.ts
 model/categoryBreakdown.ts
 model/categoryDto.ts
 model/changePasswordRequest.ts
 model/changeUsernameRequest.ts
+model/createBankAccountRequest.ts
 model/createCategoryRequest.ts
 model/createRecurringPaymentRequest.ts
 model/createRuleRequest.ts
@@ -51,6 +54,7 @@ model/transactionCsvImportMapping.ts
 model/transactionDto.ts
 model/transactionPage.ts
 model/upcomingPayment.ts
+model/updateBankAccountRequest.ts
 model/updateCategoryRequest.ts
 model/updateRuleRequest.ts
 model/updateUserRequest.ts

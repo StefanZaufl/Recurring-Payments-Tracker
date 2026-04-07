@@ -3,7 +3,8 @@ import { provideRouter } from '@angular/router';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { ConfigureComponent } from './configure.component';
-import { CategoriesService } from '../../api/generated';
+import { BankAccountsService, CategoriesService } from '../../api/generated';
+import { BankAccountDto } from '../../api/generated/model/bankAccountDto';
 import { CategoryDto } from '../../api/generated/model/categoryDto';
 
 const mockCategories: CategoryDto[] = [
@@ -11,10 +12,16 @@ const mockCategories: CategoryDto[] = [
   { id: 'cat-2', name: 'Insurance', color: '#00FF00' },
 ];
 
+const mockBankAccounts: BankAccountDto[] = [
+  { id: 'acc-1', iban: 'DE111', name: 'Checking' },
+  { id: 'acc-2', iban: 'DE222', name: 'Savings' },
+];
+
 describe('ConfigureComponent', () => {
   let component: ConfigureComponent;
   let fixture: ComponentFixture<ConfigureComponent>;
   let categoriesService: jest.Mocked<CategoriesService>;
+  let bankAccountsService: jest.Mocked<BankAccountsService>;
 
   beforeEach(async () => {
     const categoriesServiceMock = {
@@ -23,12 +30,19 @@ describe('ConfigureComponent', () => {
       updateCategory: jest.fn(),
       deleteCategory: jest.fn(),
     };
+    const bankAccountsServiceMock = {
+      getBankAccounts: jest.fn().mockReturnValue(of(mockBankAccounts)),
+      createBankAccount: jest.fn(),
+      updateBankAccount: jest.fn(),
+      deleteBankAccount: jest.fn(),
+    };
 
     await TestBed.configureTestingModule({
       imports: [ConfigureComponent],
       providers: [
         provideRouter([]),
         { provide: CategoriesService, useValue: categoriesServiceMock },
+        { provide: BankAccountsService, useValue: bankAccountsServiceMock },
       ],
     })
     .overrideComponent(ConfigureComponent, {
@@ -37,6 +51,7 @@ describe('ConfigureComponent', () => {
     .compileComponents();
 
     categoriesService = TestBed.inject(CategoriesService) as jest.Mocked<CategoriesService>;
+    bankAccountsService = TestBed.inject(BankAccountsService) as jest.Mocked<BankAccountsService>;
     fixture = TestBed.createComponent(ConfigureComponent);
     component = fixture.componentInstance;
   });
@@ -49,13 +64,27 @@ describe('ConfigureComponent', () => {
     fixture.detectChanges();
     const el: HTMLElement = fixture.nativeElement;
     expect(el.textContent).toContain('Configure');
-    expect(el.textContent).toContain('Manage categories');
+    expect(el.textContent).toContain('Manage categories and bank accounts');
   });
 
   it('should render the Categories section header', () => {
     fixture.detectChanges();
     const el: HTMLElement = fixture.nativeElement;
     expect(el.textContent).toContain('Categories');
+  });
+
+  it('should load bank accounts on init', () => {
+    fixture.detectChanges();
+
+    expect(bankAccountsService.getBankAccounts).toHaveBeenCalled();
+    expect(component.bankAccounts).toEqual(mockBankAccounts);
+    expect(component.bankAccountsLoading).toBe(false);
+  });
+
+  it('should render the Bank Accounts section header', () => {
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.textContent).toContain('Bank Accounts');
   });
 
   // ─── Categories Section ───
@@ -243,5 +272,39 @@ describe('ConfigureComponent', () => {
 
     expect(component.categories).toEqual(mockCategories);
     expect(component.categoriesError).toBeNull();
+  });
+
+  it('should create a bank account', () => {
+    bankAccountsService.createBankAccount.mockReturnValue(of({ id: 'acc-3', iban: 'DE333', name: 'Brokerage' }));
+    fixture.detectChanges();
+
+    component.newBankAccountIban = 'DE333';
+    component.newBankAccountName = 'Brokerage';
+    component.createBankAccount();
+
+    expect(bankAccountsService.createBankAccount).toHaveBeenCalledWith({ iban: 'DE333', name: 'Brokerage' });
+    expect(component.bankAccounts.find(account => account.id === 'acc-3')?.name).toBe('Brokerage');
+  });
+
+  it('should update a bank account name', () => {
+    bankAccountsService.updateBankAccount.mockReturnValue(of({ id: 'acc-1', iban: 'DE111', name: 'Main Checking' }));
+    fixture.detectChanges();
+
+    component.startBankAccountEdit(component.bankAccounts[0]);
+    component.editBankAccountName = 'Main Checking';
+    component.saveBankAccountEdit(component.bankAccounts[0]);
+
+    expect(bankAccountsService.updateBankAccount).toHaveBeenCalledWith('acc-1', { name: 'Main Checking' });
+    expect(component.bankAccounts[0].name).toBe('Main Checking');
+  });
+
+  it('should delete a bank account', () => {
+    bankAccountsService.deleteBankAccount.mockReturnValue(of(undefined));
+    fixture.detectChanges();
+
+    component.deleteBankAccount(component.bankAccounts[0]);
+
+    expect(bankAccountsService.deleteBankAccount).toHaveBeenCalledWith('acc-1');
+    expect(component.bankAccounts.some(account => account.id === 'acc-1')).toBe(false);
   });
 });

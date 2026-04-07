@@ -34,6 +34,9 @@ public class Transaction {
     @Column(name = "partner_iban")
     private String partnerIban;
 
+    @Column(length = 34)
+    private String account;
+
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
@@ -42,6 +45,9 @@ public class Transaction {
 
     @Column(columnDefinition = "TEXT")
     private String details;
+
+    @Column(name = "is_inter_account", nullable = false)
+    private Boolean isInterAccount = false;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();

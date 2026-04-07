@@ -22,7 +22,7 @@ class CsvParserServiceTest {
     private static final String VALID_PARTNER = "Valid";
     private static final String VALID_ROW = "15.01.2025;Valid;-9,99;OK";
     private static final CsvParserService.CsvImportMapping DEFAULT_MAPPING =
-            new CsvParserService.CsvImportMapping("Buchungsdatum", "Betrag", "Partnername", "Buchungs-Details", null);
+            new CsvParserService.CsvImportMapping("Buchungsdatum", "Betrag", null, "Partnername", null, "Buchungs-Details", null);
 
     private CsvParserService parser;
 
@@ -99,7 +99,7 @@ class CsvParserServiceTest {
     void handlesOptionalColumnsGracefully() {
         List<Transaction> result = parser.parse(
                 CsvMother.bytes("Buchungsdatum;Betrag", "15.01.2025;-12,99"),
-                new CsvParserService.CsvImportMapping("Buchungsdatum", "Betrag", null, null, null)
+                new CsvParserService.CsvImportMapping("Buchungsdatum", "Betrag", null, null, null, null, null)
         );
 
         assertEquals(1, result.size());
@@ -114,7 +114,7 @@ class CsvParserServiceTest {
 
         List<Transaction> result = parser.parse(
                 CsvMother.bytes(header, row),
-                new CsvParserService.CsvImportMapping("Buchungsdatum", "Betrag", "Partnername", "Buchungs-Details", "Verwendungszweck")
+                new CsvParserService.CsvImportMapping("Buchungsdatum", "Betrag", null, "Partnername", null, "Buchungs-Details", "Verwendungszweck")
         );
 
         assertEquals(1, result.size());
@@ -128,7 +128,7 @@ class CsvParserServiceTest {
 
         List<Transaction> result = parser.parse(
                 CsvMother.bytes(header, row),
-                new CsvParserService.CsvImportMapping("Buchungsdatum", "Betrag", "Partnername", "Buchungs-Details", "Verwendungszweck")
+                new CsvParserService.CsvImportMapping("Buchungsdatum", "Betrag", null, "Partnername", null, "Buchungs-Details", "Verwendungszweck")
         );
 
         assertEquals(1, result.size());

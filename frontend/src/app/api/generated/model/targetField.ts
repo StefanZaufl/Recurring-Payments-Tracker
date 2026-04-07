@@ -11,6 +11,8 @@
 
 export enum TargetField {
 
+    Account = 'ACCOUNT',
+
     PartnerName = 'PARTNER_NAME',
 
     PartnerIban = 'PARTNER_IBAN',

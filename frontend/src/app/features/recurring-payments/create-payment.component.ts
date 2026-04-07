@@ -279,6 +279,7 @@ interface LocalRule {
                       <select id="rule-target-field" [(ngModel)]="ruleFormTargetField"
                         class="w-full text-xs bg-card border border-card-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent/40">
                         <option value="PARTNER_NAME">Partner Name</option>
+                        <option value="ACCOUNT">Account</option>
                         <option value="PARTNER_IBAN">Partner IBAN</option>
                         <option value="DETAILS">Details</option>
                       </select>
@@ -519,7 +520,7 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
     this.loadingTransactions = true;
     this.currentPage = page;
     this.transactionsService.getTransactions(
-      undefined, undefined, undefined, true, page, 20, 'bookingDate', 'desc'
+      undefined, undefined, undefined, undefined, true, page, 20, 'bookingDate', 'desc'
     ).pipe(takeUntil(this.destroy$)).subscribe({
       next: (result) => {
         this.allTransactions = result.content || [];
@@ -634,6 +635,7 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
   formatTargetField(field: string): string {
     switch (field) {
       case 'PARTNER_NAME': return 'Partner Name';
+      case 'ACCOUNT': return 'Account';
       case 'PARTNER_IBAN': return 'Partner IBAN';
       case 'DETAILS': return 'Details';
       default: return field;

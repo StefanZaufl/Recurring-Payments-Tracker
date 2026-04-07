@@ -40,7 +40,7 @@ public class AnalyticsService {
         LocalDate endOfYear = LocalDate.of(year, 12, 31);
 
         UUID currentUserId = userContextService.getCurrentUserId();
-        List<Transaction> transactions = transactionRepository.findByUserIdAndBookingDateBetween(currentUserId, startOfYear, endOfYear);
+        List<Transaction> transactions = transactionRepository.findByUserIdAndBookingDateBetweenAndIsInterAccountFalse(currentUserId, startOfYear, endOfYear);
         List<RecurringPayment> activePayments = recurringPaymentRepository.findByUserIdAndIsActiveTrue(currentUserId);
 
         // Presort transactions by month (index 0 = January, 11 = December)

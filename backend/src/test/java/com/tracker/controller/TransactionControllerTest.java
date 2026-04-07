@@ -81,6 +81,9 @@ class TransactionControllerTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private BankAccountRepository bankAccountRepository;
+
     private User testUser;
 
     @BeforeEach
@@ -90,6 +93,7 @@ class TransactionControllerTest {
         recurringPaymentRepository.deleteAll();
         transactionRepository.deleteAll();
         fileUploadRepository.deleteAll();
+        bankAccountRepository.deleteAll();
         testUser = SecurityTestUtil.createTestUser(userRepository);
     }
 
@@ -142,6 +146,56 @@ class TransactionControllerTest {
 
         Transaction saved = transactionRepository.findAll().getFirst();
         assertThat(saved.getDetails(), is("Fallback details"));
+    }
+
+    @Test
+    void uploadCsv_withAccountAndPartnerIban_persistsNormalizedIbansAndCreatesBankAccount() throws Exception {
+        MockMultipartFile file = CsvMother.multipartFile(
+                "Buchungsdatum;Auftragskonto;Partner IBAN;Betrag",
+                "15.01.2025;de12 3456;de98 7654;-10,00"
+        );
+
+        mockMvc.perform(multipart(UPLOAD_URL)
+                        .file(file)
+                        .param(MAPPING_PARAM, """
+                                {"bookingDate":"Buchungsdatum","amount":"Betrag","account":"Auftragskonto","partnerIban":"Partner IBAN"}
+                                """)
+                        .with(authenticatedUser(testUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.transactionCount").value(1));
+
+        Transaction saved = transactionRepository.findAll().getFirst();
+        assertThat(saved.getAccount(), is("DE123456"));
+        assertThat(saved.getPartnerIban(), is("DE987654"));
+        assertThat(saved.getIsInterAccount(), is(false));
+        assertThat(bankAccountRepository.findByUserIdOrderByNameAscIbanAsc(testUser.getId()), hasSize(1));
+        assertThat(bankAccountRepository.findByUserIdOrderByNameAscIbanAsc(testUser.getId()).getFirst().getIban(), is("DE123456"));
+    }
+
+    @Test
+    void uploadCsv_marksInterAccountWhenPartnerIbanBelongsToOwnedBankAccount() throws Exception {
+        BankAccount existingAccount = new BankAccount();
+        existingAccount.setUser(testUser);
+        existingAccount.setIban("DE999999");
+        bankAccountRepository.save(existingAccount);
+
+        MockMultipartFile file = CsvMother.multipartFile(
+                "Buchungsdatum;Auftragskonto;Partner IBAN;Betrag",
+                "15.01.2025;DE123456;de99 9999;-10,00"
+        );
+
+        mockMvc.perform(multipart(UPLOAD_URL)
+                        .file(file)
+                        .param(MAPPING_PARAM, """
+                                {"bookingDate":"Buchungsdatum","amount":"Betrag","account":"Auftragskonto","partnerIban":"Partner IBAN"}
+                                """)
+                        .with(authenticatedUser(testUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.transactionCount").value(1))
+                .andExpect(jsonPath("$.recurringPaymentsDetected").value(0));
+
+        Transaction saved = transactionRepository.findAll().getFirst();
+        assertThat(saved.getIsInterAccount(), is(true));
     }
 
     @Test

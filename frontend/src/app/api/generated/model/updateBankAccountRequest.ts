@@ -9,10 +9,7 @@
  */
 
 
-export interface UploadResponse { 
-    uploadId: string;
-    transactionCount: number;
-    skippedDuplicates: number;
-    recurringPaymentsDetected: number;
+export interface UpdateBankAccountRequest { 
+    name?: string | null;
 }
 

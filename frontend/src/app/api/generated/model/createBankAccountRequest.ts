@@ -9,10 +9,8 @@
  */
 
 
-export interface UploadResponse { 
-    uploadId: string;
-    transactionCount: number;
-    skippedDuplicates: number;
-    recurringPaymentsDetected: number;
+export interface CreateBankAccountRequest { 
+    iban: string;
+    name?: string | null;
 }
 

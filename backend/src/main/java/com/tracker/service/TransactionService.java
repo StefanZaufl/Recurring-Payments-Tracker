@@ -29,17 +29,23 @@ public class TransactionService {
     private final FileUploadRepository fileUploadRepository;
     private final RecurringPaymentDetectionService detectionService;
     private final UserContextService userContextService;
+    private final BankAccountService bankAccountService;
+    private final InterAccountService interAccountService;
 
     public TransactionService(CsvParserService csvParserService,
                               TransactionRepository transactionRepository,
                               FileUploadRepository fileUploadRepository,
                               RecurringPaymentDetectionService detectionService,
-                              UserContextService userContextService) {
+                              UserContextService userContextService,
+                              BankAccountService bankAccountService,
+                              InterAccountService interAccountService) {
         this.csvParserService = csvParserService;
         this.transactionRepository = transactionRepository;
         this.fileUploadRepository = fileUploadRepository;
         this.detectionService = detectionService;
         this.userContextService = userContextService;
+        this.bankAccountService = bankAccountService;
+        this.interAccountService = interAccountService;
     }
 
     @Transactional
@@ -59,10 +65,15 @@ public class TransactionService {
         for (Transaction tx : newTransactions) {
             tx.setUpload(upload);
             tx.setUser(currentUser);
+            tx.setIsInterAccount(Boolean.FALSE);
         }
         List<Transaction> savedTransactions = transactionRepository.saveAll(newTransactions);
+        bankAccountService.createMissingForCurrentUser(savedTransactions.stream().map(Transaction::getAccount).toList());
+        interAccountService.markInterAccountTransactions(savedTransactions);
 
-        int recurringCount = detectionService.detectRecurringPayments(savedTransactions).size();
+        int recurringCount = detectionService.detectRecurringPayments(savedTransactions.stream()
+                .filter(tx -> !Boolean.TRUE.equals(tx.getIsInterAccount()))
+                .toList()).size();
 
         return new UploadResult(upload.getId(), newTransactions.size(), duplicateFilterResult.skippedDuplicates(), recurringCount);
     }
@@ -70,7 +81,7 @@ public class TransactionService {
     private static final java.util.Set<String> ALLOWED_SORT_FIELDS = java.util.Set.of("bookingDate", "partnerName", "amount");
 
     @Transactional(readOnly = true)
-    public Page<Transaction> getTransactions(LocalDate from, LocalDate to, String text,
+    public Page<Transaction> getTransactions(LocalDate from, LocalDate to, String text, String account,
                                              Boolean unlinked, int page, int size,
                                              String sort, String sortDirection) {
         UUID currentUserId = userContextService.getCurrentUserId();
@@ -102,6 +113,9 @@ public class TransactionService {
                         cb.like(cb.lower(root.get("partnerName")), pattern),
                         cb.like(cb.lower(root.get("details")), pattern)
                 ));
+            }
+            if (account != null && !account.isBlank()) {
+                predicates.add(cb.equal(root.get("account"), IbanNormalizationService.normalize(account)));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
@@ -145,14 +159,18 @@ public class TransactionService {
     private record DuplicateFilterResult(List<Transaction> newTransactions, int skippedDuplicates) {}
 
     private record TransactionSignature(LocalDate bookingDate,
+                                        String account,
                                         String partnerName,
+                                        String partnerIban,
                                         java.math.BigDecimal amount,
                                         String details) {
 
         static TransactionSignature from(Transaction transaction) {
             return new TransactionSignature(
                     transaction.getBookingDate(),
+                    normalize(transaction.getAccount()),
                     normalize(transaction.getPartnerName()),
+                    normalize(transaction.getPartnerIban()),
                     transaction.getAmount() == null ? null : transaction.getAmount().stripTrailingZeros(),
                     normalize(transaction.getDetails())
             );

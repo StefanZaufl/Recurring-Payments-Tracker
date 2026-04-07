@@ -300,7 +300,17 @@ public class RecurringPaymentDetectionService {
                 .multiply(BigDecimal.valueOf(0.10))
                 .setScale(2, RoundingMode.HALF_UP));
 
-        return List.of(jwRule, amountRule);
+        if (tx.getAccount() == null || tx.getAccount().isBlank()) {
+            return List.of(jwRule, amountRule);
+        }
+
+        Rule accountRule = new Rule();
+        accountRule.setRuleType(RuleType.REGEX);
+        accountRule.setTargetField(TargetField.ACCOUNT);
+        accountRule.setText("^\\Q" + tx.getAccount() + "\\E$");
+        accountRule.setStrict(true);
+
+        return List.of(jwRule, amountRule, accountRule);
     }
 
     private RecurringPayment createAndPersistRecurringPayment(Transaction representative,

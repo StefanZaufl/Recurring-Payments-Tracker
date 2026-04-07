@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { TransactionsService, UploadResponse } from '../../api/generated';
 import { TransactionCsvImportMapping } from '../../api/generated/model/transactionCsvImportMapping';
 
-type ExpectedField = 'ignore' | 'bookingDate' | 'amount' | 'partnerName' | 'details' | 'detailsFallback';
+type ExpectedField = 'ignore' | 'bookingDate' | 'amount' | 'account' | 'partnerName' | 'partnerIban' | 'details' | 'detailsFallback';
 type RequiredField = 'bookingDate' | 'amount';
 
 interface CsvPreview {
@@ -154,10 +154,9 @@ interface FieldOption {
                         <div class="mt-3 text-[11px] uppercase tracking-wide text-muted/70">Field Mapping</div>
                         <select
                           class="mt-1 w-full rounded-lg border border-card-border bg-subtle px-3 py-2 text-xs text-white focus:outline-none focus:border-accent"
-                          [value]="columnMappings[i]"
                           (change)="onFieldMappingChange(i, $any($event.target).value)">
                           @for (option of fieldOptions; track option.value) {
-                            <option [value]="option.value">{{ option.label }}</option>
+                            <option [value]="option.value" [selected]="columnMappings[i] === option.value">{{ option.label }}</option>
                           }
                         </select>
 
@@ -192,7 +191,9 @@ export class TransactionImportComponent {
     { value: 'ignore', label: 'Ignore column' },
     { value: 'bookingDate', label: 'Booking date' },
     { value: 'amount', label: 'Amount' },
+    { value: 'account', label: 'Account IBAN' },
     { value: 'partnerName', label: 'Partner name' },
+    { value: 'partnerIban', label: 'Partner IBAN' },
     { value: 'details', label: 'Details' },
     { value: 'detailsFallback', label: 'Details Fallback' }
   ];
@@ -384,6 +385,12 @@ export class TransactionImportComponent {
     if (this.matchesAny(normalized, ['betrag', 'amount', 'value', 'sum', 'umsatz'])) {
       return 'amount';
     }
+    if (this.matchesAny(normalized, ['kontoiban', 'accountiban', 'ibanfrom', 'sourceiban', 'auftragskonto', 'kontonummer', 'account'])) {
+      return 'account';
+    }
+    if (this.matchesAny(normalized, ['partneriban', 'counterpartyiban', 'empfaengeriban', 'recipientiban', 'iban'])) {
+      return 'partnerIban';
+    }
     if (this.matchesAny(normalized, ['partnername', 'payee', 'partner', 'name', 'empfaenger'])) {
       return 'partnerName';
     }
@@ -457,10 +464,18 @@ export class TransactionImportComponent {
       amount
     };
 
+    const account = this.findHeaderForField('account');
     const partnerName = this.findHeaderForField('partnerName');
+    const partnerIban = this.findHeaderForField('partnerIban');
     const details = this.findHeaderForField('details');
+    if (account) {
+      payload.account = account;
+    }
     if (partnerName) {
       payload.partnerName = partnerName;
+    }
+    if (partnerIban) {
+      payload.partnerIban = partnerIban;
     }
     if (details) {
       payload.details = details;

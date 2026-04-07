@@ -43,6 +43,7 @@ describe('TransactionImportComponent', () => {
     ], 'import.csv', { type: 'text/csv' });
 
     await component.onFileSelected({ target: { files: [file], value: 'x' } } as unknown as Event);
+    fixture.detectChanges();
 
     expect(component.preview?.headers).toEqual([
       'Buchungsdatum',
@@ -59,6 +60,15 @@ describe('TransactionImportComponent', () => {
       'detailsFallback'
     ]);
     expect(component.mappingError).toBeNull();
+
+    const selects = Array.from(fixture.nativeElement.querySelectorAll('select')) as HTMLSelectElement[];
+    expect(selects.map((select) => select.value)).toEqual([
+      'bookingDate',
+      'partnerName',
+      'amount',
+      'details',
+      'detailsFallback'
+    ]);
   });
 
   it('shows mapping error while required fields are missing', async () => {
@@ -109,6 +119,34 @@ describe('TransactionImportComponent', () => {
     component.onFieldMappingChange(4, 'detailsFallback');
     expect(component.columnMappings[3]).toBe('ignore');
     expect(component.columnMappings[4]).toBe('detailsFallback');
+  });
+
+  it('includes account and partner iban mappings when selected', async () => {
+    const file = new File([
+      'Buchungsdatum;Auftragskonto;Partner IBAN;Betrag\n' +
+      '15.01.2025;DE111;DE222;-12,99\n'
+    ], 'import.csv', { type: 'text/csv' });
+
+    await component.onFileSelected({ target: { files: [file], value: 'x' } } as unknown as Event);
+
+    expect(component.columnMappings).toEqual([
+      'bookingDate',
+      'account',
+      'partnerIban',
+      'amount'
+    ]);
+
+    component.importTransactions();
+
+    expect(transactionsService.uploadCsv).toHaveBeenCalledWith(
+      file,
+      JSON.stringify({
+        bookingDate: 'Buchungsdatum',
+        amount: 'Betrag',
+        account: 'Auftragskonto',
+        partnerIban: 'Partner IBAN'
+      })
+    );
   });
 
   it('shows backend upload errors', async () => {

@@ -63,6 +63,11 @@ paths:
           description: Search in partner name and details (case-insensitive, partial match)
           schema:
             type: string
+        - name: account
+          in: query
+          description: Filter by source account IBAN
+          schema:
+            type: string
         - name: unlinked
           in: query
           description: When true, returns only transactions not linked to any recurring payment (last 2 years)
@@ -577,6 +582,96 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/bank-accounts:
+    get:
+      operationId: getBankAccounts
+      summary: List bank accounts for the current user
+      tags: [BankAccounts]
+      responses:
+        '200':
+          description: List of bank accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BankAccountDto'
+    post:
+      operationId: createBankAccount
+      summary: Create a bank account for the current user
+      tags: [BankAccounts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBankAccountRequest'
+      responses:
+        '201':
+          description: Bank account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BankAccountDto'
+        '400':
+          description: Invalid bank account request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/bank-accounts/{id}:
+    put:
+      operationId: updateBankAccount
+      summary: Update a bank account
+      tags: [BankAccounts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBankAccountRequest'
+      responses:
+        '200':
+          description: Updated bank account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BankAccountDto'
+        '404':
+          description: Bank account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteBankAccount
+      summary: Delete a bank account
+      tags: [BankAccounts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Bank account deleted
+        '404':
+          description: Bank account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/analytics/annual-overview:
     get:
       operationId: getAnnualOverview
@@ -960,10 +1055,18 @@ components:
         amount:
           type: string
           description: Source CSV header mapped to amount.
+        account:
+          type: string
+          nullable: true
+          description: Source CSV header mapped to the transaction's own account IBAN.
         partnerName:
           type: string
           nullable: true
           description: Source CSV header mapped to partner name.
+        partnerIban:
+          type: string
+          nullable: true
+          description: Source CSV header mapped to partner IBAN.
         details:
           type: string
           nullable: true
@@ -986,6 +1089,8 @@ components:
         bookingDate:
           type: string
           format: date
+        account:
+          type: string
         partnerName:
           type: string
         partnerIban:
@@ -997,6 +1102,8 @@ components:
           type: string
         details:
           type: string
+        isInterAccount:
+          type: boolean
         createdAt:
           type: string
           format: date-time
@@ -1027,6 +1134,42 @@ components:
         color:
           type: string
 
+    BankAccountDto:
+      type: object
+      required: [id, iban]
+      properties:
+        id:
+          type: string
+          format: uuid
+        iban:
+          type: string
+        name:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateBankAccountRequest:
+      type: object
+      required: [iban]
+      properties:
+        iban:
+          type: string
+        name:
+          type: string
+          nullable: true
+
+    UpdateBankAccountRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+
     CreateCategoryRequest:
       type: object
       required: [name]
@@ -1054,7 +1197,7 @@ components:
 
     TargetField:
       type: string
-      enum: [PARTNER_NAME, PARTNER_IBAN, DETAILS]
+      enum: [ACCOUNT, PARTNER_NAME, PARTNER_IBAN, DETAILS]
 
     RuleDto:
       type: object

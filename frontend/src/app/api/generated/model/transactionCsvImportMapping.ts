@@ -19,9 +19,17 @@ export interface TransactionCsvImportMapping {
      */
     amount: string;
     /**
+     * Source CSV header mapped to the transaction\'s own account IBAN.
+     */
+    account?: string | null;
+    /**
      * Source CSV header mapped to partner name.
      */
     partnerName?: string | null;
+    /**
+     * Source CSV header mapped to partner IBAN.
+     */
+    partnerIban?: string | null;
     /**
      * Source CSV header mapped to details.
      */

@@ -115,7 +115,9 @@ public class CsvParserService {
         Transaction tx = new Transaction();
         tx.setBookingDate(parseDate(dateStr, record.getRecordNumber()));
         tx.setAmount(parseAmount(amountStr, record.getRecordNumber()));
+        tx.setAccount(IbanNormalizationService.normalize(getField(record, mapping.account())));
         tx.setPartnerName(getField(record, mapping.partnerName()));
+        tx.setPartnerIban(IbanNormalizationService.normalize(getField(record, mapping.partnerIban())));
 
         String details = getField(record, mapping.details());
         if (details == null) {
@@ -169,7 +171,9 @@ public class CsvParserService {
 
     public record CsvImportMapping(String bookingDate,
                                    String amount,
+                                   String account,
                                    String partnerName,
+                                   String partnerIban,
                                    String details,
                                    String detailsFallback) {
 
@@ -177,7 +181,9 @@ public class CsvParserService {
             List<String> headers = new ArrayList<>();
             headers.add(bookingDate);
             headers.add(amount);
+            headers.add(account);
             headers.add(partnerName);
+            headers.add(partnerIban);
             headers.add(details);
             headers.add(detailsFallback);
             return headers;

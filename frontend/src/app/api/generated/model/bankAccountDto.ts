@@ -9,17 +9,11 @@
  */
 
 
-export interface TransactionDto { 
+export interface BankAccountDto { 
     id: string;
-    uploadId?: string;
-    bookingDate: string;
-    account?: string;
-    partnerName?: string;
-    partnerIban?: string;
-    amount: number;
-    currency?: string;
-    details?: string;
-    isInterAccount?: boolean;
+    iban: string;
+    name?: string | null;
     createdAt?: string;
+    updatedAt?: string;
 }
 
