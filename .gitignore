@@ -33,4 +33,5 @@ replay_pid*
 .env
 
 # Codex local state
+.codex
 .codex/
