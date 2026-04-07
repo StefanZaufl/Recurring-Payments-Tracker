@@ -17,7 +17,7 @@ RUN --mount=type=cache,target=/root/.npm npm run api:generate && npm run build
 
 FROM nginx:alpine
 
-COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY frontend/nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist/frontend/browser /usr/share/nginx/html
 
 EXPOSE 80 443

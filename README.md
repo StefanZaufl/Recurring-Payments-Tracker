@@ -89,11 +89,20 @@ cp .env.example .env
 
 The build script enables BuildKit with cache mounts for Maven and npm dependencies, so subsequent builds only download new or changed dependencies.
 
-The application will be available at `http://localhost:3000`.
+Set the deployment-specific values in `.env`, especially:
+
+- `APP_HOSTNAME` for the public DNS name
+- `APP_CORS_ALLOWED_ORIGINS` for the frontend origin allowed by Spring Security
+- `APP_HTTP_PORT` and `APP_HTTPS_PORT` for the published host ports
+- `CERTS_DIR`, `SSL_CERTIFICATE_FILE`, and `SSL_CERTIFICATE_KEY_FILE` for the mounted certificate files nginx should use
+
+`CERTS_DIR` is the host directory mounted into `/etc/nginx/certs`, and the certificate env vars are just filenames inside that directory.
+
+The application will then be available at `https://<APP_HOSTNAME>` on the published ports from `.env`.
 
 | Service  | Port |
 |----------|------|
-| Frontend | 3000 |
+| Frontend | `APP_HTTP_PORT` / `APP_HTTPS_PORT` |
 | Backend  | 8080 |
 | Database | 5432 |
 
