@@ -35,8 +35,9 @@ public class RecurringPayment {
     @Column(name = "average_amount", precision = 12, scale = 2)
     private BigDecimal averageAmount;
 
+    @Enumerated(EnumType.STRING)
     @Column(length = 20)
-    private String frequency;
+    private Frequency frequency;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_type", length = 20, nullable = false)

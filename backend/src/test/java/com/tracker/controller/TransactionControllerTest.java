@@ -338,7 +338,7 @@ class TransactionControllerTest {
         payment.setName("Netflix");
         payment.setNormalizedName("netflix");
         payment.setAverageAmount(new BigDecimal("-10"));
-        payment.setFrequency("MONTHLY");
+        payment.setFrequency(Frequency.MONTHLY);
         payment.setIsActive(true);
         payment.setUser(testUser);
         payment = recurringPaymentRepository.save(payment);

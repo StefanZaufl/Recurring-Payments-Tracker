@@ -83,7 +83,7 @@ class AnalyticsControllerTest {
         @Test
         void includesRecurringPaymentSummaries() throws Exception {
             Category category = seedCategory("Streaming");
-            RecurringPayment payment = seedRecurringPayment("Netflix", "MONTHLY",
+            RecurringPayment payment = seedRecurringPayment("Netflix", Frequency.MONTHLY,
                     new BigDecimal("-12.99"), false, category);
 
             // Seed 12 monthly linked transactions for 2025 so recurring expenses total = 12 * 12.99 = 155.88
@@ -123,8 +123,8 @@ class AnalyticsControllerTest {
 
         @Test
         void returnsMonthlyPredictionsBasedOnRecurringPayments() throws Exception {
-            seedRecurringPayment("Salary", "MONTHLY", new BigDecimal("3000.00"), true, null);
-            seedRecurringPayment("Netflix", "MONTHLY", new BigDecimal("-12.99"), false, null);
+            seedRecurringPayment("Salary", Frequency.MONTHLY, new BigDecimal("3000.00"), true, null);
+            seedRecurringPayment("Netflix", Frequency.MONTHLY, new BigDecimal("-12.99"), false, null);
 
             mockMvc.perform(get("/api/analytics/predictions").param("months", "3").with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
@@ -142,7 +142,7 @@ class AnalyticsControllerTest {
 
         @Test
         void generatesUpcomingPayments() throws Exception {
-            RecurringPayment payment = seedRecurringPayment("Netflix", "MONTHLY",
+            RecurringPayment payment = seedRecurringPayment("Netflix", Frequency.MONTHLY,
                     new BigDecimal("-12.99"), false, null);
             FileUpload upload = seedUpload();
             Transaction tx = seedTransaction(upload, LocalDate.now().minusDays(10), "Netflix",
@@ -184,7 +184,7 @@ class AnalyticsControllerTest {
         return categoryRepository.save(category);
     }
 
-    private RecurringPayment seedRecurringPayment(String name, String frequency, BigDecimal amount,
+    private RecurringPayment seedRecurringPayment(String name, Frequency frequency, BigDecimal amount,
                                                     boolean isIncome, Category category) {
         RecurringPayment payment = new RecurringPayment();
         payment.setName(name);

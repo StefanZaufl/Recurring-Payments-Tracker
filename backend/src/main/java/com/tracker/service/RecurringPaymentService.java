@@ -69,7 +69,7 @@ public class RecurringPaymentService {
     }
 
     @Transactional
-    public RecurringPayment create(String name, PaymentType paymentType, String frequency,
+    public RecurringPayment create(String name, PaymentType paymentType, Frequency frequency,
                                    List<RuleCreateParams> ruleParams) {
         User currentUser = userContextService.getCurrentUser();
 
@@ -113,7 +113,7 @@ public class RecurringPaymentService {
     @Transactional(readOnly = true)
     public List<Transaction> getTransactionsForPayment(UUID recurringPaymentId) {
         UUID currentUserId = userContextService.getCurrentUserId();
-        return linkRepository.findByRecurringPaymentIdAndUserId(recurringPaymentId, currentUserId).stream()
+        return linkRepository.findWithTransactionByRecurringPaymentIdAndUserId(recurringPaymentId, currentUserId).stream()
                 .map(TransactionRecurringLink::getTransaction)
                 .toList();
     }

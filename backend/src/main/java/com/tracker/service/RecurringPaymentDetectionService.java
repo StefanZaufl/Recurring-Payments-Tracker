@@ -126,7 +126,7 @@ public class RecurringPaymentDetectionService {
                 allMatched.add(tx);
                 allMatched.addAll(additionalMatches);
 
-                String frequency = detectFrequency(allMatched);
+                Frequency frequency = detectFrequency(allMatched);
                 log.debug("'{}': {} total matches, detected frequency={}", tx.getPartnerName(),
                         allMatched.size(), frequency);
                 if (frequency != null) {
@@ -211,7 +211,7 @@ public class RecurringPaymentDetectionService {
             return rt;
         }
 
-        Set<UUID> alreadyLinkedIds = linkRepository.findByRecurringPaymentIdAndUserId(recurringPaymentId, currentUserId)
+        Set<UUID> alreadyLinkedIds = linkRepository.findWithTransactionByRecurringPaymentIdAndUserId(recurringPaymentId, currentUserId)
                 .stream().map(link -> link.getTransaction().getId()).collect(Collectors.toSet());
 
         LocalDate cutoff = LocalDate.now().minusDays(LOOKBACK_DAYS);
@@ -235,7 +235,7 @@ public class RecurringPaymentDetectionService {
             // Recompute frequency with all linked transactions
             List<Transaction> allTxs = getAllLinkedTransactions(recurringPaymentId);
             allTxs.addAll(newMatches);
-            String freq = detectFrequency(allTxs);
+            Frequency freq = detectFrequency(allTxs);
             if (freq != null) {
                 rt.setFrequency(freq);
             }
@@ -246,7 +246,7 @@ public class RecurringPaymentDetectionService {
     }
 
     private List<Transaction> getAllLinkedTransactions(UUID recurringPaymentId) {
-        return linkRepository.findByRecurringPaymentId(recurringPaymentId)
+        return linkRepository.findWithTransactionByRecurringPaymentId(recurringPaymentId)
                 .stream().map(TransactionRecurringLink::getTransaction)
                 .collect(Collectors.toCollection(ArrayList::new));
     }
@@ -275,7 +275,7 @@ public class RecurringPaymentDetectionService {
     }
 
     private void recomputeAverageAmount(RecurringPayment rt) {
-        List<TransactionRecurringLink> links = linkRepository.findByRecurringPaymentId(rt.getId());
+        List<TransactionRecurringLink> links = linkRepository.findWithTransactionByRecurringPaymentId(rt.getId());
         if (links.isEmpty()) return;
 
         BigDecimal sum = links.stream()
@@ -316,7 +316,7 @@ public class RecurringPaymentDetectionService {
     private RecurringPayment createAndPersistRecurringPayment(Transaction representative,
                                                                List<Transaction> allMatched,
                                                                List<Rule> transientRules,
-                                                               String frequency) {
+                                                               Frequency frequency) {
         BigDecimal avgAmount = allMatched.stream()
                 .map(Transaction::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
@@ -366,7 +366,7 @@ public class RecurringPaymentDetectionService {
         return rt;
     }
 
-    String detectFrequency(List<Transaction> transactions) {
+    Frequency detectFrequency(List<Transaction> transactions) {
         if (transactions.size() < MIN_OCCURRENCES) {
             log.debug("Too few transactions ({}) for frequency detection", transactions.size());
             return null;
@@ -383,11 +383,11 @@ public class RecurringPaymentDetectionService {
                 transactions.size(), gaps, medianGap);
 
         if (medianGap >= MONTHLY_MIN_DAYS && medianGap <= MONTHLY_MAX_DAYS) {
-            return "MONTHLY";
+            return Frequency.MONTHLY;
         } else if (medianGap >= QUARTERLY_MIN_DAYS && medianGap <= QUARTERLY_MAX_DAYS) {
-            return "QUARTERLY";
+            return Frequency.QUARTERLY;
         } else if (medianGap >= YEARLY_MIN_DAYS && medianGap <= YEARLY_MAX_DAYS) {
-            return "YEARLY";
+            return Frequency.YEARLY;
         }
 
         log.debug("Median gap {} does not match any frequency range (monthly={}-{}, quarterly={}-{}, yearly={}-{})",

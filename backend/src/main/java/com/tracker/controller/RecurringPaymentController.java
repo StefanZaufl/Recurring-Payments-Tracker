@@ -2,6 +2,7 @@ package com.tracker.controller;
 
 import com.tracker.api.RecurringPaymentsApi;
 import com.tracker.api.model.*;
+import com.tracker.model.entity.Frequency;
 import com.tracker.model.entity.PaymentType;
 import com.tracker.model.entity.Rule;
 import com.tracker.model.entity.RuleType;
@@ -78,7 +79,7 @@ public class RecurringPaymentController implements RecurringPaymentsApi {
         var payment = recurringPaymentService.create(
                 request.getName(),
                 PaymentType.valueOf(request.getPaymentType().getValue()),
-                request.getFrequency().getValue(),
+                Frequency.valueOf(request.getFrequency().getValue()),
                 ruleParams);
 
         return ResponseEntity.created(URI.create("/api/recurring-payments/" + payment.getId()))

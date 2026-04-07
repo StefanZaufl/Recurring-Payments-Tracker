@@ -94,8 +94,8 @@ class RecurringPaymentControllerTest {
 
         @Test
         void returnsAllRecurringPayments() throws Exception {
-            seedRecurringPayment("Netflix", "MONTHLY", "-12.99", false);
-            seedRecurringPayment("Salary", "MONTHLY", "3500.00", true);
+            seedRecurringPayment("Netflix", Frequency.MONTHLY, "-12.99", false);
+            seedRecurringPayment("Salary", Frequency.MONTHLY, "3500.00", true);
 
             mockMvc.perform(get(RECURRING_URL).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
@@ -105,7 +105,7 @@ class RecurringPaymentControllerTest {
 
         @Test
         void returnsCorrectDtoFields() throws Exception {
-            RecurringPayment payment = seedRecurringPayment("Netflix", "MONTHLY", "-12.99", false);
+            RecurringPayment payment = seedRecurringPayment("Netflix", Frequency.MONTHLY, "-12.99", false);
 
             mockMvc.perform(get(RECURRING_URL).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
@@ -127,7 +127,7 @@ class RecurringPaymentControllerTest {
 
         @Test
         void updatesName() throws Exception {
-            RecurringPayment payment = seedRecurringPayment("Netflix", "MONTHLY", "-12.99", false);
+            RecurringPayment payment = seedRecurringPayment("Netflix", Frequency.MONTHLY, "-12.99", false);
 
             mockMvc.perform(put(RECURRING_URL + "/{id}", payment.getId())
                             .contentType(MediaType.APPLICATION_JSON)
@@ -139,7 +139,7 @@ class RecurringPaymentControllerTest {
 
         @Test
         void updatesIsActive() throws Exception {
-            RecurringPayment payment = seedRecurringPayment("Netflix", "MONTHLY", "-12.99", false);
+            RecurringPayment payment = seedRecurringPayment("Netflix", Frequency.MONTHLY, "-12.99", false);
 
             mockMvc.perform(put(RECURRING_URL + "/{id}", payment.getId())
                             .contentType(MediaType.APPLICATION_JSON)
@@ -160,7 +160,7 @@ class RecurringPaymentControllerTest {
 
         @Test
         void partialUpdatePreservesOtherFields() throws Exception {
-            RecurringPayment payment = seedRecurringPayment("Netflix", "MONTHLY", "-12.99", false);
+            RecurringPayment payment = seedRecurringPayment("Netflix", Frequency.MONTHLY, "-12.99", false);
 
             mockMvc.perform(put(RECURRING_URL + "/{id}", payment.getId())
                             .contentType(MediaType.APPLICATION_JSON)
@@ -183,7 +183,7 @@ class RecurringPaymentControllerTest {
 
         @Test
         void returnsLinkedTransactions() throws Exception {
-            RecurringPayment payment = seedRecurringPayment("Netflix", "MONTHLY", "-12.99", false);
+            RecurringPayment payment = seedRecurringPayment("Netflix", Frequency.MONTHLY, "-12.99", false);
             Transaction tx1 = seedTransaction("Netflix", LocalDate.of(2025, 1, 15), "-12.99");
             Transaction tx2 = seedTransaction("Netflix", LocalDate.of(2025, 2, 15), "-12.99");
             seedLink(tx1, payment);
@@ -197,7 +197,7 @@ class RecurringPaymentControllerTest {
 
         @Test
         void returnsEmptyListWhenNoLinkedTransactions() throws Exception {
-            RecurringPayment payment = seedRecurringPayment("Netflix", "MONTHLY", "-12.99", false);
+            RecurringPayment payment = seedRecurringPayment("Netflix", Frequency.MONTHLY, "-12.99", false);
 
             mockMvc.perform(get(RECURRING_URL + "/{id}/transactions", payment.getId()).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
@@ -281,7 +281,7 @@ class RecurringPaymentControllerTest {
 
         @Test
         void deletesExistingPayment() throws Exception {
-            RecurringPayment payment = seedRecurringPayment("Netflix", "MONTHLY", "-12.99", false);
+            RecurringPayment payment = seedRecurringPayment("Netflix", Frequency.MONTHLY, "-12.99", false);
 
             mockMvc.perform(delete(RECURRING_URL + "/{id}", payment.getId()).with(authenticatedUser(testUser)))
                     .andExpect(status().isNoContent());
@@ -293,7 +293,7 @@ class RecurringPaymentControllerTest {
 
         @Test
         void deletesPaymentWithLinkedTransactions() throws Exception {
-            RecurringPayment payment = seedRecurringPayment("Netflix", "MONTHLY", "-12.99", false);
+            RecurringPayment payment = seedRecurringPayment("Netflix", Frequency.MONTHLY, "-12.99", false);
             Transaction tx = seedTransaction("Netflix", LocalDate.of(2025, 1, 15), "-12.99");
             seedLink(tx, payment);
 
@@ -350,7 +350,7 @@ class RecurringPaymentControllerTest {
         @Test
         void detectsOverlappingPayments() throws Exception {
             // Create an existing payment with a rule that matches Netflix
-            RecurringPayment existing = seedRecurringPayment("Netflix Subscription", "MONTHLY", "-12.99", false);
+            RecurringPayment existing = seedRecurringPayment("Netflix Subscription", Frequency.MONTHLY, "-12.99", false);
             Rule rule = new Rule();
             rule.setRecurringPayment(existing);
             rule.setRuleType(RuleType.JARO_WINKLER);
@@ -388,7 +388,7 @@ class RecurringPaymentControllerTest {
         @Test
         void detectsOverlapViaLinkedTransactions() throws Exception {
             // Create an existing payment with a linked Netflix transaction (no unlinked ones)
-            RecurringPayment existing = seedRecurringPayment("Netflix Subscription", "MONTHLY", "-12.99", false);
+            RecurringPayment existing = seedRecurringPayment("Netflix Subscription", Frequency.MONTHLY, "-12.99", false);
             Transaction linkedTx = seedTransaction("Netflix", LocalDate.now().minusDays(10), "-12.99");
             seedLink(linkedTx, existing);
 
@@ -428,7 +428,7 @@ class RecurringPaymentControllerTest {
 
         @Test
         void returnsPaymentTypeInGetResponse() throws Exception {
-            seedRecurringPayment("Netflix", "MONTHLY", "-12.99", false);
+            seedRecurringPayment("Netflix", Frequency.MONTHLY, "-12.99", false);
 
             mockMvc.perform(get(RECURRING_URL).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
@@ -437,7 +437,7 @@ class RecurringPaymentControllerTest {
 
         @Test
         void groupedPaymentTypeIsReturned() throws Exception {
-            RecurringPayment payment = seedRecurringPayment("Groceries", "MONTHLY", "-200", false);
+            RecurringPayment payment = seedRecurringPayment("Groceries", Frequency.MONTHLY, "-200", false);
             payment.setPaymentType(PaymentType.GROUPED);
             recurringPaymentRepository.save(payment);
 
@@ -542,7 +542,7 @@ class RecurringPaymentControllerTest {
 
         @Test
         void returnsHistoryForPaymentWithLinkedTransactions() throws Exception {
-            RecurringPayment payment = seedRecurringPayment("Netflix", "MONTHLY", "-12.99", false);
+            RecurringPayment payment = seedRecurringPayment("Netflix", Frequency.MONTHLY, "-12.99", false);
             Transaction tx1 = seedTransaction("Netflix", LocalDate.of(2025, 1, 15), "-12.99");
             Transaction tx2 = seedTransaction("Netflix", LocalDate.of(2025, 2, 15), "-12.99");
             Transaction tx3 = seedTransaction("Netflix", LocalDate.of(2025, 3, 15), "-12.99");
@@ -567,7 +567,7 @@ class RecurringPaymentControllerTest {
 
         @Test
         void returnsEmptyListForPaymentWithNoHistory() throws Exception {
-            RecurringPayment payment = seedRecurringPayment("Netflix", "MONTHLY", "-12.99", false);
+            RecurringPayment payment = seedRecurringPayment("Netflix", Frequency.MONTHLY, "-12.99", false);
 
             mockMvc.perform(get(RECURRING_URL + "/{id}/history", payment.getId()).with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
@@ -579,7 +579,7 @@ class RecurringPaymentControllerTest {
     // Test helpers
     // ────────────────────────────────────────────────────────────────────
 
-    private RecurringPayment seedRecurringPayment(String name, String frequency, String amount, boolean isIncome) {
+    private RecurringPayment seedRecurringPayment(String name, Frequency frequency, String amount, boolean isIncome) {
         RecurringPayment payment = new RecurringPayment();
         payment.setName(name);
         payment.setNormalizedName(name.toLowerCase());

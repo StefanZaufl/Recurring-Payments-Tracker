@@ -76,7 +76,7 @@ public class SimulationService {
             }
 
             // Check 2: do the simulated rules match any of this payment's already-linked transactions?
-            List<Transaction> linkedTransactions = linkRepository.findByRecurringPaymentId(rt.getId())
+            List<Transaction> linkedTransactions = linkRepository.findWithTransactionByRecurringPaymentId(rt.getId())
                     .stream().map(TransactionRecurringLink::getTransaction).toList();
             if (!linkedTransactions.isEmpty()) {
                 List<Transaction> simMatches = ruleEvaluationService.findMatchingTransactions(simulatedRules, linkedTransactions);

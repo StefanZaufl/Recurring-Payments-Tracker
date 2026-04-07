@@ -1,5 +1,6 @@
 package com.tracker.service;
 
+import com.tracker.model.entity.Frequency;
 import com.tracker.model.entity.RecurringPayment;
 import com.tracker.model.entity.Transaction;
 import com.tracker.model.entity.TransactionRecurringLink;
@@ -59,7 +60,7 @@ public class AnalyticsService {
         Map<UUID, BigDecimal> yearTotalByPayment = new HashMap<>();
         for (RecurringPayment payment : activePayments) {
             BigDecimal paymentTotal = BigDecimal.ZERO;
-            List<TransactionRecurringLink> links = linkRepository.findByRecurringPaymentId(payment.getId());
+            List<TransactionRecurringLink> links = linkRepository.findWithTransactionByRecurringPaymentId(payment.getId());
             for (TransactionRecurringLink link : links) {
                 LocalDate date = link.getTransaction().getBookingDate();
                 if (!date.isBefore(startOfYear) && !date.isAfter(endOfYear)) {
@@ -166,7 +167,7 @@ public class AnalyticsService {
         // Generate upcoming individual payments
         List<UpcomingPaymentResult> upcomingPayments = new ArrayList<>();
         for (RecurringPayment payment : activePayments) {
-            List<TransactionRecurringLink> links = linkRepository.findByRecurringPaymentId(payment.getId());
+            List<TransactionRecurringLink> links = linkRepository.findWithTransactionByRecurringPaymentId(payment.getId());
             if (links.isEmpty()) continue;
 
             LocalDate lastDate = links.stream()
@@ -209,34 +210,31 @@ public class AnalyticsService {
         return new PredictionResult(predictions, upcomingPayments);
     }
 
-    private BigDecimal annualizeAmount(BigDecimal amount, String frequency) {
+    private BigDecimal annualizeAmount(BigDecimal amount, Frequency frequency) {
         return switch (frequency) {
-            case "MONTHLY" -> amount.multiply(BigDecimal.valueOf(12));
-            case "QUARTERLY" -> amount.multiply(BigDecimal.valueOf(4));
-            case "YEARLY" -> amount;
-            default -> amount.multiply(BigDecimal.valueOf(12));
+            case MONTHLY -> amount.multiply(BigDecimal.valueOf(12));
+            case QUARTERLY -> amount.multiply(BigDecimal.valueOf(4));
+            case YEARLY -> amount;
         };
     }
 
-    private BigDecimal monthlyEquivalent(BigDecimal amount, String frequency) {
+    private BigDecimal monthlyEquivalent(BigDecimal amount, Frequency frequency) {
         return switch (frequency) {
-            case "MONTHLY" -> amount;
-            case "QUARTERLY" -> amount.divide(BigDecimal.valueOf(3), 2, RoundingMode.HALF_UP);
-            case "YEARLY" -> amount.divide(BigDecimal.valueOf(12), 2, RoundingMode.HALF_UP);
-            default -> amount;
+            case MONTHLY -> amount;
+            case QUARTERLY -> amount.divide(BigDecimal.valueOf(3), 2, RoundingMode.HALF_UP);
+            case YEARLY -> amount.divide(BigDecimal.valueOf(12), 2, RoundingMode.HALF_UP);
         };
     }
 
-    private List<LocalDate> predictNextDates(LocalDate lastDate, String frequency, int monthsAhead) {
+    private List<LocalDate> predictNextDates(LocalDate lastDate, Frequency frequency, int monthsAhead) {
         List<LocalDate> dates = new ArrayList<>();
         LocalDate next = lastDate;
         LocalDate limit = LocalDate.now().plusMonths(monthsAhead);
         for (int i = 0; i < 100; i++) {
             next = switch (frequency) {
-                case "MONTHLY" -> next.plusMonths(1);
-                case "QUARTERLY" -> next.plusMonths(3);
-                case "YEARLY" -> next.plusYears(1);
-                default -> next.plusMonths(1);
+                case MONTHLY -> next.plusMonths(1);
+                case QUARTERLY -> next.plusMonths(3);
+                case YEARLY -> next.plusYears(1);
             };
             if (next.isAfter(limit)) break;
             if (next.isAfter(LocalDate.now())) {

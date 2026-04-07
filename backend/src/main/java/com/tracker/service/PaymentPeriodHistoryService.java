@@ -4,6 +4,7 @@ import com.tracker.model.entity.PaymentPeriodHistory;
 import com.tracker.model.entity.RecurringPayment;
 import com.tracker.model.entity.Transaction;
 import com.tracker.model.entity.TransactionRecurringLink;
+import com.tracker.model.entity.Frequency;
 import com.tracker.repository.PaymentPeriodHistoryRepository;
 import com.tracker.repository.RecurringPaymentRepository;
 import com.tracker.repository.TransactionRecurringLinkRepository;
@@ -43,8 +44,8 @@ public class PaymentPeriodHistoryService {
 
     @Transactional
     public void recomputeHistory(RecurringPayment payment) {
-        List<TransactionRecurringLink> links = linkRepository.findByRecurringPaymentId(payment.getId());
-        String frequency = payment.getFrequency() != null ? payment.getFrequency() : "MONTHLY";
+        List<TransactionRecurringLink> links = linkRepository.findWithTransactionByRecurringPaymentId(payment.getId());
+        Frequency frequency = payment.getFrequency() != null ? payment.getFrequency() : Frequency.MONTHLY;
 
         Map<LocalDate, BigDecimal> periodTotals = links.stream()
                 .map(TransactionRecurringLink::getTransaction)
@@ -101,22 +102,28 @@ public class PaymentPeriodHistoryService {
         return historyRepository.findByRecurringPaymentIdAndUserIdOrderByPeriodStartAsc(recurringPaymentId, userId);
     }
 
-    public static LocalDate computePeriodStart(LocalDate date, String frequency) {
+    public static LocalDate computePeriodStart(LocalDate date, Frequency frequency) {
+        if (frequency == null) {
+            frequency = Frequency.MONTHLY;
+        }
         return switch (frequency) {
-            case "QUARTERLY" -> {
+            case QUARTERLY -> {
                 int quarterMonth = ((date.getMonthValue() - 1) / 3) * 3 + 1;
                 yield LocalDate.of(date.getYear(), quarterMonth, 1);
             }
-            case "YEARLY" -> LocalDate.of(date.getYear(), 1, 1);
-            default -> date.withDayOfMonth(1); // MONTHLY
+            case YEARLY -> LocalDate.of(date.getYear(), 1, 1);
+            case MONTHLY -> date.withDayOfMonth(1);
         };
     }
 
-    public static LocalDate computePeriodEnd(LocalDate periodStart, String frequency) {
+    public static LocalDate computePeriodEnd(LocalDate periodStart, Frequency frequency) {
+        if (frequency == null) {
+            frequency = Frequency.MONTHLY;
+        }
         return switch (frequency) {
-            case "QUARTERLY" -> periodStart.plusMonths(3).minusDays(1);
-            case "YEARLY" -> periodStart.plusYears(1).minusDays(1);
-            default -> periodStart.plusMonths(1).minusDays(1); // MONTHLY
+            case QUARTERLY -> periodStart.plusMonths(3).minusDays(1);
+            case YEARLY -> periodStart.plusYears(1).minusDays(1);
+            case MONTHLY -> periodStart.plusMonths(1).minusDays(1);
         };
     }
 
