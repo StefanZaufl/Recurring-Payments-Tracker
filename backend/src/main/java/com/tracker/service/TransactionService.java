@@ -68,7 +68,9 @@ public class TransactionService {
             tx.setIsInterAccount(Boolean.FALSE);
         }
         List<Transaction> savedTransactions = transactionRepository.saveAll(newTransactions);
-        bankAccountService.createMissingForCurrentUser(savedTransactions.stream().map(Transaction::getAccount).toList());
+        bankAccountService.createMissingForCurrentUser(savedTransactions.stream()
+                .map(Transaction::getAccount)
+                .collect(java.util.stream.Collectors.toSet()));
         interAccountService.markInterAccountTransactions(savedTransactions);
 
         int recurringCount = detectionService.detectRecurringPayments(savedTransactions.stream()

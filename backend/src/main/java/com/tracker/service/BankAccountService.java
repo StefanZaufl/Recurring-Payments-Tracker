@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -48,7 +47,7 @@ public class BankAccountService {
     }
 
     @Transactional
-    public void createMissingForCurrentUser(Collection<String> ibans) {
+    public void createMissingForCurrentUser(Set<String> ibans) {
         Set<String> normalizedIbans = ibans.stream()
                 .map(IbanNormalizationService::normalize)
                 .filter(value -> value != null && !value.isBlank())
