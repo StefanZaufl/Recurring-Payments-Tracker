@@ -21,6 +21,8 @@ class CsvParserServiceTest {
     private static final String INCOME_ROW = "15.01.2025;Income;1.234,56;Salary";
     private static final String VALID_PARTNER = "Valid";
     private static final String VALID_ROW = "15.01.2025;Valid;-9,99;OK";
+    private static final CsvParserService.CsvImportMapping DEFAULT_MAPPING =
+            new CsvParserService.CsvImportMapping("Buchungsdatum", "Betrag", null, "Partnername", null, "Buchungs-Details", null);
 
     private CsvParserService parser;
 
@@ -31,7 +33,7 @@ class CsvParserServiceTest {
 
     @Test
     void parsesValidGermanBankCsv() {
-        List<Transaction> result = parser.parse(CsvMother.validTwoRowBytes());
+        List<Transaction> result = parser.parse(CsvMother.validTwoRowBytes(), DEFAULT_MAPPING);
 
         assertEquals(2, result.size());
 
@@ -50,7 +52,7 @@ class CsvParserServiceTest {
 
     @Test
     void handlesIso88591Encoding() {
-        List<Transaction> result = parser.parse(CsvMother.bytes(Charset.forName("ISO-8859-1"), HEADER, MUELLER_ROW));
+        List<Transaction> result = parser.parse(CsvMother.bytes(Charset.forName("ISO-8859-1"), HEADER, MUELLER_ROW), DEFAULT_MAPPING);
 
         assertEquals(1, result.size());
         assertEquals(MUELLER_BAKERY, result.get(0).getPartnerName());
@@ -58,7 +60,7 @@ class CsvParserServiceTest {
 
     @Test
     void skipsRowsWithMissingBookingDateOrAmount() {
-        List<Transaction> result = parser.parse(CsvMother.bytes(HEADER, MISSING_DATE_ROW, MISSING_AMOUNT_ROW, VALID_ROW));
+        List<Transaction> result = parser.parse(CsvMother.bytes(HEADER, MISSING_DATE_ROW, MISSING_AMOUNT_ROW, VALID_ROW), DEFAULT_MAPPING);
 
         assertEquals(1, result.size());
         assertEquals(VALID_PARTNER, result.get(0).getPartnerName());
@@ -68,26 +70,26 @@ class CsvParserServiceTest {
     void throwsOnMissingRequiredColumns() {
         byte[] csv = CsvMother.bytes(INVALID_HEADER, "01.01.2025;Test;-10,00");
 
-        assertThrows(CsvParserService.CsvParseException.class, () -> parser.parse(csv));
+        assertThrows(CsvParserService.CsvParseException.class, () -> parser.parse(csv, DEFAULT_MAPPING));
     }
 
     @Test
     void throwsOnInvalidDateFormat() {
         byte[] csv = CsvMother.bytes(HEADER, INVALID_DATE_ROW);
 
-        assertThrows(CsvParserService.CsvParseException.class, () -> parser.parse(csv));
+        assertThrows(CsvParserService.CsvParseException.class, () -> parser.parse(csv, DEFAULT_MAPPING));
     }
 
     @Test
     void throwsOnInvalidAmountFormat() {
         byte[] csv = CsvMother.bytes(HEADER, INVALID_AMOUNT_ROW);
 
-        assertThrows(CsvParserService.CsvParseException.class, () -> parser.parse(csv));
+        assertThrows(CsvParserService.CsvParseException.class, () -> parser.parse(csv, DEFAULT_MAPPING));
     }
 
     @Test
     void handlesNegativeAndPositiveAmounts() {
-        List<Transaction> result = parser.parse(CsvMother.bytes(HEADER, EXPENSE_ROW, INCOME_ROW));
+        List<Transaction> result = parser.parse(CsvMother.bytes(HEADER, EXPENSE_ROW, INCOME_ROW), DEFAULT_MAPPING);
 
         assertEquals(EXPENSE_AMOUNT, result.get(0).getAmount());
         assertEquals(LARGE_INCOME_AMOUNT, result.get(1).getAmount());
@@ -95,10 +97,41 @@ class CsvParserServiceTest {
 
     @Test
     void handlesOptionalColumnsGracefully() {
-        List<Transaction> result = parser.parse(CsvMother.bytes("Buchungsdatum;Betrag", "15.01.2025;-12,99"));
+        List<Transaction> result = parser.parse(
+                CsvMother.bytes("Buchungsdatum;Betrag", "15.01.2025;-12,99"),
+                new CsvParserService.CsvImportMapping("Buchungsdatum", "Betrag", null, null, null, null, null)
+        );
 
         assertEquals(1, result.size());
         assertNull(result.get(0).getPartnerName());
         assertNull(result.get(0).getDetails());
+    }
+
+    @Test
+    void usesDetailsFallbackWhenDetailsIsBlank() {
+        String header = "Buchungsdatum;Partnername;Betrag;Buchungs-Details;Verwendungszweck";
+        String row = "15.01.2025;Netflix;-12,99;;Primary fallback";
+
+        List<Transaction> result = parser.parse(
+                CsvMother.bytes(header, row),
+                new CsvParserService.CsvImportMapping("Buchungsdatum", "Betrag", null, "Partnername", null, "Buchungs-Details", "Verwendungszweck")
+        );
+
+        assertEquals(1, result.size());
+        assertEquals("Primary fallback", result.get(0).getDetails());
+    }
+
+    @Test
+    void keepsDetailsWhenPrimaryDetailsIsPresent() {
+        String header = "Buchungsdatum;Partnername;Betrag;Buchungs-Details;Verwendungszweck";
+        String row = "15.01.2025;Netflix;-12,99;Primary details;Fallback details";
+
+        List<Transaction> result = parser.parse(
+                CsvMother.bytes(header, row),
+                new CsvParserService.CsvImportMapping("Buchungsdatum", "Betrag", null, "Partnername", null, "Buchungs-Details", "Verwendungszweck")
+        );
+
+        assertEquals(1, result.size());
+        assertEquals("Primary details", result.get(0).getDetails());
     }
 }

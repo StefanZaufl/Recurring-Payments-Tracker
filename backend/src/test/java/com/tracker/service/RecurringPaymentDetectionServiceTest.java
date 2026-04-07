@@ -1,5 +1,6 @@
 package com.tracker.service;
 
+import com.tracker.model.entity.Frequency;
 import com.tracker.model.entity.Transaction;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -144,7 +145,7 @@ class RecurringPaymentDetectionServiceTest {
         @Test
         void detectsMonthlyPayments() {
             List<Transaction> txs = monthlyTransactions("Netflix", LocalDate.of(2025, 1, 15), 4, "-12.99");
-            assertThat(service.detectFrequency(txs)).isEqualTo("MONTHLY");
+            assertThat(service.detectFrequency(txs)).isEqualTo(Frequency.MONTHLY);
         }
 
         @Test
@@ -153,7 +154,7 @@ class RecurringPaymentDetectionServiceTest {
                     tx("Insurance", LocalDate.of(2025, 1, 1), "-200"),
                     tx("Insurance", LocalDate.of(2025, 4, 1), "-200"),
                     tx("Insurance", LocalDate.of(2025, 7, 1), "-200"));
-            assertThat(service.detectFrequency(txs)).isEqualTo("QUARTERLY");
+            assertThat(service.detectFrequency(txs)).isEqualTo(Frequency.QUARTERLY);
         }
 
         @Test
@@ -161,7 +162,7 @@ class RecurringPaymentDetectionServiceTest {
             List<Transaction> txs = List.of(
                     tx("Domain Reg", LocalDate.of(2024, 3, 10), "-15"),
                     tx("Domain Reg", LocalDate.of(2025, 3, 10), "-15"));
-            assertThat(service.detectFrequency(txs)).isEqualTo("YEARLY");
+            assertThat(service.detectFrequency(txs)).isEqualTo(Frequency.YEARLY);
         }
 
         @Test
@@ -185,7 +186,7 @@ class RecurringPaymentDetectionServiceTest {
                     tx("Spotify", LocalDate.of(2025, 2, 14), "-9.99"),
                     tx("Spotify", LocalDate.of(2025, 3, 17), "-9.99"),
                     tx("Spotify", LocalDate.of(2025, 4, 15), "-9.99"));
-            assertThat(service.detectFrequency(txs)).isEqualTo("MONTHLY");
+            assertThat(service.detectFrequency(txs)).isEqualTo(Frequency.MONTHLY);
         }
 
         @Test
@@ -194,7 +195,7 @@ class RecurringPaymentDetectionServiceTest {
             List<Transaction> txs = List.of(
                     tx("A", start, "-10"),
                     tx("A", start.plusDays(MONTHLY_MIN_DAYS), "-10"));
-            assertThat(service.detectFrequency(txs)).isEqualTo("MONTHLY");
+            assertThat(service.detectFrequency(txs)).isEqualTo(Frequency.MONTHLY);
         }
 
         @Test
@@ -203,7 +204,7 @@ class RecurringPaymentDetectionServiceTest {
             List<Transaction> txs = List.of(
                     tx("A", start, "-10"),
                     tx("A", start.plusDays(MONTHLY_MAX_DAYS), "-10"));
-            assertThat(service.detectFrequency(txs)).isEqualTo("MONTHLY");
+            assertThat(service.detectFrequency(txs)).isEqualTo(Frequency.MONTHLY);
         }
 
         @Test
@@ -231,7 +232,7 @@ class RecurringPaymentDetectionServiceTest {
     // ────────────────────────────────────────────────────────────────────
 
     private static RecurringPaymentDetectionService createService() {
-        return new RecurringPaymentDetectionService(null, null, null, null, null, null);
+        return new RecurringPaymentDetectionService(null, null, null, null, null, null, null);
     }
 
     static Transaction tx(String partnerName, LocalDate date, String amount) {

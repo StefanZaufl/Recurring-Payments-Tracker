@@ -335,7 +335,7 @@ class RuleControllerTest {
         payment.setName(name);
         payment.setNormalizedName(name.toLowerCase());
         payment.setAverageAmount(new BigDecimal("-12.99"));
-        payment.setFrequency("MONTHLY");
+        payment.setFrequency(Frequency.MONTHLY);
         payment.setIsIncome(false);
         payment.setIsActive(true);
         payment.setUser(testUser);

@@ -10,6 +10,7 @@
 
 
 export interface RecurringPaymentSummary { 
+    id: string;
     name: string;
     monthlyAmount: number;
     annualAmount: number;

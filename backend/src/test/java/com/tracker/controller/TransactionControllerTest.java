@@ -1,8 +1,6 @@
 package com.tracker.controller;
 
-import com.tracker.model.entity.FileUpload;
-import com.tracker.model.entity.Transaction;
-import com.tracker.model.entity.User;
+import com.tracker.model.entity.*;
 import com.tracker.repository.*;
 import com.tracker.testutil.CsvMother;
 import com.tracker.testutil.FileUploadMother;
@@ -25,6 +23,7 @@ import static com.tracker.controller.TransactionController.*;
 import static com.tracker.testutil.CsvMother.*;
 import static com.tracker.testutil.SecurityTestUtil.authenticatedUser;
 import static com.tracker.testutil.TransactionMother.*;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -43,6 +42,10 @@ class TransactionControllerTest {
     private static final String TEXT_PARAM = "text";
     private static final String SORT_PARAM = "sort";
     private static final String SORT_DIR_PARAM = "sortDirection";
+    private static final String MAPPING_PARAM = "mapping";
+    private static final String DEFAULT_MAPPING_JSON = """
+            {"bookingDate":"Buchungsdatum","amount":"Betrag","partnerName":"Partnername","details":"Buchungs-Details"}
+            """;
 
     private static final int PAGE_SIZE_2 = 2;
     private static final int TOTAL_PAGING_ITEMS = 3;
@@ -78,6 +81,9 @@ class TransactionControllerTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private BankAccountRepository bankAccountRepository;
+
     private User testUser;
 
     @BeforeEach
@@ -87,6 +93,7 @@ class TransactionControllerTest {
         recurringPaymentRepository.deleteAll();
         transactionRepository.deleteAll();
         fileUploadRepository.deleteAll();
+        bankAccountRepository.deleteAll();
         testUser = SecurityTestUtil.createTestUser(userRepository);
     }
 
@@ -94,10 +101,11 @@ class TransactionControllerTest {
     void uploadCsv_validFile_returnsUploadResponse() throws Exception {
         MockMultipartFile file = CsvMother.validTwoRowFile();
 
-        mockMvc.perform(multipart(UPLOAD_URL).file(file).with(authenticatedUser(testUser)))
+        mockMvc.perform(multipart(UPLOAD_URL).file(file).param(MAPPING_PARAM, DEFAULT_MAPPING_JSON).with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.uploadId").isNotEmpty())
                 .andExpect(jsonPath("$.transactionCount").value(2))
+                .andExpect(jsonPath("$.skippedDuplicates").value(0))
                 .andExpect(jsonPath("$.recurringPaymentsDetected").value(0));
     }
 
@@ -105,7 +113,7 @@ class TransactionControllerTest {
     void uploadCsv_missingRequiredColumn_returns400() throws Exception {
         MockMultipartFile file = CsvMother.multipartFile(INVALID_HEADER, "01.01.2025;Test;-10,00");
 
-        mockMvc.perform(multipart(UPLOAD_URL).file(file).with(authenticatedUser(testUser)))
+        mockMvc.perform(multipart(UPLOAD_URL).file(file).param(MAPPING_PARAM, DEFAULT_MAPPING_JSON).with(authenticatedUser(testUser)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", containsString("Buchungsdatum")));
     }
@@ -114,9 +122,96 @@ class TransactionControllerTest {
     void uploadCsv_invalidDate_returns400() throws Exception {
         MockMultipartFile file = CsvMother.multipartFile(HEADER, INVALID_DATE_ROW);
 
-        mockMvc.perform(multipart(UPLOAD_URL).file(file).with(authenticatedUser(testUser)))
+        mockMvc.perform(multipart(UPLOAD_URL).file(file).param(MAPPING_PARAM, DEFAULT_MAPPING_JSON).with(authenticatedUser(testUser)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", containsString("date")));
+    }
+
+    @Test
+    void uploadCsv_usesDetailsFallbackWhenPrimaryDetailsEmpty() throws Exception {
+        MockMultipartFile file = CsvMother.multipartFile(
+                "Buchungsdatum;Partnername;Betrag;Buchungs-Details;Verwendungszweck",
+                "15.01.2025;Test;-10,00;;Fallback details"
+        );
+
+        mockMvc.perform(multipart(UPLOAD_URL)
+                        .file(file)
+                        .param(MAPPING_PARAM, """
+                                {"bookingDate":"Buchungsdatum","amount":"Betrag","partnerName":"Partnername","details":"Buchungs-Details","detailsFallback":"Verwendungszweck"}
+                                """)
+                        .with(authenticatedUser(testUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.transactionCount").value(1))
+                .andExpect(jsonPath("$.skippedDuplicates").value(0));
+
+        Transaction saved = transactionRepository.findAll().getFirst();
+        assertThat(saved.getDetails(), is("Fallback details"));
+    }
+
+    @Test
+    void uploadCsv_withAccountAndPartnerIban_persistsNormalizedIbansAndCreatesBankAccount() throws Exception {
+        MockMultipartFile file = CsvMother.multipartFile(
+                "Buchungsdatum;Auftragskonto;Partner IBAN;Betrag",
+                "15.01.2025;de12 3456;de98 7654;-10,00"
+        );
+
+        mockMvc.perform(multipart(UPLOAD_URL)
+                        .file(file)
+                        .param(MAPPING_PARAM, """
+                                {"bookingDate":"Buchungsdatum","amount":"Betrag","account":"Auftragskonto","partnerIban":"Partner IBAN"}
+                                """)
+                        .with(authenticatedUser(testUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.transactionCount").value(1));
+
+        Transaction saved = transactionRepository.findAll().getFirst();
+        assertThat(saved.getAccount(), is("DE123456"));
+        assertThat(saved.getPartnerIban(), is("DE987654"));
+        assertThat(saved.getIsInterAccount(), is(false));
+        assertThat(bankAccountRepository.findByUserIdOrderByNameAscIbanAsc(testUser.getId()), hasSize(1));
+        assertThat(bankAccountRepository.findByUserIdOrderByNameAscIbanAsc(testUser.getId()).getFirst().getIban(), is("DE123456"));
+    }
+
+    @Test
+    void uploadCsv_marksInterAccountWhenPartnerIbanBelongsToOwnedBankAccount() throws Exception {
+        BankAccount existingAccount = new BankAccount();
+        existingAccount.setUser(testUser);
+        existingAccount.setIban("DE999999");
+        bankAccountRepository.save(existingAccount);
+
+        MockMultipartFile file = CsvMother.multipartFile(
+                "Buchungsdatum;Auftragskonto;Partner IBAN;Betrag",
+                "15.01.2025;DE123456;de99 9999;-10,00"
+        );
+
+        mockMvc.perform(multipart(UPLOAD_URL)
+                        .file(file)
+                        .param(MAPPING_PARAM, """
+                                {"bookingDate":"Buchungsdatum","amount":"Betrag","account":"Auftragskonto","partnerIban":"Partner IBAN"}
+                                """)
+                        .with(authenticatedUser(testUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.transactionCount").value(1))
+                .andExpect(jsonPath("$.recurringPaymentsDetected").value(0));
+
+        Transaction saved = transactionRepository.findAll().getFirst();
+        assertThat(saved.getIsInterAccount(), is(true));
+    }
+
+    @Test
+    void uploadCsv_duplicateTransactionsAreSkippedAndReported() throws Exception {
+        MockMultipartFile file = CsvMother.validTwoRowFile();
+
+        mockMvc.perform(multipart(UPLOAD_URL).file(file).param(MAPPING_PARAM, DEFAULT_MAPPING_JSON).with(authenticatedUser(testUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.transactionCount").value(2))
+                .andExpect(jsonPath("$.skippedDuplicates").value(0));
+
+        mockMvc.perform(multipart(UPLOAD_URL).file(file).param(MAPPING_PARAM, DEFAULT_MAPPING_JSON).with(authenticatedUser(testUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.transactionCount").value(0))
+                .andExpect(jsonPath("$.skippedDuplicates").value(2))
+                .andExpect(jsonPath("$.recurringPaymentsDetected").value(0));
     }
 
     @Test
@@ -231,6 +326,36 @@ class TransactionControllerTest {
                 .andExpect(jsonPath("$.content[0].amount").value(-10.00))
                 .andExpect(jsonPath("$.content[1].amount").value(-20.00))
                 .andExpect(jsonPath("$.content[2].amount").value(-30.00));
+    }
+
+    @Test
+    void getTransactions_unlinkedFilter_returnsOnlyUnlinkedTransactions() throws Exception {
+        Transaction tx1 = seedTransaction(TransactionMother.transaction(NETFLIX, LocalDate.now().minusDays(10), TEN));
+        Transaction tx2 = seedTransaction(TransactionMother.transaction(SPOTIFY, LocalDate.now().minusDays(10), TWENTY));
+
+        // Link tx1 to a recurring payment
+        RecurringPayment payment = new RecurringPayment();
+        payment.setName("Netflix");
+        payment.setNormalizedName("netflix");
+        payment.setAverageAmount(new BigDecimal("-10"));
+        payment.setFrequency(Frequency.MONTHLY);
+        payment.setIsActive(true);
+        payment.setUser(testUser);
+        payment = recurringPaymentRepository.save(payment);
+
+        TransactionRecurringLink link = new TransactionRecurringLink();
+        link.setTransaction(tx1);
+        link.setRecurringPayment(payment);
+        link.setConfidenceScore(BigDecimal.ONE);
+        link.setUser(testUser);
+        linkRepository.save(link);
+
+        mockMvc.perform(get(TRANSACTIONS_URL)
+                        .param("unlinked", "true")
+                        .with(authenticatedUser(testUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].partnerName").value(SPOTIFY));
     }
 
     @Test

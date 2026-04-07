@@ -14,7 +14,7 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
 @Component({
   selector: 'app-payment-rules-modal',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, ModalComponent, CurrencyFormatPipe],
+  imports: [CommonModule, FormsModule, ModalComponent],
   template: `
     <app-modal
       title="Detection Rules"
@@ -107,6 +107,7 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
                   <label for="ruleTargetField" class="text-[11px] text-muted mb-1 block">Target Field</label>
                   <select id="ruleTargetField" [(ngModel)]="ruleFormTargetField"
                     class="w-full text-xs bg-card border border-card-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-subtle">
+                    <option value="ACCOUNT">Account</option>
                     <option value="PARTNER_NAME">Partner Name</option>
                     <option value="PARTNER_IBAN">Partner IBAN</option>
                     <option value="DETAILS">Details</option>
@@ -312,6 +313,7 @@ export class PaymentRulesModalComponent implements OnInit, OnDestroy {
 
   formatTargetField(field: string): string {
     switch (field) {
+      case 'ACCOUNT': return 'Account';
       case 'PARTNER_NAME': return 'Partner Name';
       case 'PARTNER_IBAN': return 'Partner IBAN';
       case 'DETAILS': return 'Details';

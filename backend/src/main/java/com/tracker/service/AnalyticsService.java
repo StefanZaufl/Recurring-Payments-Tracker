@@ -1,5 +1,6 @@
 package com.tracker.service;
 
+import com.tracker.model.entity.Frequency;
 import com.tracker.model.entity.RecurringPayment;
 import com.tracker.model.entity.Transaction;
 import com.tracker.model.entity.TransactionRecurringLink;
@@ -40,7 +41,7 @@ public class AnalyticsService {
         LocalDate endOfYear = LocalDate.of(year, 12, 31);
 
         UUID currentUserId = userContextService.getCurrentUserId();
-        List<Transaction> transactions = transactionRepository.findByUserIdAndBookingDateBetween(currentUserId, startOfYear, endOfYear);
+        List<Transaction> transactions = transactionRepository.findByUserIdAndBookingDateBetweenAndIsInterAccountFalse(currentUserId, startOfYear, endOfYear);
         List<RecurringPayment> activePayments = recurringPaymentRepository.findByUserIdAndIsActiveTrue(currentUserId);
 
         // Presort transactions by month (index 0 = January, 11 = December)
@@ -50,6 +51,30 @@ public class AnalyticsService {
         }
         for (Transaction tx : transactions) {
             transactionsByMonth.get(tx.getBookingDate().getMonthValue() - 1).add(tx);
+        }
+
+        // Build map of recurring payment ID -> total amount and per-month recurring expenses
+        BigDecimal[] monthlyRecurringExpenses = new BigDecimal[12];
+        Arrays.fill(monthlyRecurringExpenses, BigDecimal.ZERO);
+
+        Map<UUID, BigDecimal> yearTotalByPayment = new HashMap<>();
+        for (RecurringPayment payment : activePayments) {
+            BigDecimal paymentTotal = BigDecimal.ZERO;
+            List<TransactionRecurringLink> links = linkRepository.findWithTransactionByRecurringPaymentId(payment.getId());
+            for (TransactionRecurringLink link : links) {
+                LocalDate date = link.getTransaction().getBookingDate();
+                if (!date.isBefore(startOfYear) && !date.isAfter(endOfYear)) {
+                    BigDecimal absAmount = link.getTransaction().getAmount().abs();
+                    paymentTotal = paymentTotal.add(absAmount);
+                    if (!Boolean.TRUE.equals(payment.getIsIncome())) {
+                        int monthIndex = date.getMonthValue() - 1;
+                        monthlyRecurringExpenses[monthIndex] = monthlyRecurringExpenses[monthIndex].add(absAmount);
+                    }
+                }
+            }
+            if (paymentTotal.compareTo(BigDecimal.ZERO) > 0) {
+                yearTotalByPayment.put(payment.getId(), paymentTotal);
+            }
         }
 
         // Calculate monthly breakdown from presorted buckets
@@ -68,7 +93,7 @@ public class AnalyticsService {
             }
             expenses = expenses.abs();
 
-            monthlyBreakdown.add(new MonthlyBreakdownResult(month, income, expenses, income.subtract(expenses)));
+            monthlyBreakdown.add(new MonthlyBreakdownResult(month, income, expenses, income.subtract(expenses), monthlyRecurringExpenses[month - 1]));
         }
 
         // Total income and expenses for the year
@@ -78,22 +103,6 @@ public class AnalyticsService {
         BigDecimal totalExpenses = monthlyBreakdown.stream()
                 .map(MonthlyBreakdownResult::expenses)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        // Build map of recurring payment ID -> total amount from linked transactions within the year
-        Map<UUID, BigDecimal> yearTotalByPayment = new HashMap<>();
-        for (RecurringPayment payment : activePayments) {
-            BigDecimal paymentTotal = BigDecimal.ZERO;
-            List<TransactionRecurringLink> links = linkRepository.findByRecurringPaymentId(payment.getId());
-            for (TransactionRecurringLink link : links) {
-                LocalDate date = link.getTransaction().getBookingDate();
-                if (!date.isBefore(startOfYear) && !date.isAfter(endOfYear)) {
-                    paymentTotal = paymentTotal.add(link.getTransaction().getAmount().abs());
-                }
-            }
-            if (paymentTotal.compareTo(BigDecimal.ZERO) > 0) {
-                yearTotalByPayment.put(payment.getId(), paymentTotal);
-            }
-        }
 
         // Recurring expenses total
         BigDecimal totalRecurringExpenses = BigDecimal.ZERO;
@@ -141,7 +150,7 @@ public class AnalyticsService {
                     BigDecimal annualAmount = yearTotalByPayment.get(p.getId());
                     BigDecimal monthlyAmount = annualAmount.divide(BigDecimal.valueOf(12), 2, RoundingMode.HALF_UP);
                     String categoryName = p.getCategory() != null ? p.getCategory().getName() : "Uncategorized";
-                    return new RecurringPaymentSummaryResult(p.getName(), monthlyAmount, annualAmount, categoryName);
+                    return new RecurringPaymentSummaryResult(p.getId(), p.getName(), monthlyAmount, annualAmount, categoryName);
                 })
                 .sorted(Comparator.comparing(RecurringPaymentSummaryResult::annualAmount).reversed())
                 .toList();
@@ -158,7 +167,7 @@ public class AnalyticsService {
         // Generate upcoming individual payments
         List<UpcomingPaymentResult> upcomingPayments = new ArrayList<>();
         for (RecurringPayment payment : activePayments) {
-            List<TransactionRecurringLink> links = linkRepository.findByRecurringPaymentId(payment.getId());
+            List<TransactionRecurringLink> links = linkRepository.findWithTransactionByRecurringPaymentId(payment.getId());
             if (links.isEmpty()) continue;
 
             LocalDate lastDate = links.stream()
@@ -201,34 +210,31 @@ public class AnalyticsService {
         return new PredictionResult(predictions, upcomingPayments);
     }
 
-    private BigDecimal annualizeAmount(BigDecimal amount, String frequency) {
+    private BigDecimal annualizeAmount(BigDecimal amount, Frequency frequency) {
         return switch (frequency) {
-            case "MONTHLY" -> amount.multiply(BigDecimal.valueOf(12));
-            case "QUARTERLY" -> amount.multiply(BigDecimal.valueOf(4));
-            case "YEARLY" -> amount;
-            default -> amount.multiply(BigDecimal.valueOf(12));
+            case MONTHLY -> amount.multiply(BigDecimal.valueOf(12));
+            case QUARTERLY -> amount.multiply(BigDecimal.valueOf(4));
+            case YEARLY -> amount;
         };
     }
 
-    private BigDecimal monthlyEquivalent(BigDecimal amount, String frequency) {
+    private BigDecimal monthlyEquivalent(BigDecimal amount, Frequency frequency) {
         return switch (frequency) {
-            case "MONTHLY" -> amount;
-            case "QUARTERLY" -> amount.divide(BigDecimal.valueOf(3), 2, RoundingMode.HALF_UP);
-            case "YEARLY" -> amount.divide(BigDecimal.valueOf(12), 2, RoundingMode.HALF_UP);
-            default -> amount;
+            case MONTHLY -> amount;
+            case QUARTERLY -> amount.divide(BigDecimal.valueOf(3), 2, RoundingMode.HALF_UP);
+            case YEARLY -> amount.divide(BigDecimal.valueOf(12), 2, RoundingMode.HALF_UP);
         };
     }
 
-    private List<LocalDate> predictNextDates(LocalDate lastDate, String frequency, int monthsAhead) {
+    private List<LocalDate> predictNextDates(LocalDate lastDate, Frequency frequency, int monthsAhead) {
         List<LocalDate> dates = new ArrayList<>();
         LocalDate next = lastDate;
         LocalDate limit = LocalDate.now().plusMonths(monthsAhead);
         for (int i = 0; i < 100; i++) {
             next = switch (frequency) {
-                case "MONTHLY" -> next.plusMonths(1);
-                case "QUARTERLY" -> next.plusMonths(3);
-                case "YEARLY" -> next.plusYears(1);
-                default -> next.plusMonths(1);
+                case MONTHLY -> next.plusMonths(1);
+                case QUARTERLY -> next.plusMonths(3);
+                case YEARLY -> next.plusYears(1);
             };
             if (next.isAfter(limit)) break;
             if (next.isAfter(LocalDate.now())) {
@@ -247,11 +253,11 @@ public class AnalyticsService {
             List<CategoryBreakdownResult> byCategory,
             List<RecurringPaymentSummaryResult> recurringPayments) {}
 
-    public record MonthlyBreakdownResult(int month, BigDecimal income, BigDecimal expenses, BigDecimal surplus) {}
+    public record MonthlyBreakdownResult(int month, BigDecimal income, BigDecimal expenses, BigDecimal surplus, BigDecimal recurringExpenses) {}
 
     public record CategoryBreakdownResult(String category, BigDecimal total, double percentage, String color) {}
 
-    public record RecurringPaymentSummaryResult(String name, BigDecimal monthlyAmount,
+    public record RecurringPaymentSummaryResult(UUID id, String name, BigDecimal monthlyAmount,
                                                  BigDecimal annualAmount, String category) {}
 
     public record PredictionResult(List<MonthlyPredictionResult> predictions,

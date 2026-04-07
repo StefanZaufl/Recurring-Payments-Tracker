@@ -33,6 +33,7 @@ public class AnalyticsController implements AnalyticsApi {
                     dto.setIncome(mb.income().doubleValue());
                     dto.setExpenses(mb.expenses().doubleValue());
                     dto.setSurplus(mb.surplus().doubleValue());
+                    dto.setRecurringExpenses(mb.recurringExpenses().doubleValue());
                     return dto;
                 })
                 .toList();
@@ -53,6 +54,7 @@ public class AnalyticsController implements AnalyticsApi {
         List<RecurringPaymentSummary> payments = result.recurringPayments().stream()
                 .map(rp -> {
                     RecurringPaymentSummary dto = new RecurringPaymentSummary();
+                    dto.setId(rp.id());
                     dto.setName(rp.name());
                     dto.setMonthlyAmount(rp.monthlyAmount().doubleValue());
                     dto.setAnnualAmount(rp.annualAmount().doubleValue());

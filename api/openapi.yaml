@@ -20,11 +20,14 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              required: [file]
+              required: [file, mapping]
               properties:
                 file:
                   type: string
                   format: binary
+                mapping:
+                  type: string
+                  description: JSON-serialized transaction CSV column mapping.
       responses:
         '200':
           description: Upload successful
@@ -60,6 +63,16 @@ paths:
           description: Search in partner name and details (case-insensitive, partial match)
           schema:
             type: string
+        - name: account
+          in: query
+          description: Filter by source account IBAN
+          schema:
+            type: string
+        - name: unlinked
+          in: query
+          description: When true, returns only transactions not linked to any recurring payment (last 2 years)
+          schema:
+            type: boolean
         - name: page
           in: query
           schema:
@@ -150,6 +163,48 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/RecurringPaymentDto'
+    post:
+      operationId: createRecurringPayment
+      summary: Create a new recurring or grouped payment
+      tags: [RecurringPayments]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRecurringPaymentRequest'
+      responses:
+        '201':
+          description: Payment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringPaymentDto'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/recurring-payments/simulate:
+    post:
+      operationId: simulateRules
+      summary: Simulate rules against unlinked transactions
+      tags: [RecurringPayments]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimulateRulesRequest'
+      responses:
+        '200':
+          description: Simulation results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulateRulesResponse'
 
   /api/recurring-payments/{id}:
     put:
@@ -182,6 +237,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteRecurringPayment
+      summary: Delete a recurring payment
+      tags: [RecurringPayments]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Payment deleted
+        '404':
+          description: Recurring payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/recurring-payments/{id}/transactions:
     get:
@@ -204,6 +279,34 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/TransactionDto'
+
+  /api/recurring-payments/{id}/history:
+    get:
+      operationId: getRecurringPaymentHistory
+      summary: Get period amount history for a recurring payment
+      tags: [RecurringPayments]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of period history entries sorted by periodStart ascending
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PaymentPeriodHistoryEntry'
+        '404':
+          description: Recurring payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/recurring-payments/{recurringPaymentId}/rules:
     get:
@@ -474,6 +577,96 @@ paths:
           description: Category deleted
         '404':
           description: Category not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/bank-accounts:
+    get:
+      operationId: getBankAccounts
+      summary: List bank accounts for the current user
+      tags: [BankAccounts]
+      responses:
+        '200':
+          description: List of bank accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BankAccountDto'
+    post:
+      operationId: createBankAccount
+      summary: Create a bank account for the current user
+      tags: [BankAccounts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBankAccountRequest'
+      responses:
+        '201':
+          description: Bank account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BankAccountDto'
+        '400':
+          description: Invalid bank account request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/bank-accounts/{id}:
+    put:
+      operationId: updateBankAccount
+      summary: Update a bank account
+      tags: [BankAccounts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBankAccountRequest'
+      responses:
+        '200':
+          description: Updated bank account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BankAccountDto'
+        '404':
+          description: Bank account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteBankAccount
+      summary: Delete a bank account
+      tags: [BankAccounts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Bank account deleted
+        '404':
+          description: Bank account not found
           content:
             application/json:
               schema:
@@ -840,15 +1033,48 @@ components:
 
     UploadResponse:
       type: object
-      required: [uploadId, transactionCount, recurringPaymentsDetected]
+      required: [uploadId, transactionCount, skippedDuplicates, recurringPaymentsDetected]
       properties:
         uploadId:
           type: string
           format: uuid
         transactionCount:
           type: integer
+        skippedDuplicates:
+          type: integer
         recurringPaymentsDetected:
           type: integer
+
+    TransactionCsvImportMapping:
+      type: object
+      required: [bookingDate, amount]
+      properties:
+        bookingDate:
+          type: string
+          description: Source CSV header mapped to booking date.
+        amount:
+          type: string
+          description: Source CSV header mapped to amount.
+        account:
+          type: string
+          nullable: true
+          description: Source CSV header mapped to the transaction's own account IBAN.
+        partnerName:
+          type: string
+          nullable: true
+          description: Source CSV header mapped to partner name.
+        partnerIban:
+          type: string
+          nullable: true
+          description: Source CSV header mapped to partner IBAN.
+        details:
+          type: string
+          nullable: true
+          description: Source CSV header mapped to details.
+        detailsFallback:
+          type: string
+          nullable: true
+          description: Optional source CSV header used only when details is blank.
 
     TransactionDto:
       type: object
@@ -863,6 +1089,8 @@ components:
         bookingDate:
           type: string
           format: date
+        account:
+          type: string
         partnerName:
           type: string
         partnerIban:
@@ -874,6 +1102,8 @@ components:
           type: string
         details:
           type: string
+        isInterAccount:
+          type: boolean
         createdAt:
           type: string
           format: date-time
@@ -904,6 +1134,42 @@ components:
         color:
           type: string
 
+    BankAccountDto:
+      type: object
+      required: [id, iban]
+      properties:
+        id:
+          type: string
+          format: uuid
+        iban:
+          type: string
+        name:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateBankAccountRequest:
+      type: object
+      required: [iban]
+      properties:
+        iban:
+          type: string
+        name:
+          type: string
+          nullable: true
+
+    UpdateBankAccountRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+
     CreateCategoryRequest:
       type: object
       required: [name]
@@ -931,7 +1197,7 @@ components:
 
     TargetField:
       type: string
-      enum: [PARTNER_NAME, PARTNER_IBAN, DETAILS]
+      enum: [ACCOUNT, PARTNER_NAME, PARTNER_IBAN, DETAILS]
 
     RuleDto:
       type: object
@@ -999,9 +1265,13 @@ components:
           type: number
           format: double
 
+    PaymentType:
+      type: string
+      enum: [RECURRING, GROUPED]
+
     RecurringPaymentDto:
       type: object
-      required: [id, name, averageAmount, frequency, isIncome, isActive, ruleCount]
+      required: [id, name, averageAmount, frequency, isIncome, isActive, ruleCount, paymentType]
       properties:
         id:
           type: string
@@ -1013,11 +1283,15 @@ components:
           format: uuid
         categoryName:
           type: string
+        categoryColor:
+          type: string
         averageAmount:
           type: number
           format: double
         frequency:
           $ref: '#/components/schemas/Frequency'
+        paymentType:
+          $ref: '#/components/schemas/PaymentType'
         isIncome:
           type: boolean
         isActive:
@@ -1064,7 +1338,7 @@ components:
 
     MonthlyBreakdown:
       type: object
-      required: [month, income, expenses, surplus]
+      required: [month, income, expenses, surplus, recurringExpenses]
       properties:
         month:
           type: integer
@@ -1075,6 +1349,9 @@ components:
           type: number
           format: double
         surplus:
+          type: number
+          format: double
+        recurringExpenses:
           type: number
           format: double
 
@@ -1095,8 +1372,11 @@ components:
 
     RecurringPaymentSummary:
       type: object
-      required: [name, monthlyAmount, annualAmount, category]
+      required: [id, name, monthlyAmount, annualAmount, category]
       properties:
+        id:
+          type: string
+          format: uuid
         name:
           type: string
         monthlyAmount:
@@ -1145,6 +1425,74 @@ components:
           type: string
         date:
           type: string
+        amount:
+          type: number
+          format: double
+
+    CreateRecurringPaymentRequest:
+      type: object
+      required: [name, paymentType, frequency, rules]
+      properties:
+        name:
+          type: string
+        paymentType:
+          $ref: '#/components/schemas/PaymentType'
+        frequency:
+          $ref: '#/components/schemas/Frequency'
+        rules:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CreateRuleRequest'
+
+    SimulateRulesRequest:
+      type: object
+      required: [rules]
+      properties:
+        rules:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CreateRuleRequest'
+
+    SimulateRulesResponse:
+      type: object
+      required: [matchingTransactions, totalMatchCount, overlappingPayments]
+      properties:
+        matchingTransactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionDto'
+        totalMatchCount:
+          type: integer
+        overlappingPayments:
+          type: array
+          items:
+            $ref: '#/components/schemas/OverlappingPaymentDto'
+
+    OverlappingPaymentDto:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    PaymentPeriodHistoryEntry:
+      type: object
+      required: [id, periodStart, periodEnd, amount]
+      properties:
+        id:
+          type: string
+          format: uuid
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
         amount:
           type: number
           format: double

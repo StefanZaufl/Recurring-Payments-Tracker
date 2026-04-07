@@ -103,6 +103,8 @@ export class TransactionsService extends BaseService {
      * @param from 
      * @param to 
      * @param text Search in partner name and details (case-insensitive, partial match)
+     * @param account Filter by source account IBAN
+     * @param unlinked When true, returns only transactions not linked to any recurring payment (last 2 years)
      * @param page 
      * @param size 
      * @param sort Field to sort by
@@ -111,10 +113,10 @@ export class TransactionsService extends BaseService {
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public getTransactions(from?: string, to?: string, text?: string, page?: number, size?: number, sort?: 'bookingDate' | 'partnerName' | 'amount', sortDirection?: 'asc' | 'desc', observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<TransactionPage>;
-    public getTransactions(from?: string, to?: string, text?: string, page?: number, size?: number, sort?: 'bookingDate' | 'partnerName' | 'amount', sortDirection?: 'asc' | 'desc', observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<TransactionPage>>;
-    public getTransactions(from?: string, to?: string, text?: string, page?: number, size?: number, sort?: 'bookingDate' | 'partnerName' | 'amount', sortDirection?: 'asc' | 'desc', observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<TransactionPage>>;
-    public getTransactions(from?: string, to?: string, text?: string, page?: number, size?: number, sort?: 'bookingDate' | 'partnerName' | 'amount', sortDirection?: 'asc' | 'desc', observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public getTransactions(from?: string, to?: string, text?: string, account?: string, unlinked?: boolean, page?: number, size?: number, sort?: 'bookingDate' | 'partnerName' | 'amount', sortDirection?: 'asc' | 'desc', observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<TransactionPage>;
+    public getTransactions(from?: string, to?: string, text?: string, account?: string, unlinked?: boolean, page?: number, size?: number, sort?: 'bookingDate' | 'partnerName' | 'amount', sortDirection?: 'asc' | 'desc', observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<TransactionPage>>;
+    public getTransactions(from?: string, to?: string, text?: string, account?: string, unlinked?: boolean, page?: number, size?: number, sort?: 'bookingDate' | 'partnerName' | 'amount', sortDirection?: 'asc' | 'desc', observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<TransactionPage>>;
+    public getTransactions(from?: string, to?: string, text?: string, account?: string, unlinked?: boolean, page?: number, size?: number, sort?: 'bookingDate' | 'partnerName' | 'amount', sortDirection?: 'asc' | 'desc', observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
 
         let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
 
@@ -140,6 +142,24 @@ export class TransactionsService extends BaseService {
             localVarQueryParameters,
             'text',
             <any>text,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'account',
+            <any>account,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'unlinked',
+            <any>unlinked,
             QueryParamStyle.Form,
             true,
         );
@@ -226,16 +246,20 @@ export class TransactionsService extends BaseService {
      * Upload a bank CSV file
      * @endpoint post /api/transactions/csv
      * @param file 
+     * @param mapping JSON-serialized transaction CSV column mapping.
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public uploadCsv(file: Blob, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<UploadResponse>;
-    public uploadCsv(file: Blob, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<UploadResponse>>;
-    public uploadCsv(file: Blob, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<UploadResponse>>;
-    public uploadCsv(file: Blob, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public uploadCsv(file: Blob, mapping: string, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<UploadResponse>;
+    public uploadCsv(file: Blob, mapping: string, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<UploadResponse>>;
+    public uploadCsv(file: Blob, mapping: string, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<UploadResponse>>;
+    public uploadCsv(file: Blob, mapping: string, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
         if (file === null || file === undefined) {
             throw new Error('Required parameter file was null or undefined when calling uploadCsv.');
+        }
+        if (mapping === null || mapping === undefined) {
+            throw new Error('Required parameter mapping was null or undefined when calling uploadCsv.');
         }
 
         let localVarHeaders = this.defaultHeaders;
@@ -272,6 +296,9 @@ export class TransactionsService extends BaseService {
 
         if (file !== undefined) {
             localVarFormParams = localVarFormParams.append('file', <any>file) as any || localVarFormParams;
+        }
+        if (mapping !== undefined) {
+            localVarFormParams = localVarFormParams.append('mapping', <any>mapping) as any || localVarFormParams;
         }
 
         let responseType_: 'text' | 'json' | 'blob' = 'json';

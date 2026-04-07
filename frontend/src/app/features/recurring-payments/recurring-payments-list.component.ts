@@ -27,6 +27,13 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
           <p class="text-sm text-muted mt-0.5">Manage detected payment patterns</p>
         </div>
         <div class="flex items-center gap-3 flex-wrap">
+          <a routerLink="/recurring-payments/create"
+            class="btn-primary text-xs flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Add Payment
+          </a>
           <label class="flex items-center gap-2 text-xs text-muted cursor-pointer select-none">
             <div class="relative">
               <input type="checkbox" [(ngModel)]="showInactive"
@@ -62,128 +69,68 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
         <app-error-state [message]="error" (retry)="loadData()" />
       }
 
-      <!-- Empty state -->
-      @if (!loading && !error && filteredPayments.length === 0) {
-        <div class="glass-card p-10 sm:p-16 text-center animate-slide-up">
-          <div class="w-16 h-16 rounded-2xl bg-violet-dim flex items-center justify-center mx-auto mb-5">
-            <svg class="w-7 h-7 text-violet" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
-            </svg>
-          </div>
-          <h3 class="text-base font-semibold text-white mb-1">No recurring payments found</h3>
-          <p class="text-sm text-muted mb-5">Upload bank transactions to detect patterns.</p>
-          <a routerLink="/configure" class="btn-primary">Upload CSV</a>
+      @if (!loading && !error) {
+        <!-- Tabs -->
+        <div class="flex gap-1 mb-4 border-b border-card-border">
+          <button
+            class="px-4 py-2 text-sm font-medium transition-colors relative"
+            [class.text-white]="selectedTab === 'RECURRING'"
+            [class.text-muted]="selectedTab !== 'RECURRING'"
+            (click)="selectedTab = 'RECURRING'; applyFilter()">
+            Recurring
+            <span class="text-xs ml-1 text-muted">({{ recurringCount }})</span>
+            @if (selectedTab === 'RECURRING') {
+              <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-accent"></div>
+            }
+          </button>
+          <button
+            class="px-4 py-2 text-sm font-medium transition-colors relative"
+            [class.text-white]="selectedTab === 'GROUPED'"
+            [class.text-muted]="selectedTab !== 'GROUPED'"
+            (click)="selectedTab = 'GROUPED'; applyFilter()">
+            Grouped
+            <span class="text-xs ml-1 text-muted">({{ groupedCount }})</span>
+            @if (selectedTab === 'GROUPED') {
+              <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-accent"></div>
+            }
+          </button>
         </div>
-      }
 
-      <!-- Mobile card view -->
-      @if (!loading && filteredPayments.length > 0) {
-        <div class="sm:hidden space-y-3 animate-slide-up">
-          @for (payment of filteredPayments; track payment) {
-            <div
-              class="glass-card p-4 transition-opacity cursor-pointer"
-              [class.opacity-40]="!payment.isActive"
-              role="button"
-              tabindex="0"
-              (click)="openTransactionsModal(payment)"
-              (keydown.enter)="openTransactionsModal(payment)">
-              <div class="flex items-start justify-between mb-3">
-                <div class="flex-1 min-w-0">
-                  <p class="text-sm font-medium text-white truncate">{{ payment.name }}</p>
-                  <div class="flex items-center gap-2 mt-1">
-                    <app-frequency-badge [frequency]="payment.frequency" />
-                    <span class="badge"
-                      [ngClass]="{
-                        'bg-accent-dim text-accent': payment.isIncome,
-                        'bg-coral-dim text-coral': !payment.isIncome
-                      }">
-                      {{ payment.isIncome ? 'Income' : 'Expense' }}
-                    </span>
-                    <button (click)="openRulesModal(payment); $event.stopPropagation()"
-                      class="badge cursor-pointer bg-subtle text-muted hover:bg-card-hover transition-colors">
-                      {{ payment.ruleCount }} rule{{ payment.ruleCount === 1 ? '' : 's' }}
-                    </button>
-                  </div>
-                </div>
-                <p class="font-mono text-sm font-semibold shrink-0 ml-3"
-                  [class.text-accent]="payment.isIncome"
-                  [class.text-coral]="!payment.isIncome">
-                  {{ payment.averageAmount | appCurrency:true }}
-                </p>
-              </div>
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <button (click)="toggleActive(payment); $event.stopPropagation()"
-                    class="badge cursor-pointer transition-colors"
-                      [ngClass]="{
-                        'bg-accent-dim text-accent': payment.isActive,
-                        'bg-subtle text-muted': !payment.isActive
-                      }">
-                    {{ payment.isActive ? 'Active' : 'Inactive' }}
-                  </button>
-                  <button (click)="openCategoryDialog(payment); $event.stopPropagation()"
-                    class="badge cursor-pointer transition-colors hover:bg-card-hover"
-                      [ngClass]="{
-                        'bg-subtle text-muted': payment.categoryName,
-                        'bg-subtle text-muted/50': !payment.categoryName
-                      }">
-                    {{ payment.categoryName || 'Uncategorized' }}
-                    <svg class="w-3 h-3 ml-1 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
+        <!-- Empty state -->
+        @if (filteredPayments.length === 0) {
+          <div class="glass-card p-10 sm:p-16 text-center animate-slide-up">
+            <div class="w-16 h-16 rounded-2xl bg-violet-dim flex items-center justify-center mx-auto mb-5">
+              <svg class="w-7 h-7 text-violet" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
+              </svg>
             </div>
-          }
-        </div>
-      }
+            @if (selectedTab === 'RECURRING') {
+              <h3 class="text-base font-semibold text-white mb-1">No recurring payments found</h3>
+              <p class="text-sm text-muted mb-5">Upload bank transactions to detect patterns or create one manually.</p>
+            } @else {
+              <h3 class="text-base font-semibold text-white mb-1">No grouped payments found</h3>
+              <p class="text-sm text-muted mb-5">Create a grouped payment to track irregular related expenses like groceries.</p>
+            }
+            <a routerLink="/recurring-payments/create" class="btn-primary">Create Payment</a>
+          </div>
+        }
 
-      <!-- Desktop table view -->
-      @if (!loading && filteredPayments.length > 0) {
-        <div class="hidden sm:block glass-card overflow-hidden animate-slide-up">
-          <div class="overflow-x-auto">
-            <table class="min-w-full">
-              <thead>
-                <tr class="border-b border-card-border">
-                  <th class="table-header">Name</th>
-                  <th class="table-header">Category</th>
-                  <th class="table-header">Frequency</th>
-                  <th class="table-header text-right">Amount</th>
-                  <th class="table-header">Type</th>
-                  <th class="table-header">Status</th>
-                  <th class="table-header">Rules</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-card-border">
-                @for (payment of filteredPayments; track payment) {
-                  <tr
-                    class="hover:bg-card-hover transition-colors cursor-pointer"
-                    [class.opacity-40]="!payment.isActive"
-                    (click)="openTransactionsModal(payment)">
-                    <td class="table-cell font-medium text-white">{{ payment.name }}</td>
-                    <td class="table-cell">
-                      <button (click)="openCategoryDialog(payment); $event.stopPropagation()"
-                        class="badge cursor-pointer transition-colors hover:bg-card-hover group"
-                          [ngClass]="{
-                            'bg-subtle text-muted': payment.categoryName,
-                            'bg-subtle text-muted/50': !payment.categoryName
-                          }">
-                        {{ payment.categoryName || 'Uncategorized' }}
-                        <svg class="w-3 h-3 ml-1 inline-block opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-                        </svg>
-                      </button>
-                    </td>
-                    <td class="table-cell">
+        <!-- Mobile card view -->
+        @if (filteredPayments.length > 0) {
+          <div class="sm:hidden space-y-3 animate-slide-up">
+            @for (payment of filteredPayments; track payment) {
+              <div
+                class="glass-card p-4 transition-opacity cursor-pointer"
+                [class.opacity-40]="!payment.isActive"
+                role="button"
+                tabindex="0"
+                (click)="openTransactionsModal(payment)"
+                (keydown.enter)="openTransactionsModal(payment)">
+                <div class="flex items-start justify-between mb-3">
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-white truncate">{{ payment.name }}</p>
+                    <div class="flex items-center gap-2 mt-1">
                       <app-frequency-badge [frequency]="payment.frequency" />
-                    </td>
-                    <td class="table-cell text-right font-mono text-xs font-medium"
-                      [class.text-accent]="payment.isIncome"
-                      [class.text-coral]="!payment.isIncome">
-                      {{ payment.averageAmount | appCurrency:true }}
-                    </td>
-                    <td class="table-cell">
                       <span class="badge"
                         [ngClass]="{
                           'bg-accent-dim text-accent': payment.isIncome,
@@ -191,30 +138,161 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
                         }">
                         {{ payment.isIncome ? 'Income' : 'Expense' }}
                       </span>
-                    </td>
-                    <td class="table-cell">
-                      <button (click)="toggleActive(payment); $event.stopPropagation()"
-                        class="badge cursor-pointer transition-colors"
-                          [ngClass]="{
-                            'bg-accent-dim text-accent': payment.isActive,
-                            'bg-subtle text-muted': !payment.isActive
-                          }">
-                        <span class="inline-block w-1.5 h-1.5 rounded-full mr-1" [ngClass]="{'bg-accent': payment.isActive, 'bg-muted': !payment.isActive}"></span>{{ payment.isActive ? 'Active' : 'Inactive' }}
-                      </button>
-                    </td>
-                    <td class="table-cell">
                       <button (click)="openRulesModal(payment); $event.stopPropagation()"
-                        class="badge cursor-pointer bg-subtle text-muted hover:bg-card-hover transition-colors group">
+                        class="badge cursor-pointer bg-subtle text-muted hover:bg-card-hover transition-colors">
                         {{ payment.ruleCount }} rule{{ payment.ruleCount === 1 ? '' : 's' }}
-                        <svg class="w-3 h-3 ml-1 inline-block opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
-                        </svg>
                       </button>
-                    </td>
+                    </div>
+                  </div>
+                  <p class="font-mono text-sm font-semibold shrink-0 ml-3"
+                    [class.text-accent]="payment.isIncome"
+                    [class.text-coral]="!payment.isIncome">
+                    {{ payment.averageAmount | appCurrency:true }}
+                  </p>
+                </div>
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <button (click)="toggleActive(payment); $event.stopPropagation()"
+                      class="badge cursor-pointer transition-colors"
+                        [ngClass]="{
+                          'bg-accent-dim text-accent': payment.isActive,
+                          'bg-subtle text-muted': !payment.isActive
+                        }">
+                      {{ payment.isActive ? 'Active' : 'Inactive' }}
+                    </button>
+                    <button (click)="openCategoryDialog(payment); $event.stopPropagation()"
+                      class="badge cursor-pointer transition-colors hover:bg-card-hover"
+                        [ngClass]="{
+                          'bg-subtle text-muted': payment.categoryName,
+                          'bg-subtle text-muted/50': !payment.categoryName
+                        }">
+                      @if (payment.categoryColor) {
+                        <span class="w-2 h-2 rounded-full shrink-0 mr-1" [style.background-color]="payment.categoryColor"></span>
+                      }
+                      {{ payment.categoryName || 'Uncategorized' }}
+                      <svg class="w-3 h-3 ml-1 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                      </svg>
+                    </button>
+                  </div>
+                  <button (click)="confirmDelete(payment); $event.stopPropagation()"
+                    class="text-muted hover:text-coral transition-colors p-1">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        }
+
+        <!-- Desktop table view -->
+        @if (filteredPayments.length > 0) {
+          <div class="hidden sm:block glass-card overflow-hidden animate-slide-up">
+            <div class="overflow-x-auto">
+              <table class="min-w-full">
+                <thead>
+                  <tr class="border-b border-card-border">
+                    <th class="table-header">Name</th>
+                    <th class="table-header">Category</th>
+                    <th class="table-header">Frequency</th>
+                    <th class="table-header text-right">Amount</th>
+                    <th class="table-header">Type</th>
+                    <th class="table-header">Status</th>
+                    <th class="table-header">Rules</th>
+                    <th class="table-header"></th>
                   </tr>
-                }
-              </tbody>
-            </table>
+                </thead>
+                <tbody class="divide-y divide-card-border">
+                  @for (payment of filteredPayments; track payment) {
+                    <tr
+                      class="group hover:bg-card-hover transition-colors cursor-pointer"
+                      [class.opacity-40]="!payment.isActive"
+                      (click)="openTransactionsModal(payment)">
+                      <td class="table-cell font-medium text-white">{{ payment.name }}</td>
+                      <td class="table-cell">
+                        <button (click)="openCategoryDialog(payment); $event.stopPropagation()"
+                          class="badge cursor-pointer transition-colors hover:bg-card-hover group"
+                            [ngClass]="{
+                              'bg-subtle text-muted': payment.categoryName,
+                              'bg-subtle text-muted/50': !payment.categoryName
+                            }">
+                          @if (payment.categoryColor) {
+                            <span class="w-2 h-2 rounded-full shrink-0 mr-1" [style.background-color]="payment.categoryColor"></span>
+                          }
+                          {{ payment.categoryName || 'Uncategorized' }}
+                          <svg class="w-3 h-3 ml-1 inline-block opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                          </svg>
+                        </button>
+                      </td>
+                      <td class="table-cell">
+                        <app-frequency-badge [frequency]="payment.frequency" />
+                      </td>
+                      <td class="table-cell text-right font-mono text-xs font-medium"
+                        [class.text-accent]="payment.isIncome"
+                        [class.text-coral]="!payment.isIncome">
+                        {{ payment.averageAmount | appCurrency:true }}
+                      </td>
+                      <td class="table-cell">
+                        <span class="badge"
+                          [ngClass]="{
+                            'bg-accent-dim text-accent': payment.isIncome,
+                            'bg-coral-dim text-coral': !payment.isIncome
+                          }">
+                          {{ payment.isIncome ? 'Income' : 'Expense' }}
+                        </span>
+                      </td>
+                      <td class="table-cell">
+                        <button (click)="toggleActive(payment); $event.stopPropagation()"
+                          class="badge cursor-pointer transition-colors"
+                            [ngClass]="{
+                              'bg-accent-dim text-accent': payment.isActive,
+                              'bg-subtle text-muted': !payment.isActive
+                            }">
+                          <span class="inline-block w-1.5 h-1.5 rounded-full mr-1" [ngClass]="{'bg-accent': payment.isActive, 'bg-muted': !payment.isActive}"></span>{{ payment.isActive ? 'Active' : 'Inactive' }}
+                        </button>
+                      </td>
+                      <td class="table-cell">
+                        <button (click)="openRulesModal(payment); $event.stopPropagation()"
+                          class="badge cursor-pointer bg-subtle text-muted hover:bg-card-hover transition-colors group">
+                          {{ payment.ruleCount }} rule{{ payment.ruleCount === 1 ? '' : 's' }}
+                          <svg class="w-3 h-3 ml-1 inline-block opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+                          </svg>
+                        </button>
+                      </td>
+                      <td class="table-cell">
+                        <button (click)="confirmDelete(payment); $event.stopPropagation()"
+                          class="text-muted hover:text-coral transition-colors p-1 opacity-0 group-hover:opacity-100"
+                          title="Delete payment">
+                          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                          </svg>
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
+      }
+
+      <!-- Delete confirmation dialog -->
+      @if (deletePayment) {
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          role="button" tabindex="0" aria-label="Close dialog"
+          (click)="deletePayment = null" (keydown.enter)="deletePayment = null" (keydown.escape)="deletePayment = null">
+          <div class="glass-card p-6 max-w-sm w-full" role="dialog" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">
+            <h3 class="text-base font-semibold text-white mb-2">Delete Payment</h3>
+            <p class="text-sm text-muted mb-4">Are you sure you want to delete <strong class="text-white">{{ deletePayment.name }}</strong>? This will unlink all associated transactions.</p>
+            <div class="flex gap-3 justify-end">
+              <button (click)="deletePayment = null" class="text-sm text-muted hover:text-white transition-colors px-3 py-1.5">Cancel</button>
+              <button (click)="executeDelete()" class="text-sm bg-coral/20 text-coral hover:bg-coral/30 transition-colors px-3 py-1.5 rounded-lg">Delete</button>
+            </div>
           </div>
         </div>
       }
@@ -260,11 +338,15 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
   showInactive = false;
   filterFrequency = '';
   sortBy: 'amount' | 'name' = 'amount';
+  selectedTab: 'RECURRING' | 'GROUPED' = 'RECURRING';
+  recurringCount = 0;
+  groupedCount = 0;
 
   // Dialog/modal state
   dialogPayment: RecurringPaymentDto | null = null;
   transactionsPayment: RecurringPaymentDto | null = null;
   rulesPayment: RecurringPaymentDto | null = null;
+  deletePayment: RecurringPaymentDto | null = null;
 
   ngOnInit(): void {
     this.loadData();
@@ -276,11 +358,17 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
   }
 
   applyFilter(): void {
-    this.filteredPayments = this.payments.filter(p => {
+    const activeFilter = this.payments.filter(p => {
       if (!this.showInactive && !p.isActive) return false;
       if (this.filterFrequency && p.frequency !== this.filterFrequency) return false;
       return true;
     });
+
+    this.recurringCount = activeFilter.filter(p => p.paymentType === 'RECURRING').length;
+    this.groupedCount = activeFilter.filter(p => p.paymentType === 'GROUPED').length;
+
+    this.filteredPayments = activeFilter.filter(p => p.paymentType === this.selectedTab);
+
     if (this.sortBy === 'amount') {
       this.filteredPayments.sort((a, b) => Math.abs(b.averageAmount) - Math.abs(a.averageAmount));
     } else {
@@ -299,6 +387,26 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       }
     });
+  }
+
+  // Delete
+
+  confirmDelete(payment: RecurringPaymentDto): void {
+    this.deletePayment = payment;
+  }
+
+  executeDelete(): void {
+    if (!this.deletePayment) return;
+    const id = this.deletePayment.id;
+    this.recurringPaymentsService.deleteRecurringPayment(id)
+      .pipe(takeUntil(this.destroy$)).subscribe({
+        next: () => {
+          this.payments = this.payments.filter(p => p.id !== id);
+          this.deletePayment = null;
+          this.applyFilter();
+          this.cdr.markForCheck();
+        }
+      });
   }
 
   // Category dialog

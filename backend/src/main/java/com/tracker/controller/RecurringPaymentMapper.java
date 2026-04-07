@@ -2,6 +2,8 @@ package com.tracker.controller;
 
 import com.tracker.api.model.RecurringPaymentDto;
 import com.tracker.api.model.TransactionDto;
+import com.tracker.model.entity.Frequency;
+import com.tracker.model.entity.PaymentType;
 import com.tracker.model.entity.RecurringPayment;
 import com.tracker.model.entity.Transaction;
 import org.mapstruct.Mapper;
@@ -18,6 +20,7 @@ public interface RecurringPaymentMapper {
 
     @Mapping(source = "category.id", target = "categoryId")
     @Mapping(source = "category.name", target = "categoryName")
+    @Mapping(source = "category.color", target = "categoryColor")
     @Mapping(source = "frequency", target = "frequency")
     @Mapping(expression = "java(entity.getRules() != null ? entity.getRules().size() : 0)", target = "ruleCount")
     RecurringPaymentDto toDto(RecurringPayment entity);
@@ -37,10 +40,17 @@ public interface RecurringPaymentMapper {
         return value != null ? value.atOffset(ZoneOffset.UTC) : null;
     }
 
-    default com.tracker.api.model.Frequency mapFrequency(String frequency) {
+    default com.tracker.api.model.Frequency mapFrequency(Frequency frequency) {
         if (frequency == null) {
             return null;
         }
-        return com.tracker.api.model.Frequency.fromValue(frequency);
+        return com.tracker.api.model.Frequency.fromValue(frequency.name());
+    }
+
+    default com.tracker.api.model.PaymentType mapPaymentType(PaymentType paymentType) {
+        if (paymentType == null) {
+            return null;
+        }
+        return com.tracker.api.model.PaymentType.fromValue(paymentType.name());
     }
 }

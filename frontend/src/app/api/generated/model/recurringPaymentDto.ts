@@ -8,6 +8,7 @@
  * Do not edit the class manually.
  */
 import { Frequency } from './frequency';
+import { PaymentType } from './paymentType';
 
 
 export interface RecurringPaymentDto { 
@@ -15,8 +16,10 @@ export interface RecurringPaymentDto {
     name: string;
     categoryId?: string;
     categoryName?: string;
+    categoryColor?: string;
     averageAmount: number;
     frequency: Frequency;
+    paymentType: PaymentType;
     isIncome: boolean;
     isActive: boolean;
     ruleCount: number;

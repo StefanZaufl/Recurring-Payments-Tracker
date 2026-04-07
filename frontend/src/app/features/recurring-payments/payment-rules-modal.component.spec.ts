@@ -149,6 +149,7 @@ describe('PaymentRulesModalComponent', () => {
   });
 
   it('should format target fields correctly', () => {
+    expect(component.formatTargetField('ACCOUNT')).toBe('Account');
     expect(component.formatTargetField('PARTNER_NAME')).toBe('Partner Name');
     expect(component.formatTargetField('PARTNER_IBAN')).toBe('Partner IBAN');
     expect(component.formatTargetField('DETAILS')).toBe('Details');

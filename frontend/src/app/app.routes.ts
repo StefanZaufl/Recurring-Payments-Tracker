@@ -29,9 +29,19 @@ export const routes: Routes = [
     loadComponent: () => import('./features/transactions/transactions.component').then(m => m.TransactionsComponent)
   },
   {
+    path: 'transactions/import',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/transactions/transaction-import.component').then(m => m.TransactionImportComponent)
+  },
+  {
     path: 'configure',
     canActivate: [authGuard],
     loadComponent: () => import('./features/configure/configure.component').then(m => m.ConfigureComponent)
+  },
+  {
+    path: 'recurring-payments/create',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/recurring-payments/create-payment.component').then(m => m.CreatePaymentComponent)
   },
   {
     path: 'recurring-payments',

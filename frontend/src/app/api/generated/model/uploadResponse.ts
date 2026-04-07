@@ -12,6 +12,7 @@
 export interface UploadResponse { 
     uploadId: string;
     transactionCount: number;
+    skippedDuplicates: number;
     recurringPaymentsDetected: number;
 }
 

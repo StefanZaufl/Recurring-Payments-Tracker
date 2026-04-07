@@ -1,7 +1,9 @@
 import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { TransactionsService } from '../../api/generated';
+import { RouterLink } from '@angular/router';
+import { BankAccountsService, TransactionsService } from '../../api/generated';
+import { BankAccountDto } from '../../api/generated/model/bankAccountDto';
 import { TransactionDto } from '../../api/generated/model/transactionDto';
 import { DateRangePickerComponent, DateRange } from '../../shared/date-range-picker.component';
 import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component';
@@ -16,7 +18,7 @@ type SortDir = 'asc' | 'desc';
 @Component({
   selector: 'app-transactions',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, DateRangePickerComponent, LoadingSpinnerComponent, ErrorStateComponent, CurrencyFormatPipe],
+  imports: [CommonModule, FormsModule, RouterLink, DateRangePickerComponent, LoadingSpinnerComponent, ErrorStateComponent, CurrencyFormatPipe],
   template: `
     <div class="animate-fade-in">
       <!-- Header -->
@@ -25,11 +27,20 @@ type SortDir = 'asc' | 'desc';
           <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Transactions</h1>
           <p class="text-sm text-muted mt-0.5">Browse and search all imported transactions</p>
         </div>
-        @if (totalElements > 0) {
-          <div class="text-xs text-muted">
-            {{ totalElements }} transaction{{ totalElements === 1 ? '' : 's' }}
-          </div>
-        }
+        <div class="flex items-center gap-3 flex-wrap">
+          @if (totalElements > 0) {
+            <div class="text-xs text-muted">
+              {{ totalElements }} transaction{{ totalElements === 1 ? '' : 's' }}
+            </div>
+          }
+          <a routerLink="/transactions/import"
+            class="btn-primary text-xs flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V4.5m0 0L7.5 9m4.5-4.5L16.5 9M4.5 15.75v2.25A1.5 1.5 0 006 19.5h12a1.5 1.5 0 001.5-1.5v-2.25" />
+            </svg>
+            Import
+          </a>
+        </div>
       </div>
     
       <!-- Filter bar -->
@@ -53,7 +64,16 @@ type SortDir = 'asc' | 'desc';
               placeholder="Search partner or details..."
               class="w-full bg-subtle border border-card-border rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder-muted/50 focus:outline-none focus:border-accent transition-colors">
             </div>
-    
+
+          <select [ngModel]="accountFilter"
+            (ngModelChange)="onAccountChange($event)"
+            class="text-xs bg-card border border-card-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-subtle shrink-0 min-w-0 sm:min-w-[220px]">
+            <option value="">All accounts</option>
+            @for (account of bankAccounts; track account.id) {
+              <option [value]="account.iban">{{ account.name || account.iban }}</option>
+            }
+          </select>
+
             <!-- Sort -->
           <div class="flex gap-3 shrink-0">
             <select [ngModel]="sortField"
@@ -126,6 +146,12 @@ type SortDir = 'asc' | 'desc';
                   <span class="text-xs text-muted/60 truncate max-w-[50%] text-right">{{ tx.details }}</span>
                 }
               </div>
+              <div class="flex items-center justify-between gap-2 mt-1.5">
+                <span class="text-[11px] text-muted/70">{{ accountLabel(tx.account) }}</span>
+                @if (tx.isInterAccount) {
+                  <span class="badge bg-amber-dim text-amber text-[10px]">Inter-account</span>
+                }
+              </div>
             </div>
           }
         </div>
@@ -140,6 +166,7 @@ type SortDir = 'asc' | 'desc';
                 <tr class="border-b border-card-border">
                   <th class="table-header">Date</th>
                   <th class="table-header">Partner</th>
+                  <th class="table-header">Account</th>
                   <th class="table-header text-right">Amount</th>
                   <th class="table-header">Details</th>
                 </tr>
@@ -149,6 +176,14 @@ type SortDir = 'asc' | 'desc';
                   <tr class="hover:bg-card-hover transition-colors">
                     <td class="table-cell text-muted whitespace-nowrap">{{ formatDate(tx.bookingDate) }}</td>
                     <td class="table-cell font-medium text-white">{{ tx.partnerName || 'Unknown' }}</td>
+                    <td class="table-cell text-muted/70 whitespace-nowrap">
+                      <div class="flex items-center gap-2">
+                        <span>{{ accountLabel(tx.account) }}</span>
+                        @if (tx.isInterAccount) {
+                          <span class="badge bg-amber-dim text-amber text-[10px]">Inter-account</span>
+                        }
+                      </div>
+                    </td>
                     <td class="table-cell text-right font-mono text-xs font-medium whitespace-nowrap"
                       [class.text-accent]="tx.amount >= 0"
                       [class.text-coral]="tx.amount < 0">
@@ -201,8 +236,10 @@ type SortDir = 'asc' | 'desc';
 })
 export class TransactionsComponent implements OnInit, OnDestroy {
   private transactionsService = inject(TransactionsService);
+  private bankAccountsService = inject(BankAccountsService);
   private cdr = inject(ChangeDetectorRef);
 
+  bankAccounts: BankAccountDto[] = [];
   transactions: TransactionDto[] = [];
   loading = false;
   error: string | null = null;
@@ -211,6 +248,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   from: string | null = null;
   to: string | null = null;
   searchText = '';
+  accountFilter = '';
   sortField: SortField = 'bookingDate';
   sortDir: SortDir = 'desc';
 
@@ -235,6 +273,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
       this.cdr.markForCheck();
     });
 
+    this.loadBankAccounts();
     this.loadTransactions();
   }
 
@@ -260,6 +299,12 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     this.loadTransactions();
   }
 
+  onAccountChange(account: string): void {
+    this.accountFilter = account;
+    this.page = 0;
+    this.loadTransactions();
+  }
+
   toggleSortDirection(): void {
     this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
     this.page = 0;
@@ -280,6 +325,8 @@ export class TransactionsComponent implements OnInit, OnDestroy {
       this.from || undefined,
       this.to || undefined,
       this.searchText || undefined,
+      this.accountFilter || undefined,
+      undefined,
       this.page,
       this.pageSize,
       this.sortField,
@@ -304,5 +351,26 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     const [year, month, day] = dateStr.split('-').map(Number);
     const d = new Date(year, month - 1, day);
     return d.toLocaleDateString('en', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  accountLabel(iban?: string): string {
+    if (!iban) {
+      return '-';
+    }
+    const match = this.bankAccounts.find(account => account.iban === iban);
+    return match?.name || iban;
+  }
+
+  private loadBankAccounts(): void {
+    this.bankAccountsService.getBankAccounts().subscribe({
+      next: (accounts) => {
+        this.bankAccounts = accounts;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.bankAccounts = [];
+        this.cdr.markForCheck();
+      }
+    });
   }
 }

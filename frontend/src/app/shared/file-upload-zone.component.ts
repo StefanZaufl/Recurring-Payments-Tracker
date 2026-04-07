@@ -73,6 +73,9 @@ import { Subject, takeUntil } from 'rxjs';
               <span class="font-mono text-white">{{ result.transactionCount }}</span> transactions imported
             </p>
             <p class="text-xs text-muted">
+              <span class="font-mono text-white">{{ result.skippedDuplicates }}</span> duplicates skipped
+            </p>
+            <p class="text-xs text-muted">
               <span class="font-mono text-white">{{ result.recurringPaymentsDetected }}</span> recurring payments detected
             </p>
             <a routerLink="/dashboard" class="inline-flex items-center gap-1 mt-3 text-xs text-accent hover:text-accent/80 transition-colors">
@@ -149,7 +152,12 @@ export class FileUploadZoneComponent implements OnDestroy {
     this.uploading = true;
     this.result = null;
     this.error = null;
-    this.transactionsService.uploadCsv(file).pipe(takeUntil(this.destroy$)).subscribe({
+    this.transactionsService.uploadCsv(file, JSON.stringify({
+      bookingDate: 'Buchungsdatum',
+      amount: 'Betrag',
+      partnerName: 'Partnername',
+      details: 'Buchungs-Details'
+    })).pipe(takeUntil(this.destroy$)).subscribe({
       next: (res) => {
         this.result = res;
         this.uploading = false;

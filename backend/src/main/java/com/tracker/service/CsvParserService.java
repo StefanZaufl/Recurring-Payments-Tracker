@@ -17,19 +17,17 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 public class CsvParserService {
 
     private static final Logger log = LoggerFactory.getLogger(CsvParserService.class);
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd.MM.yyyy");
+    private static final Set<String> REQUIRED_COLUMNS = Set.of("bookingDate", "amount");
 
-    private static final String COL_BOOKING_DATE = "Buchungsdatum";
-    private static final String COL_PARTNER_NAME = "Partnername";
-    private static final String COL_AMOUNT = "Betrag";
-    private static final String COL_DETAILS = "Buchungs-Details";
-
-    public List<Transaction> parse(byte[] bytes) {
+    public List<Transaction> parse(byte[] bytes, CsvImportMapping mapping) {
         Charset charset = detectCharset(bytes);
 
         CSVFormat format = CSVFormat.Builder.create()
@@ -43,11 +41,11 @@ public class CsvParserService {
         try (Reader reader = new InputStreamReader(new ByteArrayInputStream(bytes), charset);
              CSVParser parser = new CSVParser(reader, format)) {
 
-            validateHeaders(parser);
+            validateHeaders(parser, mapping);
 
             List<Transaction> transactions = new ArrayList<>();
             for (CSVRecord record : parser) {
-                Transaction tx = parseRecord(record);
+                Transaction tx = parseRecord(record, mapping);
                 if (tx != null) {
                     transactions.add(tx);
                 }
@@ -82,30 +80,50 @@ public class CsvParserService {
         return Charset.forName("ISO-8859-1");
     }
 
-    private void validateHeaders(CSVParser parser) {
-        var headerMap = parser.getHeaderMap();
-        if (!headerMap.containsKey(COL_BOOKING_DATE)) {
-            throw new CsvParseException("Missing required column: " + COL_BOOKING_DATE);
+    private void validateHeaders(CSVParser parser, CsvImportMapping mapping) {
+        if (mapping == null) {
+            throw new CsvParseException("CSV column mapping is required");
         }
-        if (!headerMap.containsKey(COL_AMOUNT)) {
-            throw new CsvParseException("Missing required column: " + COL_AMOUNT);
+        Map<String, String> requiredMapping = Map.of(
+                "bookingDate", mapping.bookingDate(),
+                "amount", mapping.amount()
+        );
+        for (String field : REQUIRED_COLUMNS) {
+            String header = requiredMapping.get(field);
+            if (header == null || header.isBlank()) {
+                throw new CsvParseException("Missing required mapping: " + field);
+            }
+        }
+
+        var headerMap = parser.getHeaderMap();
+        for (String header : mapping.mappedHeaders()) {
+            if (header != null && !header.isBlank() && !headerMap.containsKey(header)) {
+                throw new CsvParseException("Mapped column not found in CSV header: " + header);
+            }
         }
     }
 
-    private Transaction parseRecord(CSVRecord record) {
-        String dateStr = getField(record, COL_BOOKING_DATE);
-        String amountStr = getField(record, COL_AMOUNT);
+    private Transaction parseRecord(CSVRecord record, CsvImportMapping mapping) {
+        String dateStr = getField(record, mapping.bookingDate());
+        String amountStr = getField(record, mapping.amount());
 
         if (dateStr == null || dateStr.isEmpty() || amountStr == null || amountStr.isEmpty()) {
-            log.warn("Skipping row {}: missing required field (Buchungsdatum or Betrag)", record.getRecordNumber());
+            log.warn("Skipping row {}: missing required field (bookingDate or amount)", record.getRecordNumber());
             return null;
         }
 
         Transaction tx = new Transaction();
         tx.setBookingDate(parseDate(dateStr, record.getRecordNumber()));
         tx.setAmount(parseAmount(amountStr, record.getRecordNumber()));
-        tx.setPartnerName(getField(record, COL_PARTNER_NAME));
-        tx.setDetails(getField(record, COL_DETAILS));
+        tx.setAccount(IbanNormalizationService.normalize(getField(record, mapping.account())));
+        tx.setPartnerName(getField(record, mapping.partnerName()));
+        tx.setPartnerIban(IbanNormalizationService.normalize(getField(record, mapping.partnerIban())));
+
+        String details = getField(record, mapping.details());
+        if (details == null) {
+            details = getField(record, mapping.detailsFallback());
+        }
+        tx.setDetails(details);
 
         return tx;
     }
@@ -148,6 +166,27 @@ public class CsvParserService {
 
         public CsvParseException(String message, Throwable cause) {
             super(message, cause);
+        }
+    }
+
+    public record CsvImportMapping(String bookingDate,
+                                   String amount,
+                                   String account,
+                                   String partnerName,
+                                   String partnerIban,
+                                   String details,
+                                   String detailsFallback) {
+
+        public List<String> mappedHeaders() {
+            List<String> headers = new ArrayList<>();
+            headers.add(bookingDate);
+            headers.add(amount);
+            headers.add(account);
+            headers.add(partnerName);
+            headers.add(partnerIban);
+            headers.add(details);
+            headers.add(detailsFallback);
+            return headers;
         }
     }
 }
