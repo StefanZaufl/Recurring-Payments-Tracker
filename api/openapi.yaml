@@ -14,6 +14,14 @@ paths:
       operationId: uploadCsv
       summary: Upload a bank CSV file
       tags: [Transactions]
+      parameters:
+        - name: X-Csv-Charset
+          in: header
+          description: Charset used to decode the uploaded CSV file.
+          required: false
+          schema:
+            type: string
+            default: UTF-8
       requestBody:
         required: true
         content:

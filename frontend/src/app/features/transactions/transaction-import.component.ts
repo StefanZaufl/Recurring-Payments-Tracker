@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, ChangeDetectorRef, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { TransactionsService, UploadResponse } from '../../api/generated';
@@ -6,6 +6,7 @@ import { TransactionCsvImportMapping } from '../../api/generated/model/transacti
 
 type ExpectedField = 'ignore' | 'bookingDate' | 'amount' | 'account' | 'partnerName' | 'partnerIban' | 'details' | 'detailsFallback';
 type RequiredField = 'bookingDate' | 'amount';
+type SupportedCharset = 'utf-8' | 'utf-16le' | 'utf-16be' | 'windows-1252' | 'iso-8859-1' | 'iso-8859-15';
 
 interface CsvPreview {
   headers: string[];
@@ -15,6 +16,21 @@ interface CsvPreview {
 interface FieldOption {
   value: ExpectedField;
   label: string;
+}
+
+interface CharsetOption {
+  value: SupportedCharset;
+  label: string;
+}
+
+interface CharsetDetectionResult {
+  charset: SupportedCharset;
+  confidence: 'high' | 'low';
+}
+
+interface DecodedCsvCandidate {
+  preview: CsvPreview;
+  score: number;
 }
 
 @Component({
@@ -87,11 +103,25 @@ interface FieldOption {
           </div>
 
           @if (selectedFileName) {
-            <div class="mt-4 inline-flex items-center gap-2 rounded-lg bg-subtle px-3 py-2 text-xs text-muted">
-              <span class="font-medium text-white">{{ selectedFileName }}</span>
-              @if (preview) {
-                <span>{{ preview.rows.length }} preview row{{ preview.rows.length === 1 ? '' : 's' }}</span>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <div class="inline-flex items-center gap-2 rounded-lg bg-subtle px-3 py-2 text-xs text-muted">
+                <span class="font-medium text-white">{{ selectedFileName }}</span>
+                @if (preview) {
+                  <span>{{ preview.rows.length }} preview row{{ preview.rows.length === 1 ? '' : 's' }}</span>
+                }
+              </div>
+              @if (selectedCharset) {
+                <div class="inline-flex items-center gap-2 rounded-lg bg-subtle px-3 py-2 text-xs text-muted">
+                  <span>Detected charset</span>
+                  <span class="font-medium text-white">{{ displayCharsetLabel(detectedCharset || selectedCharset) }}</span>
+                </div>
               }
+            </div>
+          }
+
+          @if (uploadResult) {
+            <div class="mt-4 rounded-xl border border-accent/20 bg-accent-dim px-4 py-3 text-sm text-accent">
+              Imported {{ uploadResult.transactionCount }} transactions, skipped {{ uploadResult.skippedDuplicates }} duplicates, and detected {{ uploadResult.recurringPaymentsDetected }} recurring payments.
             </div>
           }
 
@@ -126,6 +156,20 @@ interface FieldOption {
               </button>
             </div>
 
+            <div class="mb-4 flex justify-end">
+              <label class="block">
+                <span class="text-[11px] uppercase tracking-wide text-muted/70">CSV Charset</span>
+                <select
+                  class="mt-1 w-full rounded-lg border border-card-border bg-subtle px-3 py-2 text-xs text-white focus:outline-none focus:border-accent"
+                  [value]="selectedCharset"
+                  (change)="onCharsetChange($any($event.target).value)">
+                  @for (option of charsetOptions; track option.value) {
+                    <option [value]="option.value">{{ option.label }}</option>
+                  }
+                </select>
+              </label>
+            </div>
+
             @if (mappingError) {
               <div class="mb-4 rounded-xl border border-coral/20 bg-coral-dim px-4 py-3 text-sm text-coral">
                 {{ mappingError }}
@@ -138,17 +182,11 @@ interface FieldOption {
               </div>
             }
 
-            @if (uploadResult) {
-              <div class="mb-4 rounded-xl border border-accent/20 bg-accent-dim px-4 py-3 text-sm text-accent">
-                Imported {{ uploadResult.transactionCount }} transactions, skipped {{ uploadResult.skippedDuplicates }} duplicates, and detected {{ uploadResult.recurringPaymentsDetected }} recurring payments.
-              </div>
-            }
-
             <div class="preview-scroll overflow-x-auto">
               <table class="min-w-full border-separate border-spacing-0">
                 <thead>
                   <tr>
-                    @for (header of preview.headers; track header; let i = $index) {
+                    @for (header of preview.headers; track header + '-' + $index; let i = $index) {
                       <th class="min-w-[220px] align-top border-b border-card-border px-3 py-3 text-left">
                         <div class="text-sm font-semibold text-white">{{ header || ('Column ' + (i + 1)) }}</div>
                         <div class="mt-3 text-[11px] uppercase tracking-wide text-muted/70">Field Mapping</div>
@@ -159,7 +197,6 @@ interface FieldOption {
                             <option [value]="option.value" [selected]="columnMappings[i] === option.value">{{ option.label }}</option>
                           }
                         </select>
-
                       </th>
                     }
                   </tr>
@@ -198,8 +235,20 @@ export class TransactionImportComponent {
     { value: 'detailsFallback', label: 'Details Fallback' }
   ];
 
+  readonly charsetOptions: CharsetOption[] = [
+    { value: 'utf-8', label: 'UTF-8' },
+    { value: 'utf-16le', label: 'UTF-16 LE' },
+    { value: 'utf-16be', label: 'UTF-16 BE' },
+    { value: 'windows-1252', label: 'Windows-1252' },
+    { value: 'iso-8859-1', label: 'ISO-8859-1' },
+    { value: 'iso-8859-15', label: 'ISO-8859-15' }
+  ];
+
   selectedFile: File | null = null;
   selectedFileName: string | null = null;
+  selectedFileBytes: ArrayBuffer | null = null;
+  selectedCharset: SupportedCharset = 'utf-8';
+  detectedCharset: SupportedCharset | null = null;
   preview: CsvPreview | null = null;
   columnMappings: ExpectedField[] = [];
   parseError: string | null = null;
@@ -221,20 +270,33 @@ export class TransactionImportComponent {
     this.uploadError = null;
 
     try {
-      const text = await this.readFileText(file);
-      const preview = this.buildPreview(text);
-      this.preview = preview;
-      this.columnMappings = this.deduplicateMappings(preview.headers.map((header) => this.suggestField(header)));
-      this.parseError = null;
-      this.updateMappingError();
+      const bytes = await this.readFileBytes(file);
+      this.selectedFileBytes = bytes;
+
+      const detection = this.detectCharset(bytes);
+      this.detectedCharset = detection.charset;
+      this.selectedCharset = detection.charset;
+
+      this.recomputePreview(false);
     } catch (error) {
-      this.preview = null;
-      this.columnMappings = [];
+      this.resetFormState();
+      this.selectedFileName = file.name;
       this.parseError = error instanceof Error ? error.message : 'Failed to read CSV file.';
-      this.mappingError = null;
     }
 
     input.value = '';
+    this.cdr.markForCheck();
+  }
+
+  onCharsetChange(value: SupportedCharset): void {
+    if (!this.selectedFileBytes || this.selectedCharset === value) {
+      return;
+    }
+
+    this.selectedCharset = value;
+    this.uploadResult = null;
+    this.uploadError = null;
+    this.recomputePreview(true);
     this.cdr.markForCheck();
   }
 
@@ -272,11 +334,12 @@ export class TransactionImportComponent {
 
     this.transactionsService.uploadCsv(
       this.selectedFile,
-      JSON.stringify(this.buildImportMappingPayload())
+      JSON.stringify(this.buildImportMappingPayload()),
+      this.selectedCharset
     ).subscribe({
       next: (result) => {
+        this.resetFormState();
         this.uploadResult = result;
-        this.uploading = false;
         this.cdr.markForCheck();
       },
       error: (err) => {
@@ -287,13 +350,44 @@ export class TransactionImportComponent {
     });
   }
 
+  displayCharsetLabel(value: SupportedCharset): string {
+    return this.charsetOptions.find((option) => option.value === value)?.label ?? value;
+  }
+
+  private recomputePreview(preserveMappings: boolean): void {
+    if (!this.selectedFileBytes) {
+      this.preview = null;
+      this.columnMappings = [];
+      this.parseError = null;
+      this.mappingError = null;
+      return;
+    }
+
+    try {
+      const text = this.decodeFileBytes(this.selectedFileBytes, this.selectedCharset);
+      const preview = this.buildPreview(text);
+      const previousMappings = preserveMappings ? this.columnMappings : [];
+
+      this.preview = preview;
+      this.columnMappings = this.buildColumnMappings(preview.headers, previousMappings);
+      this.parseError = null;
+      this.updateMappingError();
+    } catch (error) {
+      this.preview = null;
+      this.columnMappings = [];
+      this.parseError = error instanceof Error ? error.message : 'Failed to decode CSV file.';
+      this.mappingError = null;
+    }
+  }
+
   private buildPreview(text: string): CsvPreview {
     const parsedRows = this.parseCsv(text);
     if (parsedRows.length < 2) {
       throw new Error('The CSV must include a header row and at least one data row.');
     }
 
-    const [headers, ...rows] = parsedRows;
+    const [rawHeaders, ...rows] = parsedRows;
+    const headers = rawHeaders.map((header) => this.stripBom(header));
     if (headers.every((header) => !header.trim())) {
       throw new Error('The CSV header row is empty.');
     }
@@ -304,17 +398,93 @@ export class TransactionImportComponent {
     };
   }
 
-  private readFileText(file: File): Promise<string> {
-    if (typeof file.text === 'function') {
-      return file.text();
+  private stripBom(value: string): string {
+    return value.replace(/^\uFEFF/, '');
+  }
+
+  private async readFileBytes(file: File): Promise<ArrayBuffer> {
+    if (typeof file.arrayBuffer === 'function') {
+      return file.arrayBuffer();
     }
 
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+      reader.onload = () => {
+        if (reader.result instanceof ArrayBuffer) {
+          resolve(reader.result);
+          return;
+        }
+        reject(new Error('Failed to read CSV file.'));
+      };
       reader.onerror = () => reject(new Error('Failed to read CSV file.'));
-      reader.readAsText(file);
+      reader.readAsArrayBuffer(file);
     });
+  }
+
+  private decodeFileBytes(bytes: ArrayBuffer, charset: SupportedCharset): string {
+    try {
+      return new TextDecoder(charset, { fatal: false }).decode(bytes);
+    } catch {
+      throw new Error(`The browser could not decode this file as ${charset}.`);
+    }
+  }
+
+  private detectCharset(bytes: ArrayBuffer): CharsetDetectionResult {
+    const byteView = new Uint8Array(bytes);
+
+    if (byteView.length >= 3 && byteView[0] === 0xEF && byteView[1] === 0xBB && byteView[2] === 0xBF) {
+      return { charset: 'utf-8', confidence: 'high' };
+    }
+    if (byteView.length >= 2 && byteView[0] === 0xFF && byteView[1] === 0xFE) {
+      return { charset: 'utf-16le', confidence: 'high' };
+    }
+    if (byteView.length >= 2 && byteView[0] === 0xFE && byteView[1] === 0xFF) {
+      return { charset: 'utf-16be', confidence: 'high' };
+    }
+
+    const candidates = this.charsetOptions
+      .map((option) => ({ charset: option.value, candidate: this.scoreDecodedCandidate(bytes, option.value) }))
+      .filter((entry): entry is { charset: SupportedCharset; candidate: DecodedCsvCandidate } => entry.candidate !== null)
+      .sort((left, right) => right.candidate.score - left.candidate.score);
+
+    const best = candidates[0];
+    if (!best || best.candidate.score < 45) {
+      return { charset: 'utf-8', confidence: 'low' };
+    }
+
+    return { charset: best.charset, confidence: 'high' };
+  }
+
+  private scoreDecodedCandidate(bytes: ArrayBuffer, charset: SupportedCharset): DecodedCsvCandidate | null {
+    try {
+      const text = this.decodeFileBytes(bytes, charset);
+      const preview = this.buildPreview(text);
+      const headers = preview.headers.join(';');
+      const replacementCount = (text.match(/\uFFFD/g) ?? []).length;
+      const nullCount = text.split('\u0000').length - 1;
+      const mojibakeCount = (text.match(/Ã|Â|¤|�/g) ?? []).length;
+      const recognizedHeaders = preview.headers.filter((header) => this.suggestField(header) !== 'ignore').length;
+      const semicolonCount = (text.match(/;/g) ?? []).length;
+
+      let score = 50;
+      score += Math.min(recognizedHeaders * 15, 45);
+      score += Math.min(semicolonCount, 20);
+      score -= replacementCount * 30;
+      score -= nullCount * 2;
+      score -= mojibakeCount * 8;
+      if (headers.length === 0) {
+        score -= 20;
+      }
+
+      return { preview, score };
+    } catch {
+      return null;
+    }
+  }
+
+  private buildColumnMappings(headers: string[], previousMappings: ExpectedField[]): ExpectedField[] {
+    const suggestedMappings = headers.map((header, index) => previousMappings[index] ?? this.suggestField(header));
+    return this.deduplicateMappings(suggestedMappings);
   }
 
   private parseCsv(text: string): string[][] {
@@ -486,5 +656,19 @@ export class TransactionImportComponent {
     }
 
     return payload;
+  }
+
+  private resetFormState(): void {
+    this.selectedFile = null;
+    this.selectedFileName = null;
+    this.selectedFileBytes = null;
+    this.selectedCharset = 'utf-8';
+    this.detectedCharset = null;
+    this.preview = null;
+    this.columnMappings = [];
+    this.parseError = null;
+    this.mappingError = null;
+    this.uploadError = null;
+    this.uploading = false;
   }
 }

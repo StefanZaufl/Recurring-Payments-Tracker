@@ -247,14 +247,15 @@ export class TransactionsService extends BaseService {
      * @endpoint post /api/transactions/csv
      * @param file 
      * @param mapping JSON-serialized transaction CSV column mapping.
+     * @param xCsvCharset Charset used to decode the uploaded CSV file.
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public uploadCsv(file: Blob, mapping: string, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<UploadResponse>;
-    public uploadCsv(file: Blob, mapping: string, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<UploadResponse>>;
-    public uploadCsv(file: Blob, mapping: string, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<UploadResponse>>;
-    public uploadCsv(file: Blob, mapping: string, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public uploadCsv(file: Blob, mapping: string, xCsvCharset?: string, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<UploadResponse>;
+    public uploadCsv(file: Blob, mapping: string, xCsvCharset?: string, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<UploadResponse>>;
+    public uploadCsv(file: Blob, mapping: string, xCsvCharset?: string, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<UploadResponse>>;
+    public uploadCsv(file: Blob, mapping: string, xCsvCharset?: string, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
         if (file === null || file === undefined) {
             throw new Error('Required parameter file was null or undefined when calling uploadCsv.');
         }
@@ -263,6 +264,9 @@ export class TransactionsService extends BaseService {
         }
 
         let localVarHeaders = this.defaultHeaders;
+        if (xCsvCharset !== undefined && xCsvCharset !== null) {
+            localVarHeaders = localVarHeaders.set('X-Csv-Charset', String(xCsvCharset));
+        }
 
         const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
             'application/json'

@@ -94,7 +94,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(allowedOrigins.split(",")));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedHeaders(List.of("Accept", "Content-Type", "Origin", "Authorization", "X-XSRF-TOKEN", "X-Csv-Charset"));
         config.setAllowCredentials(true);
         config.setExposedHeaders(List.of("X-Total-Items", "X-Page", "X-Page-Size", "X-Total-Pages"));
 

@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 import java.io.*;
 import java.math.BigDecimal;
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -27,8 +26,8 @@ public class CsvParserService {
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd.MM.yyyy");
     private static final Set<String> REQUIRED_COLUMNS = Set.of("bookingDate", "amount");
 
-    public List<Transaction> parse(byte[] bytes, CsvImportMapping mapping) {
-        Charset charset = detectCharset(bytes);
+    public List<Transaction> parse(byte[] bytes, CsvImportMapping mapping, String charsetName) {
+        Charset charset = resolveCharset(charsetName);
 
         CSVFormat format = CSVFormat.Builder.create()
                 .setDelimiter(';')
@@ -38,7 +37,7 @@ public class CsvParserService {
                 .setTrim(true)
                 .build();
 
-        try (Reader reader = new InputStreamReader(new ByteArrayInputStream(bytes), charset);
+        try (Reader reader = createReader(bytes, charset);
              CSVParser parser = new CSVParser(reader, format)) {
 
             validateHeaders(parser, mapping);
@@ -56,28 +55,25 @@ public class CsvParserService {
         }
     }
 
-    private Charset detectCharset(byte[] bytes) {
-        // Check for UTF-8 BOM
-        if (bytes.length >= 3 && bytes[0] == (byte) 0xEF && bytes[1] == (byte) 0xBB && bytes[2] == (byte) 0xBF) {
-            return StandardCharsets.UTF_8;
+    private Charset resolveCharset(String charsetName) {
+        if (charsetName == null || charsetName.isBlank()) {
+            throw new CsvParseException("CSV charset is required");
         }
 
-        // Try to decode as UTF-8; if it fails, fall back to ISO-8859-1
         try {
-            String decoded = new String(bytes, StandardCharsets.UTF_8);
-            // Check for replacement characters which indicate invalid UTF-8
-            if (decoded.contains("\uFFFD")) {
-                return Charset.forName("ISO-8859-1");
-            }
-            // Verify by re-encoding
-            byte[] reEncoded = decoded.getBytes(StandardCharsets.UTF_8);
-            if (reEncoded.length == bytes.length) {
-                return StandardCharsets.UTF_8;
-            }
+            return Charset.forName(charsetName);
         } catch (Exception e) {
-            // Fall through to ISO-8859-1
+            throw new CsvParseException("Unsupported CSV charset: " + charsetName, e);
         }
-        return Charset.forName("ISO-8859-1");
+    }
+
+    private Reader createReader(byte[] bytes, Charset charset) throws IOException {
+        PushbackReader reader = new PushbackReader(new InputStreamReader(new ByteArrayInputStream(bytes), charset), 1);
+        int firstChar = reader.read();
+        if (firstChar != 0xFEFF && firstChar != -1) {
+            reader.unread(firstChar);
+        }
+        return reader;
     }
 
     private void validateHeaders(CSVParser parser, CsvImportMapping mapping) {
