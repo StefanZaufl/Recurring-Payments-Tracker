@@ -31,6 +31,13 @@ public class SetupService {
 
     @Transactional
     public User createFirstAdmin(String username, String password) {
+        if (username == null || username.isBlank()) {
+            throw new IllegalArgumentException("username is required");
+        }
+        if (password == null || password.isBlank()) {
+            throw new IllegalArgumentException("password is required");
+        }
+
         if (userRepository.count() != 0) {
             throw new SetupAlreadyCompleteException("Setup has already been completed");
         }
