@@ -270,6 +270,39 @@ class RecurringPaymentControllerTest {
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.paymentType").value("RECURRING"));
         }
+
+        @Test
+        void returns400WhenRulesAreMissing() throws Exception {
+            mockMvc.perform(post(RECURRING_URL)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                {
+                                  "name": "Groceries",
+                                  "paymentType": "GROUPED",
+                                  "frequency": "MONTHLY"
+                                }
+                                """)
+                            .with(authenticatedUser(testUser)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message", containsString("rules")));
+        }
+
+        @Test
+        void returns400WhenRulesAreEmpty() throws Exception {
+            mockMvc.perform(post(RECURRING_URL)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                {
+                                  "name": "Groceries",
+                                  "paymentType": "GROUPED",
+                                  "frequency": "MONTHLY",
+                                  "rules": []
+                                }
+                                """)
+                            .with(authenticatedUser(testUser)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message", containsString("rules")));
+        }
     }
 
     // ────────────────────────────────────────────────────────────────────

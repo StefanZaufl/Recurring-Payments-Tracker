@@ -14,6 +14,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.UUID;
 
 import static com.tracker.testutil.SecurityTestUtil.authenticatedUser;
@@ -47,10 +48,14 @@ class RuleControllerTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private PaymentPeriodHistoryRepository historyRepository;
+
     private User testUser;
 
     @BeforeEach
     void setUp() {
+        historyRepository.deleteAll();
         linkRepository.deleteAll();
         ruleRepository.deleteAll();
         recurringPaymentRepository.deleteAll();
@@ -292,6 +297,47 @@ class RuleControllerTest {
         }
 
         @Test
+        void replacesStaleMonthlyHistoryWhenFrequencyChangesToQuarterly() throws Exception {
+            RecurringPayment payment = seedPayment("Insurance");
+            seedJaroWinklerRule(payment, "insurance", 0.85);
+            seedAmountRule(payment, "-120.00", "0.00");
+
+            Transaction jan = seedTransaction("Insurance", LocalDate.of(2025, 1, 1), "-120.00");
+            Transaction apr = seedTransaction("Insurance", LocalDate.of(2025, 4, 1), "-120.00");
+            Transaction jul = seedTransaction("Insurance", LocalDate.of(2025, 7, 1), "-120.00");
+            seedLink(jan, payment);
+            seedLink(apr, payment);
+            seedLink(jul, payment);
+
+            seedHistory(payment, LocalDate.of(2025, 1, 1), LocalDate.of(2025, 1, 31), "-120.00");
+            seedHistory(payment, LocalDate.of(2025, 4, 1), LocalDate.of(2025, 4, 30), "-120.00");
+            seedHistory(payment, LocalDate.of(2025, 7, 1), LocalDate.of(2025, 7, 31), "-120.00");
+
+            seedTransaction("Insurance", LocalDate.of(2025, 10, 1), "-120.00");
+
+            mockMvc.perform(post(reEvaluateUrl(payment.getId())).with(authenticatedUser(testUser)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.frequency").value("QUARTERLY"))
+                    .andExpect(jsonPath("$.averageAmount").value(-120.0));
+
+            mockMvc.perform(get("/api/recurring-payments/" + payment.getId() + "/history").with(authenticatedUser(testUser)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$", hasSize(4)))
+                    .andExpect(jsonPath("$[*].periodStart", contains(
+                            "2025-01-01",
+                            "2025-04-01",
+                            "2025-07-01",
+                            "2025-10-01"
+                    )))
+                    .andExpect(jsonPath("$[*].periodEnd", contains(
+                            "2025-03-31",
+                            "2025-06-30",
+                            "2025-09-30",
+                            "2025-12-31"
+                    )));
+        }
+
+        @Test
         void returns404ForNonExistentPayment() throws Exception {
             mockMvc.perform(post(reEvaluateUrl(UUID.randomUUID())).with(authenticatedUser(testUser)))
                     .andExpect(status().isNotFound());
@@ -362,5 +408,39 @@ class RuleControllerTest {
         rule.setFluctuationRange(new BigDecimal(fluctuation));
         rule.setUser(testUser);
         return ruleRepository.save(rule);
+    }
+
+    private Transaction seedTransaction(String partnerName, LocalDate date, String amount) {
+        FileUpload upload = new FileUpload();
+        upload.setFilename("test.csv");
+        upload.setUser(testUser);
+        upload = fileUploadRepository.save(upload);
+
+        Transaction tx = new Transaction();
+        tx.setPartnerName(partnerName);
+        tx.setBookingDate(date);
+        tx.setAmount(new BigDecimal(amount));
+        tx.setUpload(upload);
+        tx.setUser(testUser);
+        return transactionRepository.save(tx);
+    }
+
+    private void seedLink(Transaction tx, RecurringPayment payment) {
+        TransactionRecurringLink link = new TransactionRecurringLink();
+        link.setTransaction(tx);
+        link.setRecurringPayment(payment);
+        link.setConfidenceScore(new BigDecimal("0.95"));
+        link.setUser(testUser);
+        linkRepository.save(link);
+    }
+
+    private void seedHistory(RecurringPayment payment, LocalDate periodStart, LocalDate periodEnd, String amount) {
+        PaymentPeriodHistory history = new PaymentPeriodHistory();
+        history.setRecurringPayment(payment);
+        history.setPeriodStart(periodStart);
+        history.setPeriodEnd(periodEnd);
+        history.setAmount(new BigDecimal(amount));
+        history.setUser(testUser);
+        historyRepository.save(history);
     }
 }

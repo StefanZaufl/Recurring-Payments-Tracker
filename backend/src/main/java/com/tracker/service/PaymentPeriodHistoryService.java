@@ -45,6 +45,13 @@ public class PaymentPeriodHistoryService {
     @Transactional
     public void recomputeHistory(RecurringPayment payment) {
         List<TransactionRecurringLink> links = linkRepository.findWithTransactionByRecurringPaymentId(payment.getId());
+        historyRepository.deleteByRecurringPaymentId(payment.getId());
+        historyRepository.flush();
+
+        if (links.isEmpty()) {
+            return;
+        }
+
         Frequency frequency = payment.getFrequency() != null ? payment.getFrequency() : Frequency.MONTHLY;
 
         Map<LocalDate, BigDecimal> periodTotals = links.stream()
@@ -59,23 +66,15 @@ public class PaymentPeriodHistoryService {
             BigDecimal amount = entry.getValue();
             LocalDate periodEnd = computePeriodEnd(periodStart, frequency);
 
-            historyRepository.findByRecurringPaymentIdAndPeriodStart(payment.getId(), periodStart)
-                    .ifPresentOrElse(
-                            existing -> {
-                                existing.setAmount(amount.setScale(2, RoundingMode.HALF_UP));
-                                existing.setUpdatedAt(LocalDateTime.now());
-                                historyRepository.save(existing);
-                            },
-                            () -> {
-                                PaymentPeriodHistory newEntry = new PaymentPeriodHistory();
-                                newEntry.setRecurringPayment(payment);
-                                newEntry.setPeriodStart(periodStart);
-                                newEntry.setPeriodEnd(periodEnd);
-                                newEntry.setAmount(amount.setScale(2, RoundingMode.HALF_UP));
-                                newEntry.setUser(payment.getUser());
-                                historyRepository.save(newEntry);
-                            }
-                    );
+            PaymentPeriodHistory newEntry = new PaymentPeriodHistory();
+            newEntry.setRecurringPayment(payment);
+            newEntry.setPeriodStart(periodStart);
+            newEntry.setPeriodEnd(periodEnd);
+            newEntry.setAmount(amount.setScale(2, RoundingMode.HALF_UP));
+            newEntry.setUser(payment.getUser());
+            newEntry.setCreatedAt(LocalDateTime.now());
+            newEntry.setUpdatedAt(LocalDateTime.now());
+            historyRepository.save(newEntry);
         }
     }
 

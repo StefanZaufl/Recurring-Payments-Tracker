@@ -11,6 +11,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
@@ -45,6 +47,22 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException e) {
         log.debug("Bad request: {}", e.getMessage(), e);
         return buildResponse(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
+    @ExceptionHandler(InvalidCurrentPasswordException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidCurrentPassword(InvalidCurrentPasswordException e) {
+        log.debug("Invalid current password: {}", e.getMessage(), e);
+        return buildResponse(HttpStatus.UNAUTHORIZED, e.getMessage());
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleMethodArgumentNotValid(MethodArgumentNotValidException e) {
+        String message = e.getBindingResult().getFieldErrors().stream()
+                .findFirst()
+                .map(this::formatFieldError)
+                .orElse("Request validation failed.");
+        log.debug("Validation failed: {}", message, e);
+        return buildResponse(HttpStatus.BAD_REQUEST, message);
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
@@ -103,5 +121,13 @@ public class GlobalExceptionHandler {
     private ResponseEntity<ErrorResponse> buildResponse(HttpStatus status, String message) {
         ErrorResponse error = new ErrorResponse(status.value(), message, OffsetDateTime.now());
         return ResponseEntity.status(status).body(error);
+    }
+
+    private String formatFieldError(FieldError error) {
+        String defaultMessage = error.getDefaultMessage();
+        if (defaultMessage == null || defaultMessage.isBlank()) {
+            return "Validation failed for field '" + error.getField() + "'.";
+        }
+        return "Validation failed for field '" + error.getField() + "': " + defaultMessage;
     }
 }

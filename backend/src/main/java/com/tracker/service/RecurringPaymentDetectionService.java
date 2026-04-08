@@ -226,19 +226,16 @@ public class RecurringPaymentDetectionService {
 
         if (!newMatches.isEmpty()) {
             recomputeAverageAmount(rt);
-            historyService.recomputeHistory(rt);
-            BigDecimal rollingAvg = historyService.getRollingAverage(rt.getId(), 4);
-            if (rollingAvg != null) {
-                rt.setAverageAmount(rollingAvg);
-                rt.setIsIncome(rollingAvg.compareTo(BigDecimal.ZERO) > 0);
-            }
-            // Recompute frequency with all linked transactions
+
+            // Recompute frequency from the full linked set before rebuilding period history.
             List<Transaction> allTxs = getAllLinkedTransactions(recurringPaymentId);
-            allTxs.addAll(newMatches);
             Frequency freq = detectFrequency(allTxs);
             if (freq != null) {
                 rt.setFrequency(freq);
             }
+
+            historyService.recomputeHistory(rt);
+            updateRollingAverageFromHistory(rt);
             recurringPaymentRepository.save(rt);
         }
 
@@ -283,6 +280,14 @@ public class RecurringPaymentDetectionService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         rt.setAverageAmount(sum.divide(BigDecimal.valueOf(links.size()), 2, RoundingMode.HALF_UP));
         rt.setIsIncome(rt.getAverageAmount().compareTo(BigDecimal.ZERO) > 0);
+    }
+
+    private void updateRollingAverageFromHistory(RecurringPayment rt) {
+        BigDecimal rollingAvg = historyService.getRollingAverage(rt.getId(), 4);
+        if (rollingAvg != null) {
+            rt.setAverageAmount(rollingAvg);
+            rt.setIsIncome(rollingAvg.compareTo(BigDecimal.ZERO) > 0);
+        }
     }
 
     private List<Rule> createTransientRules(Transaction tx) {
