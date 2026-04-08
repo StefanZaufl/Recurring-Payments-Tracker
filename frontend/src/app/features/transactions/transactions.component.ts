@@ -353,12 +353,11 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     return d.toLocaleDateString('en', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
-  accountLabel(iban?: string): string {
-    if (!iban) {
+  accountLabel(account?: BankAccountDto): string {
+    if (!account) {
       return '-';
     }
-    const match = this.bankAccounts.find(account => account.iban === iban);
-    return match?.name || iban;
+    return account.name || account.iban || '-';
   }
 
   private loadBankAccounts(): void {

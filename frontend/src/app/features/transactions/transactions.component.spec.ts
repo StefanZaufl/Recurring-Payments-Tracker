@@ -10,8 +10,8 @@ import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 
 const mockPage: TransactionPage = {
   content: [
-    { id: '1', bookingDate: '2026-03-15', partnerName: 'Netflix', amount: -12.99, details: 'Subscription', account: 'DE111', isInterAccount: false },
-    { id: '2', bookingDate: '2026-03-10', partnerName: 'Employer', amount: 3500.00, details: 'Salary', account: 'DE222', isInterAccount: true },
+    { id: '1', bookingDate: '2026-03-15', partnerName: 'Netflix', amount: -12.99, details: 'Subscription', account: { id: 'acc-1', iban: 'DE111', name: 'Checking' }, isInterAccount: false },
+    { id: '2', bookingDate: '2026-03-10', partnerName: 'Employer', amount: 3500.00, details: 'Salary', account: { id: 'acc-2', iban: 'DE222', name: 'Savings' }, isInterAccount: true },
   ],
   totalElements: 2,
   totalPages: 1,
@@ -154,8 +154,8 @@ describe('TransactionsComponent', () => {
   });
 
   it('should resolve account label from bank accounts', () => {
-    expect(component.accountLabel('DE111')).toBe('Checking');
-    expect(component.accountLabel('DE999')).toBe('DE999');
+    expect(component.accountLabel({ id: 'acc-1', iban: 'DE111', name: 'Checking' })).toBe('Checking');
+    expect(component.accountLabel({ id: 'acc-9', iban: 'DE999' })).toBe('DE999');
   });
 
   it('should not navigate to invalid pages', () => {

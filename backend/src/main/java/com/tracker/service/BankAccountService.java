@@ -102,6 +102,15 @@ public class BankAccountService {
                 .collect(Collectors.toSet());
     }
 
+    @Transactional(readOnly = true)
+    public Optional<BankAccount> getCurrentUserAccountByIban(String iban) {
+        String normalizedIban = IbanNormalizationService.normalize(iban);
+        if (normalizedIban == null) {
+            return Optional.empty();
+        }
+        return bankAccountRepository.findByUserIdAndIban(userContextService.getCurrentUserId(), normalizedIban);
+    }
+
     private String requireNormalizedIban(String iban) {
         String normalized = IbanNormalizationService.normalize(iban);
         if (normalized == null) {

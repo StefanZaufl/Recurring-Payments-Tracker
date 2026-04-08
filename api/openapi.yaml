@@ -1098,7 +1098,7 @@ components:
           type: string
           format: date
         account:
-          type: string
+          $ref: '#/components/schemas/BankAccountDto'
         partnerName:
           type: string
         partnerIban:
