@@ -1,0 +1,9 @@
+CREATE TABLE setup_state (
+    id BIGINT PRIMARY KEY,
+    completed BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO setup_state (id, completed)
+VALUES (1, EXISTS (SELECT 1 FROM users));
