@@ -1,5 +1,6 @@
 package com.tracker.service;
 
+import com.tracker.controller.InvalidCurrentPasswordException;
 import com.tracker.controller.ResourceNotFoundException;
 import com.tracker.model.entity.User;
 import com.tracker.model.entity.UserRole;
@@ -72,7 +73,7 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
 
         if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
-            throw new IllegalArgumentException("Current password is incorrect");
+            throw new InvalidCurrentPasswordException("Current password is incorrect");
         }
 
         user.setPasswordHash(passwordEncoder.encode(newPassword));

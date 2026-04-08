@@ -804,7 +804,7 @@ paths:
       responses:
         '204':
           description: Password changed successfully
-        '400':
+        '401':
           description: Invalid current password
           content:
             application/json:
