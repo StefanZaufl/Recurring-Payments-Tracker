@@ -23,7 +23,7 @@ public class UserContextService {
         if (auth != null && auth.getPrincipal() instanceof AppUserDetails userDetails) {
             return userDetails.getId();
         }
-        throw new IllegalStateException("No authenticated user found");
+        throw new UnauthenticatedUserException("Authentication required");
     }
 
     public User getCurrentUser() {
