@@ -1,6 +1,7 @@
 package com.tracker.service;
 
 import com.tracker.model.entity.FileUpload;
+import com.tracker.model.entity.RecurringPayment;
 import com.tracker.model.entity.Transaction;
 import com.tracker.model.entity.User;
 import com.tracker.repository.FileUploadRepository;
@@ -31,6 +32,7 @@ public class TransactionService {
     private final UserContextService userContextService;
     private final BankAccountService bankAccountService;
     private final InterAccountService interAccountService;
+    private final RecurringPaymentRecalculationService recalculationService;
 
     public TransactionService(CsvParserService csvParserService,
                               TransactionRepository transactionRepository,
@@ -38,7 +40,8 @@ public class TransactionService {
                               RecurringPaymentDetectionService detectionService,
                               UserContextService userContextService,
                               BankAccountService bankAccountService,
-                              InterAccountService interAccountService) {
+                              InterAccountService interAccountService,
+                              RecurringPaymentRecalculationService recalculationService) {
         this.csvParserService = csvParserService;
         this.transactionRepository = transactionRepository;
         this.fileUploadRepository = fileUploadRepository;
@@ -46,6 +49,7 @@ public class TransactionService {
         this.userContextService = userContextService;
         this.bankAccountService = bankAccountService;
         this.interAccountService = interAccountService;
+        this.recalculationService = recalculationService;
     }
 
     @Transactional
@@ -68,16 +72,42 @@ public class TransactionService {
             tx.setIsInterAccount(Boolean.FALSE);
         }
         List<Transaction> savedTransactions = transactionRepository.saveAll(newTransactions);
-        bankAccountService.createMissingForCurrentUser(savedTransactions.stream()
+        int createdBankAccounts = bankAccountService.createMissingForCurrentUser(savedTransactions.stream()
                 .map(Transaction::getAccount)
                 .collect(java.util.stream.Collectors.toSet()));
         interAccountService.markInterAccountTransactions(savedTransactions);
 
         int recurringCount = detectionService.detectRecurringPayments(savedTransactions.stream()
                 .filter(tx -> !Boolean.TRUE.equals(tx.getIsInterAccount()))
-                .toList()).size();
+                .toList()).stream()
+                .map(RecurringPayment::getId)
+                .collect(java.util.stream.Collectors.toSet())
+                .size();
 
-        return new UploadResult(upload.getId(), newTransactions.size(), duplicateFilterResult.skippedDuplicates(), recurringCount);
+        Integer transactionsMarkedInterAccount = null;
+        Integer transactionLinksRemoved = null;
+        Integer recurringPaymentsDeleted = null;
+        Integer recalculationRecurringPaymentsDetected = null;
+
+        if (createdBankAccounts > 0) {
+            RecurringPaymentRecalculationService.RecalculationResult recalculationResult =
+                    recalculationService.recalculateCurrentUserRecurringPayments();
+            transactionsMarkedInterAccount = recalculationResult.transactionsMarkedInterAccount();
+            transactionLinksRemoved = recalculationResult.transactionLinksRemoved();
+            recurringPaymentsDeleted = recalculationResult.recurringPaymentsDeleted();
+            recalculationRecurringPaymentsDetected = recalculationResult.recurringPaymentsDetected();
+        }
+
+        return new UploadResult(
+                upload.getId(),
+                newTransactions.size(),
+                duplicateFilterResult.skippedDuplicates(),
+                recurringCount,
+                transactionsMarkedInterAccount,
+                transactionLinksRemoved,
+                recurringPaymentsDeleted,
+                recalculationRecurringPaymentsDetected
+        );
     }
 
     private static final java.util.Set<String> ALLOWED_SORT_FIELDS = java.util.Set.of("bookingDate", "partnerName", "amount");
@@ -157,7 +187,14 @@ public class TransactionService {
                                    CsvParserService.CsvImportMapping mapping,
                                    String charset) {}
 
-    public record UploadResult(UUID uploadId, int transactionCount, int skippedDuplicates, int recurringPaymentsDetected) {}
+    public record UploadResult(UUID uploadId,
+                               int transactionCount,
+                               int skippedDuplicates,
+                               int recurringPaymentsDetected,
+                               Integer transactionsMarkedInterAccount,
+                               Integer transactionLinksRemoved,
+                               Integer recurringPaymentsDeleted,
+                               Integer recalculationRecurringPaymentsDetected) {}
 
     private record DuplicateFilterResult(List<Transaction> newTransactions, int skippedDuplicates) {}
 

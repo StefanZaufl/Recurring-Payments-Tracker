@@ -33,6 +33,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID>,
 
     List<Transaction> findByUserIdAndBookingDateBetweenAndIsInterAccountFalse(UUID userId, LocalDate from, LocalDate to);
 
+    List<Transaction> findByUserIdAndBookingDateGreaterThanEqualAndIsInterAccountFalse(UUID userId, LocalDate cutoff);
+
     List<Transaction> findByUserId(UUID userId);
 
     @Query("SELECT t FROM Transaction t WHERE t.bookingDate >= :cutoff AND t.user.id = :userId AND t.isInterAccount = false AND t.id NOT IN " +

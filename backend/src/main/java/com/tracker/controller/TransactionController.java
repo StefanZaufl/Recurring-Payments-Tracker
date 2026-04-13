@@ -13,6 +13,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.openapitools.jackson.nullable.JsonNullable;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -50,6 +51,10 @@ public class TransactionController implements TransactionsApi {
             response.setTransactionCount(result.transactionCount());
             response.setSkippedDuplicates(result.skippedDuplicates());
             response.setRecurringPaymentsDetected(result.recurringPaymentsDetected());
+            response.setTransactionsMarkedInterAccount(toNullable(result.transactionsMarkedInterAccount()));
+            response.setTransactionLinksRemoved(toNullable(result.transactionLinksRemoved()));
+            response.setRecurringPaymentsDeleted(toNullable(result.recurringPaymentsDeleted()));
+            response.setRecalculationRecurringPaymentsDetected(toNullable(result.recalculationRecurringPaymentsDetected()));
             return ResponseEntity.ok(response);
         } catch (CsvParserService.CsvParseException e) {
             throw new CsvValidationException(e.getMessage(), e);
@@ -88,5 +93,9 @@ public class TransactionController implements TransactionsApi {
         public CsvValidationException(String message, Throwable cause) {
             super(message, cause);
         }
+    }
+
+    private JsonNullable<Integer> toNullable(Integer value) {
+        return value == null ? JsonNullable.undefined() : JsonNullable.of(value);
     }
 }

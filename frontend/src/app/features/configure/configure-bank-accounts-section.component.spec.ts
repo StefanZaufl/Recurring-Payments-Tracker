@@ -5,12 +5,20 @@ import { of, throwError } from 'rxjs';
 
 import { BankAccountsService } from '../../api/generated';
 import { BankAccountDto } from '../../api/generated/model/bankAccountDto';
+import { RecalculationSummaryResponse } from '../../api/generated/model/recalculationSummaryResponse';
 import { ConfigureBankAccountsSectionComponent } from './configure-bank-accounts-section.component';
 
 const mockBankAccounts: BankAccountDto[] = [
   { id: 'acc-1', iban: 'DE111', name: 'Checking' },
   { id: 'acc-2', iban: 'DE222', name: 'Savings' },
 ];
+
+const mockSummary: RecalculationSummaryResponse = {
+  transactionsMarkedInterAccount: 1,
+  transactionLinksRemoved: 2,
+  recurringPaymentsDeleted: 1,
+  recurringPaymentsDetected: 0,
+};
 
 describe('ConfigureBankAccountsSectionComponent', () => {
   let component: ConfigureBankAccountsSectionComponent;
@@ -93,7 +101,10 @@ describe('ConfigureBankAccountsSectionComponent', () => {
 
   it('should create a bank account', () => {
     bankAccountsService.createBankAccount.mockReturnValue(
-      of({ id: 'acc-3', iban: 'DE333', name: 'Brokerage' })
+      of({
+        bankAccount: { id: 'acc-3', iban: 'DE333', name: 'Brokerage' },
+        recalculationSummary: mockSummary,
+      })
     );
     fixture.detectChanges();
 
@@ -159,7 +170,7 @@ describe('ConfigureBankAccountsSectionComponent', () => {
   });
 
   it('should delete a bank account', () => {
-    bankAccountsService.deleteBankAccount.mockReturnValue(of(undefined));
+    bankAccountsService.deleteBankAccount.mockReturnValue(of(mockSummary));
     fixture.detectChanges();
 
     component.deleteBankAccount(component.bankAccounts[0]);

@@ -1,8 +1,10 @@
 package com.tracker.controller;
 
 import com.tracker.api.BankAccountsApi;
+import com.tracker.api.model.BankAccountMutationResponse;
 import com.tracker.api.model.BankAccountDto;
 import com.tracker.api.model.CreateBankAccountRequest;
+import com.tracker.api.model.RecalculationSummaryResponse;
 import com.tracker.api.model.UpdateBankAccountRequest;
 import com.tracker.service.BankAccountService;
 import org.springframework.http.HttpStatus;
@@ -30,9 +32,12 @@ public class BankAccountController implements BankAccountsApi {
     }
 
     @Override
-    public ResponseEntity<BankAccountDto> createBankAccount(CreateBankAccountRequest request) {
-        var account = bankAccountService.create(request.getIban(), unwrap(request.getName()));
-        return ResponseEntity.status(HttpStatus.CREATED).body(bankAccountMapper.toDto(account));
+    public ResponseEntity<BankAccountMutationResponse> createBankAccount(CreateBankAccountRequest request) {
+        var result = bankAccountService.createWithRecalculation(request.getIban(), unwrap(request.getName()));
+        BankAccountMutationResponse response = new BankAccountMutationResponse();
+        response.setBankAccount(bankAccountMapper.toDto(result.bankAccount()));
+        response.setRecalculationSummary(toSummaryResponse(result.recalculationResult()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @Override
@@ -44,14 +49,24 @@ public class BankAccountController implements BankAccountsApi {
     }
 
     @Override
-    public ResponseEntity<Void> deleteBankAccount(UUID id) {
-        if (bankAccountService.delete(id)) {
-            return ResponseEntity.noContent().build();
-        }
-        throw new ResourceNotFoundException("Bank account not found: " + id);
+    public ResponseEntity<RecalculationSummaryResponse> deleteBankAccount(UUID id) {
+        return bankAccountService.deleteWithRecalculation(id)
+                .map(this::toSummaryResponse)
+                .map(ResponseEntity::ok)
+                .orElseThrow(() -> new ResourceNotFoundException("Bank account not found: " + id));
     }
 
     private String unwrap(JsonNullable<String> value) {
         return value != null && value.isPresent() ? value.get() : null;
+    }
+
+    private RecalculationSummaryResponse toSummaryResponse(
+            com.tracker.service.RecurringPaymentRecalculationService.RecalculationResult result) {
+        RecalculationSummaryResponse response = new RecalculationSummaryResponse();
+        response.setTransactionsMarkedInterAccount(result.transactionsMarkedInterAccount());
+        response.setTransactionLinksRemoved(result.transactionLinksRemoved());
+        response.setRecurringPaymentsDeleted(result.recurringPaymentsDeleted());
+        response.setRecurringPaymentsDetected(result.recurringPaymentsDetected());
+        return response;
     }
 }

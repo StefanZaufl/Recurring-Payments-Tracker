@@ -21,5 +21,8 @@ public interface TransactionRecurringLinkRepository extends JpaRepository<Transa
     @EntityGraph(attributePaths = {"transaction", "transaction.upload"})
     List<TransactionRecurringLink> findWithTransactionByRecurringPaymentIdAndUserId(UUID recurringPaymentId, UUID userId);
 
+    @EntityGraph(attributePaths = {"transaction", "recurringPayment"})
+    List<TransactionRecurringLink> findByUserId(UUID userId);
+
     void deleteByRecurringPaymentId(UUID recurringPaymentId);
 }

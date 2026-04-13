@@ -242,6 +242,32 @@ public class RecurringPaymentDetectionService {
         return rt;
     }
 
+    @Transactional
+    public void rebuildRecurringPayment(RecurringPayment recurringPayment, List<Transaction> matchedTransactions) {
+        linkRepository.deleteByRecurringPaymentId(recurringPayment.getId());
+
+        if (matchedTransactions.isEmpty()) {
+            historyService.recomputeHistory(recurringPayment);
+            return;
+        }
+
+        for (Transaction tx : matchedTransactions) {
+            createLink(tx, recurringPayment);
+        }
+
+        updateAmountRuleToNewest(recurringPayment.getRules(), matchedTransactions);
+        recomputeAverageAmount(recurringPayment);
+
+        Frequency frequency = detectFrequency(matchedTransactions);
+        if (frequency != null) {
+            recurringPayment.setFrequency(frequency);
+        }
+
+        historyService.recomputeHistory(recurringPayment);
+        updateRollingAverageFromHistory(recurringPayment);
+        recurringPaymentRepository.save(recurringPayment);
+    }
+
     private List<Transaction> getAllLinkedTransactions(UUID recurringPaymentId) {
         return linkRepository.findWithTransactionByRecurringPaymentId(recurringPaymentId)
                 .stream().map(TransactionRecurringLink::getTransaction)

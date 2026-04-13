@@ -1,9 +1,10 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Input, OnDestroy, OnInit, Output, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
 
 import { BankAccountsService } from '../../api/generated';
 import { BankAccountDto } from '../../api/generated/model/bankAccountDto';
+import { RecalculationSummaryResponse } from '../../api/generated/model/recalculationSummaryResponse';
 import { ErrorStateComponent } from '../../shared/error-state.component';
 import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component';
 
@@ -51,7 +52,7 @@ import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component'
                 placeholder="Checking">
             </div>
             <button (click)="createBankAccount()"
-              [disabled]="creatingBankAccount || !newBankAccountIban.trim()"
+              [disabled]="actionsDisabled || creatingBankAccount || !newBankAccountIban.trim()"
               class="btn-primary h-[42px] justify-center disabled:opacity-40 disabled:cursor-not-allowed">
               @if (!creatingBankAccount) {
                 Add account
@@ -84,14 +85,15 @@ import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component'
                   </div>
                   <div class="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
                     <button (click)="startBankAccountEdit(bankAccount)"
-                      class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-subtle text-muted hover:text-white transition-colors"
+                      [disabled]="actionsDisabled"
+                      class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-subtle text-muted hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                       aria-label="Edit bank account" title="Edit">
                       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
                       </svg>
                     </button>
                     <button (click)="deleteBankAccount(bankAccount)"
-                      [disabled]="deletingBankAccountId === bankAccount.id"
+                      [disabled]="actionsDisabled || deletingBankAccountId === bankAccount.id"
                       class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-coral-dim text-muted hover:text-coral transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                       aria-label="Delete bank account" title="Delete">
                       @if (deletingBankAccountId !== bankAccount.id) {
@@ -112,13 +114,14 @@ import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component'
                     <input [(ngModel)]="editBankAccountName"
                       (keydown.enter)="saveBankAccountEdit(bankAccount)"
                       (keydown.escape)="cancelBankAccountEdit()"
+                      [disabled]="actionsDisabled"
                       class="w-full text-sm bg-subtle border-0 rounded-lg px-3 py-1.5 text-white placeholder-muted/50 focus:outline-none focus:ring-1 focus:ring-accent/40"
                       placeholder="Account name">
                     <p class="text-xs text-muted font-mono mt-2 truncate">{{ bankAccount.iban }}</p>
                   </div>
                   <div class="flex items-center gap-1 shrink-0">
                     <button (click)="saveBankAccountEdit(bankAccount)"
-                      [disabled]="savingBankAccountEdit"
+                      [disabled]="actionsDisabled || savingBankAccountEdit"
                       class="w-7 h-7 flex items-center justify-center rounded-lg bg-accent-dim text-accent hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                       @if (!savingBankAccountEdit) {
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -129,7 +132,8 @@ import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component'
                       }
                     </button>
                     <button (click)="cancelBankAccountEdit()"
-                      class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-subtle text-muted hover:text-white transition-colors">
+                      [disabled]="actionsDisabled"
+                      class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-subtle text-muted hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                       </svg>
@@ -156,6 +160,10 @@ export class ConfigureBankAccountsSectionComponent implements OnInit, OnDestroy 
   private cdr = inject(ChangeDetectorRef);
 
   private destroy$ = new Subject<void>();
+
+  @Input() actionsDisabled = false;
+  @Output() recalculationBusyChange = new EventEmitter<boolean>();
+  @Output() recalculationSummaryChange = new EventEmitter<RecalculationSummaryResponse>();
 
   bankAccounts: BankAccountDto[] = [];
   bankAccountsLoading = false;
@@ -205,21 +213,25 @@ export class ConfigureBankAccountsSectionComponent implements OnInit, OnDestroy 
 
     this.creatingBankAccount = true;
     this.createBankAccountError = null;
+    this.recalculationBusyChange.emit(true);
     this.bankAccountsService.createBankAccount({
       iban,
       name: this.newBankAccountName.trim() || undefined
     }).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (account) => {
-        this.bankAccounts = [...this.bankAccounts.filter((existing) => existing.id !== account.id), account]
+      next: (result) => {
+        this.bankAccounts = [...this.bankAccounts.filter((existing) => existing.id !== result.bankAccount.id), result.bankAccount]
           .sort((a, b) => (a.name || a.iban).localeCompare(b.name || b.iban));
         this.newBankAccountIban = '';
         this.newBankAccountName = '';
         this.creatingBankAccount = false;
+        this.recalculationBusyChange.emit(false);
+        this.recalculationSummaryChange.emit(result.recalculationSummary);
         this.cdr.markForCheck();
       },
       error: (err) => {
         this.createBankAccountError = err.error?.message || 'Failed to create bank account.';
         this.creatingBankAccount = false;
+        this.recalculationBusyChange.emit(false);
         this.cdr.markForCheck();
       }
     });
@@ -260,15 +272,19 @@ export class ConfigureBankAccountsSectionComponent implements OnInit, OnDestroy 
   deleteBankAccount(account: BankAccountDto): void {
     this.deletingBankAccountId = account.id;
     this.deleteBankAccountError = null;
+    this.recalculationBusyChange.emit(true);
     this.bankAccountsService.deleteBankAccount(account.id).pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => {
+      next: (summary) => {
         this.bankAccounts = this.bankAccounts.filter((existing) => existing.id !== account.id);
         this.deletingBankAccountId = null;
+        this.recalculationBusyChange.emit(false);
+        this.recalculationSummaryChange.emit(summary);
         this.cdr.markForCheck();
       },
       error: (err) => {
         this.deleteBankAccountError = err.error?.message || 'Failed to delete bank account.';
         this.deletingBankAccountId = null;
+        this.recalculationBusyChange.emit(false);
         this.cdr.markForCheck();
       }
     });

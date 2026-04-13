@@ -14,5 +14,9 @@ export interface UploadResponse {
     transactionCount: number;
     skippedDuplicates: number;
     recurringPaymentsDetected: number;
+    transactionsMarkedInterAccount?: number | null;
+    transactionLinksRemoved?: number | null;
+    recurringPaymentsDeleted?: number | null;
+    recalculationRecurringPaymentsDetected?: number | null;
 }
 

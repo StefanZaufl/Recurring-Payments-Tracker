@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 
-import { BankAccountsService, CategoriesService } from '../../api/generated';
+import { BankAccountsService, CategoriesService, RecurringPaymentsService } from '../../api/generated';
 import { ConfigureComponent } from './configure.component';
 
 describe('ConfigureComponent', () => {
@@ -31,6 +31,12 @@ describe('ConfigureComponent', () => {
             deleteBankAccount: jest.fn(),
           },
         },
+        {
+          provide: RecurringPaymentsService,
+          useValue: {
+            recalculateRecurringPayments: jest.fn(),
+          },
+        },
       ],
     }).compileComponents();
 
@@ -47,6 +53,7 @@ describe('ConfigureComponent', () => {
 
     expect(el.textContent).toContain('Configure');
     expect(el.textContent).toContain('Manage categories and bank accounts');
+    expect(el.textContent).toContain('Danger Zone');
   });
 
   it('should compose the categories and bank accounts sections', () => {

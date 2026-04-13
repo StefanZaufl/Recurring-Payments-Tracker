@@ -19,10 +19,14 @@ public class BankAccountService {
 
     private final BankAccountRepository bankAccountRepository;
     private final UserContextService userContextService;
+    private final RecurringPaymentRecalculationService recalculationService;
 
-    public BankAccountService(BankAccountRepository bankAccountRepository, UserContextService userContextService) {
+    public BankAccountService(BankAccountRepository bankAccountRepository,
+                              UserContextService userContextService,
+                              RecurringPaymentRecalculationService recalculationService) {
         this.bankAccountRepository = bankAccountRepository;
         this.userContextService = userContextService;
+        this.recalculationService = recalculationService;
     }
 
     @Transactional(readOnly = true)
@@ -47,13 +51,21 @@ public class BankAccountService {
     }
 
     @Transactional
-    public void createMissingForCurrentUser(Set<String> ibans) {
+    public BankAccountMutationResult createWithRecalculation(String iban, String name) {
+        BankAccount account = create(iban, name);
+        RecurringPaymentRecalculationService.RecalculationResult recalculationResult =
+                recalculationService.recalculateCurrentUserRecurringPayments();
+        return new BankAccountMutationResult(account, recalculationResult);
+    }
+
+    @Transactional
+    public int createMissingForCurrentUser(Set<String> ibans) {
         Set<String> normalizedIbans = ibans.stream()
                 .map(IbanNormalizationService::normalize)
                 .filter(value -> value != null && !value.isBlank())
                 .collect(Collectors.toSet());
         if (normalizedIbans.isEmpty()) {
-            return;
+            return 0;
         }
 
         UUID userId = userContextService.getCurrentUserId();
@@ -62,6 +74,7 @@ public class BankAccountService {
                 .collect(Collectors.toSet());
 
         User currentUser = userContextService.getCurrentUser();
+        int createdCount = 0;
         for (String iban : normalizedIbans) {
             if (existing.contains(iban)) {
                 continue;
@@ -70,7 +83,9 @@ public class BankAccountService {
             account.setUser(currentUser);
             account.setIban(iban);
             bankAccountRepository.save(account);
+            createdCount += 1;
         }
+        return createdCount;
     }
 
     @Transactional
@@ -93,6 +108,15 @@ public class BankAccountService {
                     return true;
                 })
                 .orElse(false);
+    }
+
+    @Transactional
+    public Optional<RecurringPaymentRecalculationService.RecalculationResult> deleteWithRecalculation(UUID id) {
+        return bankAccountRepository.findByIdAndUserId(id, userContextService.getCurrentUserId())
+                .map(account -> {
+                    bankAccountRepository.delete(account);
+                    return recalculationService.recalculateCurrentUserRecurringPayments();
+                });
     }
 
     @Transactional(readOnly = true)
@@ -136,4 +160,7 @@ public class BankAccountService {
         String trimmed = name.trim();
         return trimmed.isEmpty() ? null : trimmed;
     }
+
+    public record BankAccountMutationResult(BankAccount bankAccount,
+                                            RecurringPaymentRecalculationService.RecalculationResult recalculationResult) {}
 }

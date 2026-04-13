@@ -121,7 +121,14 @@ interface DecodedCsvCandidate {
 
           @if (uploadResult) {
             <div class="mt-4 rounded-xl border border-accent/20 bg-accent-dim px-4 py-3 text-sm text-accent">
-              Imported {{ uploadResult.transactionCount }} transactions, skipped {{ uploadResult.skippedDuplicates }} duplicates, and detected {{ uploadResult.recurringPaymentsDetected }} recurring payments.
+              <p>
+                Imported {{ uploadResult.transactionCount }} transactions, skipped {{ uploadResult.skippedDuplicates }} duplicates, and detected {{ uploadResult.recurringPaymentsDetected }} recurring payments.
+              </p>
+              @if (uploadResult.transactionsMarkedInterAccount !== null && uploadResult.transactionsMarkedInterAccount !== undefined) {
+                <p class="mt-2 text-accent/90">
+                  Recalculation marked {{ uploadResult.transactionsMarkedInterAccount }} transactions as inter-account, removed {{ uploadResult.transactionLinksRemoved ?? 0 }} transaction links, deleted {{ uploadResult.recurringPaymentsDeleted ?? 0 }} recurring payments, and detected {{ uploadResult.recalculationRecurringPaymentsDetected ?? 0 }} recurring payments.
+                </p>
+              }
             </div>
           }
 
