@@ -3,6 +3,8 @@ package com.tracker.repository;
 import com.tracker.model.entity.Transaction;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -11,10 +13,19 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction, UUID>, JpaSpecificationExecutor<Transaction> {
+
+    @Override
+    @EntityGraph(attributePaths = "upload")
+    Page<Transaction> findAll(Specification<Transaction> spec, Pageable pageable);
+
+    @Override
+    @EntityGraph(attributePaths = "upload")
+    Optional<Transaction> findById(UUID id);
 
     List<Transaction> findByBookingDateBetween(LocalDate from, LocalDate to);
 
@@ -26,9 +37,11 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID>,
 
     @Query("SELECT t FROM Transaction t WHERE t.bookingDate >= :cutoff AND t.user.id = :userId AND t.isInterAccount = false AND t.id NOT IN " +
            "(SELECT trl.transaction.id FROM TransactionRecurringLink trl)")
+    @EntityGraph(attributePaths = "upload")
     List<Transaction> findUnlinkedTransactionsAfterForUser(@Param("cutoff") LocalDate cutoff, @Param("userId") UUID userId);
 
     @Query("SELECT t FROM Transaction t WHERE t.bookingDate >= :cutoff AND t.user.id = :userId AND t.isInterAccount = false AND t.id NOT IN " +
            "(SELECT trl.transaction.id FROM TransactionRecurringLink trl)")
+    @EntityGraph(attributePaths = "upload")
     Page<Transaction> findUnlinkedTransactionsAfterForUserPaged(@Param("cutoff") LocalDate cutoff, @Param("userId") UUID userId, Pageable pageable);
 }

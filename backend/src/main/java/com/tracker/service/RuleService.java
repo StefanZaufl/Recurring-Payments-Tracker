@@ -79,11 +79,14 @@ public class RuleService {
 
     @Transactional
     public boolean deleteRule(UUID recurringPaymentId, UUID ruleId) {
-        requirePaymentExists(recurringPaymentId);
+        RecurringPayment payment = requirePaymentExists(recurringPaymentId);
         UUID currentUserId = userContextService.getCurrentUserId();
         return ruleRepository.findByIdAndRecurringPaymentIdAndUserId(ruleId, recurringPaymentId, currentUserId)
                 .map(rule -> {
+                    payment.getRules().removeIf(existingRule -> existingRule.getId().equals(rule.getId()));
+                    rule.setRecurringPayment(null);
                     ruleRepository.delete(rule);
+                    ruleRepository.flush();
                     return true;
                 })
                 .orElse(false);

@@ -17,17 +17,18 @@ public interface RecurringPaymentRepository extends JpaRepository<RecurringPayme
     List<RecurringPayment> findByIsActiveTrue();
 
     @Override
-    @EntityGraph(attributePaths = "rules")
+    @EntityGraph(attributePaths = {"rules", "category"})
     List<RecurringPayment> findAll();
 
-    @EntityGraph(attributePaths = "rules")
+    @EntityGraph(attributePaths = {"rules", "category"})
     List<RecurringPayment> findByUserIdAndIsActiveTrue(UUID userId);
 
-    @EntityGraph(attributePaths = "rules")
+    @EntityGraph(attributePaths = {"rules", "category"})
     List<RecurringPayment> findByUserId(UUID userId);
 
+    @EntityGraph(attributePaths = {"rules", "category"})
     Optional<RecurringPayment> findByIdAndUserId(UUID id, UUID userId);
 
-    @EntityGraph(attributePaths = "rules")
+    @EntityGraph(attributePaths = {"rules", "category"})
     List<RecurringPayment> findByUserIdAndIsActiveTrueAndPaymentType(UUID userId, PaymentType paymentType);
 }

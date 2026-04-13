@@ -35,8 +35,17 @@ server {
         client_max_body_size 10M;
     }
 
-    # Angular SPA routing - serve index.html for all non-file routes
+    # Return 404 for obvious file-like or probe paths instead of serving the SPA shell.
+    location ~* ^/(?:.*\..*|\.|wp-admin(?:/|$)|wp-content(?:/|$)|wordpress(?:/|$)|vendor(?:/|$)|containers(?:/|$)|server-status(?:/|$)|cgi-bin(?:/|$)|boaform(?:/|$)|phpmyadmin(?:/|$)|\.env(?:$|/)) {
+        try_files $uri =404;
+    }
+
+    # Angular SPA routing - serve index.html only for extensionless client-side routes.
     location / {
-        try_files $uri $uri/ /index.html;
+        try_files $uri $uri/ @spa;
+    }
+
+    location @spa {
+        rewrite ^ /index.html last;
     }
 }
