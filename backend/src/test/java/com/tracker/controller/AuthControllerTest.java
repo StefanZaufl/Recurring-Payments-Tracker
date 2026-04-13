@@ -108,6 +108,29 @@ class AuthControllerTest {
     }
 
     @Test
+    void returns401WhenDisabledUserAttemptsLogin() throws Exception {
+        testUser.setEnabled(false);
+        userRepository.save(testUser);
+
+        mockMvc.perform(post(AUTH_LOGIN_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "username": "auth-admin",
+                              "password": "correct-password"
+                            }
+                            """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Account is disabled"));
+    }
+
+    @Test
+    void logoutWithoutSessionStillReturns204() throws Exception {
+        mockMvc.perform(post(AUTH_LOGOUT_URL).with(csrf()))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
     void loginStoresSecurityContextInSession() throws Exception {
         MockHttpSession session = (MockHttpSession) mockMvc.perform(post(AUTH_LOGIN_URL)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -129,5 +152,21 @@ class AuthControllerTest {
                 .isNotNull();
         org.assertj.core.api.Assertions.assertThat(session.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY))
                 .isNotNull();
+    }
+
+    @Test
+    void loginReturnsCurrentUserPayload() throws Exception {
+        mockMvc.perform(post(AUTH_LOGIN_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "username": "auth-admin",
+                              "password": "correct-password"
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(testUser.getId().toString()))
+                .andExpect(jsonPath("$.username").value("auth-admin"))
+                .andExpect(jsonPath("$.role").value("ADMIN"));
     }
 }
