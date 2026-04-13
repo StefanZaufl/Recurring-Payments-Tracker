@@ -2,6 +2,7 @@ package com.tracker.controller;
 
 import com.tracker.api.model.ErrorResponse;
 import com.tracker.service.CsvParserService;
+import com.tracker.service.UnauthenticatedUserException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -52,6 +53,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InvalidCurrentPasswordException.class)
     public ResponseEntity<ErrorResponse> handleInvalidCurrentPassword(InvalidCurrentPasswordException e) {
         log.debug("Invalid current password: {}", e.getMessage(), e);
+        return buildResponse(HttpStatus.UNAUTHORIZED, e.getMessage());
+    }
+
+    @ExceptionHandler(UnauthenticatedUserException.class)
+    public ResponseEntity<ErrorResponse> handleUnauthenticatedUser(UnauthenticatedUserException e) {
+        log.debug("Unauthenticated user access: {}", e.getMessage(), e);
         return buildResponse(HttpStatus.UNAUTHORIZED, e.getMessage());
     }
 

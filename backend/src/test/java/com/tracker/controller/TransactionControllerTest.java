@@ -324,6 +324,25 @@ class TransactionControllerTest {
     }
 
     @Test
+    void getTransactions_returnsNestedAccountObject() throws Exception {
+        BankAccount account = new BankAccount();
+        account.setUser(testUser);
+        account.setIban("DE111");
+        account.setName("Checking");
+        bankAccountRepository.save(account);
+
+        Transaction tx = TransactionMother.netflix();
+        tx.setAccount("DE111");
+        seedTransaction(tx);
+
+        mockMvc.perform(get(TRANSACTIONS_URL)
+                        .with(authenticatedUser(testUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].account.iban").value("DE111"))
+                .andExpect(jsonPath("$.content[0].account.name").value("Checking"));
+    }
+
+    @Test
     void getTransactions_sortByPartnerNameAsc() throws Exception {
         seedTransaction(TransactionMother.transaction(NETFLIX, JAN_DATE, TEN));
         seedTransaction(TransactionMother.transaction(EMPLOYER, FEB_DATE, TWENTY));

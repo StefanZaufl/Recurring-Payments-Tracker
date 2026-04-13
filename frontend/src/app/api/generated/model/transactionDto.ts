@@ -7,13 +7,14 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
+import { BankAccountDto } from './bankAccountDto';
 
 
 export interface TransactionDto { 
     id: string;
     uploadId?: string;
     bookingDate: string;
-    account?: string;
+    account?: BankAccountDto;
     partnerName?: string;
     partnerIban?: string;
     amount: number;

@@ -11,6 +11,10 @@ server {
     ssl_certificate /etc/nginx/certs/${SSL_CERTIFICATE_FILE};
     ssl_certificate_key /etc/nginx/certs/${SSL_CERTIFICATE_KEY_FILE};
 
+    # Re-resolve Docker service names so backend container IP changes do not leave nginx
+    # pinned to a stale upstream address after a backend restart or recreation.
+    resolver 127.0.0.11 ipv6=off valid=10s;
+
     root /usr/share/nginx/html;
     index index.html;
 
@@ -20,7 +24,8 @@ server {
 
     # Proxy API requests to the backend
     location /api/ {
-        proxy_pass http://backend:8080;
+        set $backend_upstream http://backend:8080;
+        proxy_pass $backend_upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -30,8 +35,17 @@ server {
         client_max_body_size 10M;
     }
 
-    # Angular SPA routing - serve index.html for all non-file routes
+    # Return 404 for obvious file-like or probe paths instead of serving the SPA shell.
+    location ~* ^/(?:.*\..*|\.|wp-admin(?:/|$)|wp-content(?:/|$)|wordpress(?:/|$)|vendor(?:/|$)|containers(?:/|$)|server-status(?:/|$)|cgi-bin(?:/|$)|boaform(?:/|$)|phpmyadmin(?:/|$)|\.env(?:$|/)) {
+        try_files $uri =404;
+    }
+
+    # Angular SPA routing - serve index.html only for extensionless client-side routes.
     location / {
-        try_files $uri $uri/ /index.html;
+        try_files $uri $uri/ @spa;
+    }
+
+    location @spa {
+        rewrite ^ /index.html last;
     }
 }

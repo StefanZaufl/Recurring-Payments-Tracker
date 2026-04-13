@@ -15,6 +15,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static com.tracker.testutil.SecurityTestUtil.authenticatedUser;
 import static org.hamcrest.Matchers.containsString;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -25,6 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AccountControllerTest {
 
     private static final String ACCOUNT_PASSWORD_URL = "/api/account/password";
+    private static final String ACCOUNT_USERNAME_URL = "/api/account/username";
 
     @Autowired
     private MockMvc mockMvc;
@@ -76,5 +78,54 @@ class AccountControllerTest {
                             """)
                         .with(authenticatedUser(testUser)))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void returns200WhenUsernameChangesSuccessfully() throws Exception {
+        mockMvc.perform(put(ACCOUNT_USERNAME_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "newUsername": "renamed-admin"
+                            }
+                            """)
+                        .with(authenticatedUser(testUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(testUser.getId().toString()))
+                .andExpect(jsonPath("$.username").value("renamed-admin"))
+                .andExpect(jsonPath("$.role").value("ADMIN"));
+    }
+
+    @Test
+    void returns409WhenNewUsernameAlreadyExists() throws Exception {
+        User user = new User();
+        user.setUsername("taken-name");
+        user.setPasswordHash(passwordEncoder.encode("another-password"));
+        user.setRole(UserRole.USER);
+        user.setEnabled(true);
+        userRepository.save(user);
+
+        mockMvc.perform(put(ACCOUNT_USERNAME_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "newUsername": "taken-name"
+                            }
+                            """)
+                        .with(authenticatedUser(testUser)))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void returns401WhenUsernameChangeIsUnauthenticated() throws Exception {
+        mockMvc.perform(put(ACCOUNT_USERNAME_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "newUsername": "renamed-admin"
+                            }
+                            """)
+                        .with(csrf()))
+                .andExpect(status().isUnauthorized());
     }
 }
