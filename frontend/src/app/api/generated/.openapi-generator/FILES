@@ -20,6 +20,7 @@ index.ts
 model/adminUserDto.ts
 model/annualOverview.ts
 model/bankAccountDto.ts
+model/bankAccountMutationResponse.ts
 model/categoryBreakdown.ts
 model/categoryDto.ts
 model/changePasswordRequest.ts
@@ -40,6 +41,7 @@ model/overlappingPaymentDto.ts
 model/paymentPeriodHistoryEntry.ts
 model/paymentType.ts
 model/predictionResponse.ts
+model/recalculationSummaryResponse.ts
 model/recurringPaymentDto.ts
 model/recurringPaymentSummary.ts
 model/recurringPaymentUpdateRequest.ts

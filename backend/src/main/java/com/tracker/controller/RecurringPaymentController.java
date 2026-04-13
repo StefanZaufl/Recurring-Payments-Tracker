@@ -24,17 +24,20 @@ public class RecurringPaymentController implements RecurringPaymentsApi {
     private final RecurringPaymentRuleRequestMapper recurringPaymentRuleRequestMapper;
     private final SimulationService simulationService;
     private final PaymentPeriodHistoryService historyService;
+    private final com.tracker.service.RecurringPaymentRecalculationService recalculationService;
 
     public RecurringPaymentController(RecurringPaymentService recurringPaymentService,
                                       RecurringPaymentMapper recurringPaymentMapper,
                                       RecurringPaymentRuleRequestMapper recurringPaymentRuleRequestMapper,
                                       SimulationService simulationService,
-                                      PaymentPeriodHistoryService historyService) {
+                                      PaymentPeriodHistoryService historyService,
+                                      com.tracker.service.RecurringPaymentRecalculationService recalculationService) {
         this.recurringPaymentService = recurringPaymentService;
         this.recurringPaymentMapper = recurringPaymentMapper;
         this.recurringPaymentRuleRequestMapper = recurringPaymentRuleRequestMapper;
         this.simulationService = simulationService;
         this.historyService = historyService;
+        this.recalculationService = recalculationService;
     }
 
     @Override
@@ -113,5 +116,16 @@ public class RecurringPaymentController implements RecurringPaymentsApi {
                 })
                 .toList();
         return ResponseEntity.ok(entries);
+    }
+
+    @Override
+    public ResponseEntity<RecalculationSummaryResponse> recalculateRecurringPayments() {
+        var result = recalculationService.recalculateCurrentUserRecurringPayments();
+        RecalculationSummaryResponse response = new RecalculationSummaryResponse();
+        response.setTransactionsMarkedInterAccount(result.transactionsMarkedInterAccount());
+        response.setTransactionLinksRemoved(result.transactionLinksRemoved());
+        response.setRecurringPaymentsDeleted(result.recurringPaymentsDeleted());
+        response.setRecurringPaymentsDetected(result.recurringPaymentsDetected());
+        return ResponseEntity.ok(response);
     }
 }

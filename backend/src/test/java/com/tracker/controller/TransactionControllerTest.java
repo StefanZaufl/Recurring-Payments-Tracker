@@ -47,6 +47,9 @@ class TransactionControllerTest {
     private static final String DEFAULT_MAPPING_JSON = """
             {"bookingDate":"Buchungsdatum","amount":"Betrag","partnerName":"Partnername","details":"Buchungs-Details"}
             """;
+    private static final String ACCOUNT_MAPPING_JSON = """
+            {"bookingDate":"Buchungsdatum","amount":"Betrag","account":"Auftragskonto","partnerName":"Partnername","partnerIban":"Partner IBAN"}
+            """;
 
     private static final int PAGE_SIZE_2 = 2;
     private static final int TOTAL_PAGING_ITEMS = 3;
@@ -107,7 +110,11 @@ class TransactionControllerTest {
                 .andExpect(jsonPath("$.uploadId").isNotEmpty())
                 .andExpect(jsonPath("$.transactionCount").value(2))
                 .andExpect(jsonPath("$.skippedDuplicates").value(0))
-                .andExpect(jsonPath("$.recurringPaymentsDetected").value(0));
+                .andExpect(jsonPath("$.recurringPaymentsDetected").value(0))
+                .andExpect(jsonPath("$.transactionsMarkedInterAccount").doesNotExist())
+                .andExpect(jsonPath("$.transactionLinksRemoved").doesNotExist())
+                .andExpect(jsonPath("$.recurringPaymentsDeleted").doesNotExist())
+                .andExpect(jsonPath("$.recalculationRecurringPaymentsDetected").doesNotExist());
     }
 
     @Test
@@ -200,6 +207,61 @@ class TransactionControllerTest {
 
         Transaction saved = transactionRepository.findAll().getFirst();
         assertThat(saved.getIsInterAccount(), is(true));
+    }
+
+    @Test
+    void uploadCsv_secondImportRecalculatesAndRemovesFalseRecurringPaymentForInterAccountTransfers() throws Exception {
+        MockMultipartFile firstImport = CsvMother.multipartFile(
+                "Buchungsdatum;Auftragskonto;Partnername;Partner IBAN;Betrag",
+                "15.01.2025;DE111111;My Savings;DE222222;-500,00",
+                "15.02.2025;DE111111;My Savings;DE222222;-500,00",
+                "15.03.2025;DE111111;My Savings;DE222222;-500,00"
+        );
+
+        mockMvc.perform(multipart(UPLOAD_URL)
+                        .file(firstImport)
+                        .param(MAPPING_PARAM, ACCOUNT_MAPPING_JSON)
+                        .header(HEADER_CSV_CHARSET, StandardCharsets.UTF_8.name())
+                        .with(authenticatedUser(testUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.transactionCount").value(3))
+                .andExpect(jsonPath("$.recurringPaymentsDetected").value(1))
+                .andExpect(jsonPath("$.transactionsMarkedInterAccount").value(0))
+                .andExpect(jsonPath("$.transactionLinksRemoved").value(0))
+                .andExpect(jsonPath("$.recurringPaymentsDeleted").value(0))
+                .andExpect(jsonPath("$.recalculationRecurringPaymentsDetected").value(0));
+
+        mockMvc.perform(get("/api/recurring-payments").with(authenticatedUser(testUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].name").value("My Savings"));
+
+        MockMultipartFile secondImport = CsvMother.multipartFile(
+                "Buchungsdatum;Auftragskonto;Partnername;Partner IBAN;Betrag",
+                "20.03.2025;DE222222;Main Checking;DE111111;500,00"
+        );
+
+        mockMvc.perform(multipart(UPLOAD_URL)
+                        .file(secondImport)
+                        .param(MAPPING_PARAM, ACCOUNT_MAPPING_JSON)
+                        .header(HEADER_CSV_CHARSET, StandardCharsets.UTF_8.name())
+                        .with(authenticatedUser(testUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.transactionCount").value(1))
+                .andExpect(jsonPath("$.recurringPaymentsDetected").value(0))
+                .andExpect(jsonPath("$.transactionsMarkedInterAccount").value(3))
+                .andExpect(jsonPath("$.transactionLinksRemoved").value(3))
+                .andExpect(jsonPath("$.recurringPaymentsDeleted").value(1))
+                .andExpect(jsonPath("$.recalculationRecurringPaymentsDetected").value(0));
+
+        mockMvc.perform(get("/api/recurring-payments").with(authenticatedUser(testUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(0)));
+
+        assertThat(transactionRepository.findByUserId(testUser.getId()), hasSize(4));
+        assertThat(transactionRepository.findByUserId(testUser.getId()).stream()
+                .filter(tx -> Boolean.TRUE.equals(tx.getIsInterAccount()))
+                .count(), is(4L));
     }
 
     @Test

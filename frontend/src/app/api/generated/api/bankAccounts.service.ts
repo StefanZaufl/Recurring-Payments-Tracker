@@ -19,9 +19,13 @@ import { OpenApiHttpParams, QueryParamStyle } from '../query.params';
 // @ts-ignore
 import { BankAccountDto } from '../model/bankAccountDto';
 // @ts-ignore
+import { BankAccountMutationResponse } from '../model/bankAccountMutationResponse';
+// @ts-ignore
 import { CreateBankAccountRequest } from '../model/createBankAccountRequest';
 // @ts-ignore
 import { ErrorResponse } from '../model/errorResponse';
+// @ts-ignore
+import { RecalculationSummaryResponse } from '../model/recalculationSummaryResponse';
 // @ts-ignore
 import { UpdateBankAccountRequest } from '../model/updateBankAccountRequest';
 
@@ -49,9 +53,9 @@ export class BankAccountsService extends BaseService {
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public createBankAccount(createBankAccountRequest: CreateBankAccountRequest, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<BankAccountDto>;
-    public createBankAccount(createBankAccountRequest: CreateBankAccountRequest, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<BankAccountDto>>;
-    public createBankAccount(createBankAccountRequest: CreateBankAccountRequest, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<BankAccountDto>>;
+    public createBankAccount(createBankAccountRequest: CreateBankAccountRequest, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<BankAccountMutationResponse>;
+    public createBankAccount(createBankAccountRequest: CreateBankAccountRequest, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<BankAccountMutationResponse>>;
+    public createBankAccount(createBankAccountRequest: CreateBankAccountRequest, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<BankAccountMutationResponse>>;
     public createBankAccount(createBankAccountRequest: CreateBankAccountRequest, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
         if (createBankAccountRequest === null || createBankAccountRequest === undefined) {
             throw new Error('Required parameter createBankAccountRequest was null or undefined when calling createBankAccount.');
@@ -93,7 +97,7 @@ export class BankAccountsService extends BaseService {
 
         let localVarPath = `/api/bank-accounts`;
         const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<BankAccountDto>('post', `${basePath}${localVarPath}`,
+        return this.httpClient.request<BankAccountMutationResponse>('post', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 body: createBankAccountRequest,
@@ -115,9 +119,9 @@ export class BankAccountsService extends BaseService {
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public deleteBankAccount(id: string, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any>;
-    public deleteBankAccount(id: string, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<any>>;
-    public deleteBankAccount(id: string, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<any>>;
+    public deleteBankAccount(id: string, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<RecalculationSummaryResponse>;
+    public deleteBankAccount(id: string, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<RecalculationSummaryResponse>>;
+    public deleteBankAccount(id: string, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<RecalculationSummaryResponse>>;
     public deleteBankAccount(id: string, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
         if (id === null || id === undefined) {
             throw new Error('Required parameter id was null or undefined when calling deleteBankAccount.');
@@ -150,7 +154,7 @@ export class BankAccountsService extends BaseService {
 
         let localVarPath = `/api/bank-accounts/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}`;
         const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<any>('delete', `${basePath}${localVarPath}`,
+        return this.httpClient.request<RecalculationSummaryResponse>('delete', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 responseType: <any>responseType_,

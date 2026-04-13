@@ -1,6 +1,7 @@
 export * from './adminUserDto';
 export * from './annualOverview';
 export * from './bankAccountDto';
+export * from './bankAccountMutationResponse';
 export * from './categoryBreakdown';
 export * from './categoryDto';
 export * from './changePasswordRequest';
@@ -20,6 +21,7 @@ export * from './overlappingPaymentDto';
 export * from './paymentPeriodHistoryEntry';
 export * from './paymentType';
 export * from './predictionResponse';
+export * from './recalculationSummaryResponse';
 export * from './recurringPaymentDto';
 export * from './recurringPaymentSummary';
 export * from './recurringPaymentUpdateRequest';
