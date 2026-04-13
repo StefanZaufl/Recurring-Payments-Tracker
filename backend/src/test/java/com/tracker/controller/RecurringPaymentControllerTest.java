@@ -116,6 +116,16 @@ class RecurringPaymentControllerTest {
                     .andExpect(jsonPath("$[0].isIncome").value(false))
                     .andExpect(jsonPath("$[0].isActive").value(true));
         }
+
+        @Test
+        void recalculateRecurringPayments_returnsSummary() throws Exception {
+            mockMvc.perform(post(RECURRING_URL + "/recalculate").with(authenticatedUser(testUser)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.transactionsMarkedInterAccount").value(0))
+                    .andExpect(jsonPath("$.transactionLinksRemoved").value(0))
+                    .andExpect(jsonPath("$.recurringPaymentsDeleted").value(0))
+                    .andExpect(jsonPath("$.recurringPaymentsDetected").value(0));
+        }
     }
 
     // ────────────────────────────────────────────────────────────────────
