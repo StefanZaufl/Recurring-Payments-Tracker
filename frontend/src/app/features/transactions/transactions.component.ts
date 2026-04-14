@@ -6,6 +6,7 @@ import { BankAccountsService, TransactionsService } from '../../api/generated';
 import { BankAccountDto } from '../../api/generated/model/bankAccountDto';
 import { TransactionDto } from '../../api/generated/model/transactionDto';
 import { DateRangePickerComponent, DateRange } from '../../shared/date-range-picker.component';
+import { getThisMonthDateRange } from '../../shared/date-range-presets';
 import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component';
 import { ErrorStateComponent } from '../../shared/error-state.component';
 import { DEFAULT_PAGE_SIZE } from '../../shared/constants';
@@ -14,6 +15,7 @@ import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 
 type SortField = 'bookingDate' | 'partnerName' | 'amount';
 type SortDir = 'asc' | 'desc';
+type TransactionType = 'ALL' | 'REGULAR' | 'ADDITIONAL';
 
 @Component({
   selector: 'app-transactions',
@@ -50,6 +52,7 @@ type SortDir = 'asc' | 'desc';
           <app-date-range-picker
             [from]="from"
             [to]="to"
+            defaultPreset="thisMonth"
             (rangeChanged)="onDateRangeChanged($event)">
           </app-date-range-picker>
     
@@ -72,6 +75,14 @@ type SortDir = 'asc' | 'desc';
             @for (account of bankAccounts; track account.id) {
               <option [value]="account.iban">{{ account.name || account.iban }}</option>
             }
+          </select>
+
+          <select [ngModel]="transactionType"
+            (ngModelChange)="onTransactionTypeChange($event)"
+            class="text-xs bg-card border border-card-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-subtle shrink-0 min-w-0 sm:min-w-[220px]">
+            <option value="ALL">All transactions</option>
+            <option value="REGULAR">Regular transactions</option>
+            <option value="ADDITIONAL">Additional transactions</option>
           </select>
 
             <!-- Sort -->
@@ -245,10 +256,11 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   error: string | null = null;
 
   // Filters
-  from: string | null = null;
-  to: string | null = null;
+  from: string | null = getThisMonthDateRange().from;
+  to: string | null = getThisMonthDateRange().to;
   searchText = '';
   accountFilter = '';
+  transactionType: TransactionType = 'ALL';
   sortField: SortField = 'bookingDate';
   sortDir: SortDir = 'desc';
 
@@ -305,6 +317,12 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     this.loadTransactions();
   }
 
+  onTransactionTypeChange(transactionType: TransactionType): void {
+    this.transactionType = transactionType;
+    this.page = 0;
+    this.loadTransactions();
+  }
+
   toggleSortDirection(): void {
     this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
     this.page = 0;
@@ -326,7 +344,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
       this.to || undefined,
       this.searchText || undefined,
       this.accountFilter || undefined,
-      undefined,
+      this.transactionType,
       this.page,
       this.pageSize,
       this.sortField,

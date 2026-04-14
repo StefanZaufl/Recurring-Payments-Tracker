@@ -76,11 +76,13 @@ paths:
           description: Filter by source account IBAN
           schema:
             type: string
-        - name: unlinked
+        - name: transactionType
           in: query
-          description: When true, returns only transactions not linked to any recurring payment (last 2 years)
+          description: Filter transactions by analytical type
           schema:
-            type: boolean
+            type: string
+            default: ALL
+            enum: [ALL, REGULAR, ADDITIONAL]
         - name: page
           in: query
           schema:

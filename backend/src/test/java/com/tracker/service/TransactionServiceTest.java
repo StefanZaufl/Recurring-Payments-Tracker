@@ -9,9 +9,11 @@ import com.tracker.repository.TransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatcher;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -24,6 +26,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -129,18 +132,6 @@ class TransactionServiceTest {
     }
 
     @Test
-    void getTransactions_usesUnlinkedQueryWhenRequested() {
-        PageImpl<Transaction> page = new PageImpl<>(List.of(transaction(LocalDate.now(), "DE111", "Gym", "DE999", "-10.00", null)));
-        when(transactionRepository.findUnlinkedTransactionsAfterForUserPaged(any(), eq(user.getId()), any(Pageable.class)))
-                .thenReturn(page);
-
-        assertThat(service.getTransactions(null, null, null, null, true, 0, 20, null, null))
-                .isSameAs(page);
-
-        verify(transactionRepository, never()).findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class));
-    }
-
-    @Test
     void getTransactions_usesSpecificationPathForRegularQueries() {
         PageImpl<Transaction> page = new PageImpl<>(List.of());
         when(transactionRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class)))
@@ -151,7 +142,7 @@ class TransactionServiceTest {
                 LocalDate.of(2025, 12, 31),
                 "Gym",
                 "de11 1",
-                false,
+                "ALL",
                 1,
                 10,
                 "partnerName",
@@ -165,12 +156,44 @@ class TransactionServiceTest {
         when(transactionRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class)))
                 .thenReturn(page);
 
-        Page<Transaction> result = service.getTransactions(null, null, null, null, false, 0, 5, "unknown", "sideways");
+        Page<Transaction> result = service.getTransactions(null, null, null, null, "ALL", 0, 5, "unknown", "sideways");
 
         assertThat(result).isSameAs(page);
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         verify(transactionRepository).findAll(any(org.springframework.data.jpa.domain.Specification.class), pageableCaptor.capture());
         assertThat(pageableCaptor.getValue().getSort().toString()).contains("bookingDate: DESC");
+    }
+
+    @Test
+    void getTransactions_usesSpecificationPathForRegularFilter() {
+        PageImpl<Transaction> page = new PageImpl<>(List.of());
+        when(transactionRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class)))
+                .thenReturn(page);
+
+        assertThat(service.getTransactions(null, null, null, null, "REGULAR", 0, 20, null, null))
+                .isSameAs(page);
+
+        verify(transactionRepository).findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    void getTransactions_usesSpecificationPathForAdditionalFilter() {
+        PageImpl<Transaction> page = new PageImpl<>(List.of());
+        when(transactionRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class)))
+                .thenReturn(page);
+
+        assertThat(service.getTransactions(null, null, null, null, "ADDITIONAL", 0, 20, null, null))
+                .isSameAs(page);
+
+        verify(transactionRepository).findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    void getTransactions_rejectsUnknownTransactionType() {
+        assertThatThrownBy(() -> service.getTransactions(null, null, null, null, "MYSTERY", 0, 20, null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(transactionRepository, never()).findAll(any(Specification.class), any(Pageable.class));
     }
 
     @Test

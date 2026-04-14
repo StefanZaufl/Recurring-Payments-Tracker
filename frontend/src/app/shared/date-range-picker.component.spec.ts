@@ -6,6 +6,9 @@ describe('DateRangePickerComponent', () => {
   let fixture: ComponentFixture<DateRangePickerComponent>;
 
   beforeEach(async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(Date.parse('2026-04-14T12:00:00Z'));
+
     await TestBed.configureTestingModule({
       imports: [DateRangePickerComponent],
     }).compileComponents();
@@ -13,6 +16,10 @@ describe('DateRangePickerComponent', () => {
     fixture = TestBed.createComponent(DateRangePickerComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   it('should create', () => {
@@ -108,6 +115,11 @@ describe('DateRangePickerComponent', () => {
     expect(labels).toContain('Previous month');
     expect(labels).toContain('This quarter');
     expect(labels).toContain('This year');
+    expect(component.presets[0]).toEqual({
+      label: 'This month',
+      from: '2026-04-01',
+      to: '2026-04-30',
+    });
   });
 
   it('should navigate months forward and backward', () => {
@@ -120,5 +132,18 @@ describe('DateRangePickerComponent', () => {
 
     component.prevMonth();
     expect(component.calendarLeft.month).toBe(leftMonth);
+  });
+
+  it('should initialize default preset without emitting', () => {
+    const emitted: DateRange[] = [];
+    component.rangeChanged.subscribe((r: DateRange) => emitted.push(r));
+
+    component.defaultPreset = 'thisMonth';
+    component.ngOnInit();
+
+    expect(component.from).toBe('2026-04-01');
+    expect(component.to).toBe('2026-04-30');
+    expect(component.currentLabel).toBe('This month');
+    expect(emitted).toHaveLength(0);
   });
 });

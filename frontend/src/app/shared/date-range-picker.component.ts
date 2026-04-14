@@ -1,5 +1,6 @@
-import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { DateRangePreset, getThisMonthDateRange, toLocalDateString } from './date-range-presets';
 
 export interface DateRange {
   from: string | null;
@@ -173,9 +174,10 @@ export interface DateRange {
     }
     `
 })
-export class DateRangePickerComponent {
+export class DateRangePickerComponent implements OnInit {
   @Input() from: string | null = null;
   @Input() to: string | null = null;
+  @Input() defaultPreset?: DateRangePreset;
   @Output() rangeChanged = new EventEmitter<DateRange>();
 
   open = false;
@@ -195,6 +197,14 @@ export class DateRangePickerComponent {
   private pickFrom: string | null = null;
   private pickTo: string | null = null;
 
+  ngOnInit(): void {
+    if (!this.from && !this.to && this.defaultPreset === 'thisMonth') {
+      const range = getThisMonthDateRange();
+      this.from = range.from;
+      this.to = range.to;
+    }
+  }
+
   get presets(): DateRange[] {
     const now = new Date();
     const year = now.getFullYear();
@@ -204,18 +214,18 @@ export class DateRangePickerComponent {
     return [
       {
         label: 'This month',
-        from: this.toDateStr(year, month, 1),
-        to: this.toDateStr(year, month + 1, 0)
+        from: getThisMonthDateRange(now).from,
+        to: getThisMonthDateRange(now).to
       },
       {
         label: 'Previous month',
-        from: this.toDateStr(year, month - 1, 1),
-        to: this.toDateStr(year, month, 0)
+        from: toLocalDateString(year, month - 1, 1),
+        to: toLocalDateString(year, month, 0)
       },
       {
         label: 'This quarter',
-        from: this.toDateStr(year, quarter * 3, 1),
-        to: this.toDateStr(year, quarter * 3 + 3, 0)
+        from: toLocalDateString(year, quarter * 3, 1),
+        to: toLocalDateString(year, quarter * 3 + 3, 0)
       },
       {
         label: 'This year',
@@ -364,8 +374,7 @@ export class DateRangePickerComponent {
   }
 
   private toDateStr(year: number, month: number, day: number): string {
-    const d = new Date(year, month, day);
-    return d.toISOString().slice(0, 10);
+    return toLocalDateString(year, month, day);
   }
 
   private formatDisplay(dateStr: string): string {

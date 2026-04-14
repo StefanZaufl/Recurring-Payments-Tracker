@@ -11,6 +11,7 @@ import { TargetField } from '../../api/generated/model/targetField';
 import { PaymentType } from '../../api/generated/model/paymentType';
 import { Frequency } from '../../api/generated/model/frequency';
 import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
+import { formatLocalDate } from '../../shared/date-range-presets';
 import { Subject, takeUntil, debounceTime, switchMap, EMPTY } from 'rxjs';
 
 interface LocalRule {
@@ -57,13 +58,13 @@ interface LocalRule {
                   <h2 class="text-sm font-semibold text-white">
                     Matching <span class="text-accent">{{ matchingIds.size }}</span> transaction{{ matchingIds.size === 1 ? '' : 's' }}
                   </h2>
-                  <p class="text-[11px] text-muted mt-0.5">of {{ totalTransactions }} unlinked transactions</p>
+                  <p class="text-[11px] text-muted mt-0.5">of {{ totalTransactions }} additional transactions from the last 2 years</p>
                 } @else if (simulationActive) {
                   <h2 class="text-sm font-semibold text-white">No matches</h2>
                   <p class="text-[11px] text-muted mt-0.5">Adjust your rules to match transactions</p>
                 } @else {
-                  <h2 class="text-sm font-semibold text-white">Unlinked Transactions</h2>
-                  <p class="text-[11px] text-muted mt-0.5">{{ totalTransactions }} available for matching</p>
+                  <h2 class="text-sm font-semibold text-white">Additional Transactions</h2>
+                  <p class="text-[11px] text-muted mt-0.5">Showing transactions from the last 2 years</p>
                 }
               </div>
               <div class="flex items-center gap-2">
@@ -519,8 +520,10 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
   loadTransactions(page: number): void {
     this.loadingTransactions = true;
     this.currentPage = page;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 730);
     this.transactionsService.getTransactions(
-      undefined, undefined, undefined, undefined, true, page, 20, 'bookingDate', 'desc'
+      formatLocalDate(cutoff), undefined, undefined, undefined, 'ADDITIONAL', page, 20, 'bookingDate', 'desc'
     ).pipe(takeUntil(this.destroy$)).subscribe({
       next: (result) => {
         this.allTransactions = result.content || [];
