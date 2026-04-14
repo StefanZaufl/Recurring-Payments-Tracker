@@ -36,6 +36,9 @@ export class SortIconComponent {
   selector: 'app-recurring-summary-table',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, BaseChartDirective, CurrencyFormatPipe, SortIconComponent],
+  host: {
+    class: 'block',
+  },
   template: `
     <div class="glass-card overflow-hidden">
       <div class="px-4 py-4 sm:px-5 sm:py-5 border-b border-card-border flex items-center justify-between">
