@@ -15,9 +15,11 @@ import { CategoryBreakdown } from './categoryBreakdown';
 export interface AnnualOverview { 
     totalIncome: number;
     totalExpenses: number;
+    totalRecurringIncome: number;
     totalRecurringExpenses: number;
     monthlyBreakdown: Array<MonthlyBreakdown>;
     byCategory: Array<CategoryBreakdown>;
-    recurringPayments: Array<RecurringPaymentSummary>;
+    recurringExpenses: Array<RecurringPaymentSummary>;
+    recurringIncome: Array<RecurringPaymentSummary>;
 }
 

@@ -84,6 +84,7 @@ class AnalyticsServiceTest {
 
         assertThat(result.totalIncome()).isEqualByComparingTo("3000.00");
         assertThat(result.totalExpenses()).isEqualByComparingTo("1300.00");
+        assertThat(result.totalRecurringIncome()).isEqualByComparingTo("3000.00");
         assertThat(result.totalRecurringExpenses()).isEqualByComparingTo("1250.00");
         assertThat(result.monthlyBreakdown()).hasSize(12);
         assertThat(result.monthlyBreakdown().get(0).income()).isEqualByComparingTo("3000.00");
@@ -95,11 +96,14 @@ class AnalyticsServiceTest {
         assertThat(result.byCategory().get(0).percentage()).isEqualTo(96.0);
         assertThat(result.byCategory().get(0).color()).isEqualTo("#111111");
         assertThat(result.byCategory().get(1).percentage()).isEqualTo(4.0);
-        assertThat(result.recurringPayments())
+        assertThat(result.recurringExpenses())
                 .extracting(AnalyticsService.RecurringPaymentSummaryResult::name)
                 .containsExactly("Rent", "Gym");
-        assertThat(result.recurringPayments().get(0).annualAmount()).isEqualByComparingTo("1200.00");
-        assertThat(result.recurringPayments().get(0).monthlyAmount()).isEqualByComparingTo("100.00");
+        assertThat(result.recurringExpenses().get(0).annualAmount()).isEqualByComparingTo("1200.00");
+        assertThat(result.recurringExpenses().get(0).monthlyAmount()).isEqualByComparingTo("100.00");
+        assertThat(result.recurringIncome())
+                .extracting(AnalyticsService.RecurringPaymentSummaryResult::name)
+                .containsExactly("Salary");
     }
 
     @Test
