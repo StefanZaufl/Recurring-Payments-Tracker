@@ -104,6 +104,14 @@ public class AnalyticsService {
                 .map(MonthlyBreakdownResult::expenses)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        // Recurring income total
+        BigDecimal totalRecurringIncome = BigDecimal.ZERO;
+        for (RecurringPayment payment : activePayments) {
+            if (!Boolean.TRUE.equals(payment.getIsIncome())) continue;
+            BigDecimal amount = yearTotalByPayment.getOrDefault(payment.getId(), BigDecimal.ZERO);
+            totalRecurringIncome = totalRecurringIncome.add(amount);
+        }
+
         // Recurring expenses total
         BigDecimal totalRecurringExpenses = BigDecimal.ZERO;
         for (RecurringPayment payment : activePayments) {
@@ -143,7 +151,7 @@ public class AnalyticsService {
                 .toList();
 
         // Recurring payment summaries (only payments with transactions in the selected year)
-        List<RecurringPaymentSummaryResult> recurringPaymentSummaries = activePayments.stream()
+        List<RecurringPaymentSummaryResult> recurringExpenseSummaries = activePayments.stream()
                 .filter(p -> !Boolean.TRUE.equals(p.getIsIncome()))
                 .filter(p -> yearTotalByPayment.containsKey(p.getId()))
                 .map(p -> {
@@ -155,8 +163,20 @@ public class AnalyticsService {
                 .sorted(Comparator.comparing(RecurringPaymentSummaryResult::annualAmount).reversed())
                 .toList();
 
-        return new AnnualOverviewResult(totalIncome, totalExpenses, totalRecurringExpenses,
-                monthlyBreakdown, byCategory, recurringPaymentSummaries);
+        List<RecurringPaymentSummaryResult> recurringIncomeSummaries = activePayments.stream()
+                .filter(p -> Boolean.TRUE.equals(p.getIsIncome()))
+                .filter(p -> yearTotalByPayment.containsKey(p.getId()))
+                .map(p -> {
+                    BigDecimal annualAmount = yearTotalByPayment.get(p.getId());
+                    BigDecimal monthlyAmount = annualAmount.divide(BigDecimal.valueOf(12), 2, RoundingMode.HALF_UP);
+                    String categoryName = p.getCategory() != null ? p.getCategory().getName() : "Uncategorized";
+                    return new RecurringPaymentSummaryResult(p.getId(), p.getName(), monthlyAmount, annualAmount, categoryName);
+                })
+                .sorted(Comparator.comparing(RecurringPaymentSummaryResult::annualAmount).reversed())
+                .toList();
+
+        return new AnnualOverviewResult(totalIncome, totalExpenses, totalRecurringIncome, totalRecurringExpenses,
+                monthlyBreakdown, byCategory, recurringExpenseSummaries, recurringIncomeSummaries);
     }
 
     @Transactional(readOnly = true)
@@ -248,10 +268,12 @@ public class AnalyticsService {
     public record AnnualOverviewResult(
             BigDecimal totalIncome,
             BigDecimal totalExpenses,
+            BigDecimal totalRecurringIncome,
             BigDecimal totalRecurringExpenses,
             List<MonthlyBreakdownResult> monthlyBreakdown,
             List<CategoryBreakdownResult> byCategory,
-            List<RecurringPaymentSummaryResult> recurringPayments) {}
+            List<RecurringPaymentSummaryResult> recurringExpenses,
+            List<RecurringPaymentSummaryResult> recurringIncome) {}
 
     public record MonthlyBreakdownResult(int month, BigDecimal income, BigDecimal expenses, BigDecimal surplus, BigDecimal recurringExpenses) {}
 

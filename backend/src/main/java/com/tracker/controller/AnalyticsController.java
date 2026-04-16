@@ -24,6 +24,7 @@ public class AnalyticsController implements AnalyticsApi {
         AnnualOverview overview = new AnnualOverview();
         overview.setTotalIncome(result.totalIncome().doubleValue());
         overview.setTotalExpenses(result.totalExpenses().doubleValue());
+        overview.setTotalRecurringIncome(result.totalRecurringIncome().doubleValue());
         overview.setTotalRecurringExpenses(result.totalRecurringExpenses().doubleValue());
 
         List<MonthlyBreakdown> monthlyBreakdown = result.monthlyBreakdown().stream()
@@ -51,7 +52,7 @@ public class AnalyticsController implements AnalyticsApi {
                 .toList();
         overview.setByCategory(byCategory);
 
-        List<RecurringPaymentSummary> payments = result.recurringPayments().stream()
+        List<RecurringPaymentSummary> recurringExpenses = result.recurringExpenses().stream()
                 .map(rp -> {
                     RecurringPaymentSummary dto = new RecurringPaymentSummary();
                     dto.setId(rp.id());
@@ -62,7 +63,20 @@ public class AnalyticsController implements AnalyticsApi {
                     return dto;
                 })
                 .toList();
-        overview.setRecurringPayments(payments);
+        overview.setRecurringExpenses(recurringExpenses);
+
+        List<RecurringPaymentSummary> recurringIncome = result.recurringIncome().stream()
+                .map(rp -> {
+                    RecurringPaymentSummary dto = new RecurringPaymentSummary();
+                    dto.setId(rp.id());
+                    dto.setName(rp.name());
+                    dto.setMonthlyAmount(rp.monthlyAmount().doubleValue());
+                    dto.setAnnualAmount(rp.annualAmount().doubleValue());
+                    dto.setCategory(rp.category());
+                    return dto;
+                })
+                .toList();
+        overview.setRecurringIncome(recurringIncome);
 
         return ResponseEntity.ok(overview);
     }

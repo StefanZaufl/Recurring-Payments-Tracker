@@ -1371,12 +1371,15 @@ components:
 
     AnnualOverview:
       type: object
-      required: [totalIncome, totalExpenses, totalRecurringExpenses, monthlyBreakdown, byCategory, recurringPayments]
+      required: [totalIncome, totalExpenses, totalRecurringIncome, totalRecurringExpenses, monthlyBreakdown, byCategory, recurringExpenses, recurringIncome]
       properties:
         totalIncome:
           type: number
           format: double
         totalExpenses:
+          type: number
+          format: double
+        totalRecurringIncome:
           type: number
           format: double
         totalRecurringExpenses:
@@ -1390,7 +1393,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CategoryBreakdown'
-        recurringPayments:
+        recurringExpenses:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecurringPaymentSummary'
+        recurringIncome:
           type: array
           items:
             $ref: '#/components/schemas/RecurringPaymentSummary'

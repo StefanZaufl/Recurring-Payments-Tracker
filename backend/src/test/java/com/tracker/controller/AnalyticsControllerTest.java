@@ -57,11 +57,13 @@ class AnalyticsControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.totalIncome").value(0.0))
                     .andExpect(jsonPath("$.totalExpenses").value(0.0))
+                    .andExpect(jsonPath("$.totalRecurringIncome").value(0.0))
                     .andExpect(jsonPath("$.totalRecurringExpenses").value(0.0))
                     .andExpect(jsonPath("$.monthlyBreakdown", hasSize(12)))
                     .andExpect(jsonPath("$.monthlyBreakdown[0].recurringExpenses").value(0.0))
                     .andExpect(jsonPath("$.byCategory", hasSize(0)))
-                    .andExpect(jsonPath("$.recurringPayments", hasSize(0)));
+                    .andExpect(jsonPath("$.recurringExpenses", hasSize(0)))
+                    .andExpect(jsonPath("$.recurringIncome", hasSize(0)));
         }
 
         @Test
@@ -85,6 +87,8 @@ class AnalyticsControllerTest {
             Category category = seedCategory("Streaming");
             RecurringPayment payment = seedRecurringPayment("Netflix", Frequency.MONTHLY,
                     new BigDecimal("-12.99"), false, category);
+            RecurringPayment salary = seedRecurringPayment("Salary", Frequency.MONTHLY,
+                    new BigDecimal("3000.00"), true, null);
 
             // Seed 12 monthly linked transactions for 2025 so recurring expenses total = 12 * 12.99 = 155.88
             FileUpload upload = seedUpload();
@@ -92,15 +96,24 @@ class AnalyticsControllerTest {
                 Transaction tx = seedTransaction(upload, LocalDate.of(2025, month, 15),
                         "Netflix", new BigDecimal("-12.99"));
                 seedLink(tx, payment);
+
+                Transaction salaryTx = seedTransaction(upload, LocalDate.of(2025, month, 1),
+                        "Salary", new BigDecimal("3000.00"));
+                seedLink(salaryTx, salary);
             }
 
             mockMvc.perform(get("/api/analytics/annual-overview").param("year", "2025").with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.totalRecurringIncome").value(closeTo(36000.0, 0.01)))
                     .andExpect(jsonPath("$.totalRecurringExpenses").value(closeTo(155.88, 0.01)))
-                    .andExpect(jsonPath("$.recurringPayments", hasSize(1)))
-                    .andExpect(jsonPath("$.recurringPayments[0].id").value(payment.getId().toString()))
-                    .andExpect(jsonPath("$.recurringPayments[0].name").value("Netflix"))
-                    .andExpect(jsonPath("$.recurringPayments[0].category").value("Streaming"))
+                    .andExpect(jsonPath("$.recurringExpenses", hasSize(1)))
+                    .andExpect(jsonPath("$.recurringExpenses[0].id").value(payment.getId().toString()))
+                    .andExpect(jsonPath("$.recurringExpenses[0].name").value("Netflix"))
+                    .andExpect(jsonPath("$.recurringExpenses[0].category").value("Streaming"))
+                    .andExpect(jsonPath("$.recurringIncome", hasSize(1)))
+                    .andExpect(jsonPath("$.recurringIncome[0].id").value(salary.getId().toString()))
+                    .andExpect(jsonPath("$.recurringIncome[0].name").value("Salary"))
+                    .andExpect(jsonPath("$.recurringIncome[0].category").value("Uncategorized"))
                     .andExpect(jsonPath("$.byCategory", hasSize(1)))
                     .andExpect(jsonPath("$.byCategory[0].category").value("Streaming"))
                     .andExpect(jsonPath("$.byCategory[0].percentage").value(100.0))
