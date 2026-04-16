@@ -53,28 +53,12 @@ public class AnalyticsController implements AnalyticsApi {
         overview.setByCategory(byCategory);
 
         List<RecurringPaymentSummary> recurringExpenses = result.recurringExpenses().stream()
-                .map(rp -> {
-                    RecurringPaymentSummary dto = new RecurringPaymentSummary();
-                    dto.setId(rp.id());
-                    dto.setName(rp.name());
-                    dto.setMonthlyAmount(rp.monthlyAmount().doubleValue());
-                    dto.setAnnualAmount(rp.annualAmount().doubleValue());
-                    dto.setCategory(rp.category());
-                    return dto;
-                })
+                .map(this::toRecurringPaymentSummary)
                 .toList();
         overview.setRecurringExpenses(recurringExpenses);
 
         List<RecurringPaymentSummary> recurringIncome = result.recurringIncome().stream()
-                .map(rp -> {
-                    RecurringPaymentSummary dto = new RecurringPaymentSummary();
-                    dto.setId(rp.id());
-                    dto.setName(rp.name());
-                    dto.setMonthlyAmount(rp.monthlyAmount().doubleValue());
-                    dto.setAnnualAmount(rp.annualAmount().doubleValue());
-                    dto.setCategory(rp.category());
-                    return dto;
-                })
+                .map(this::toRecurringPaymentSummary)
                 .toList();
         overview.setRecurringIncome(recurringIncome);
 
@@ -111,5 +95,15 @@ public class AnalyticsController implements AnalyticsApi {
         response.setUpcomingPayments(upcoming);
 
         return ResponseEntity.ok(response);
+    }
+
+    private RecurringPaymentSummary toRecurringPaymentSummary(AnalyticsService.RecurringPaymentSummaryResult recurringPayment) {
+        RecurringPaymentSummary dto = new RecurringPaymentSummary();
+        dto.setId(recurringPayment.id());
+        dto.setName(recurringPayment.name());
+        dto.setMonthlyAmount(recurringPayment.monthlyAmount().doubleValue());
+        dto.setAnnualAmount(recurringPayment.annualAmount().doubleValue());
+        dto.setCategory(recurringPayment.category());
+        return dto;
     }
 }
