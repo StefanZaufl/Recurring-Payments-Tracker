@@ -36,14 +36,17 @@ export class SortIconComponent {
   selector: 'app-recurring-summary-table',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, BaseChartDirective, CurrencyFormatPipe, SortIconComponent],
+  host: {
+    class: 'block',
+  },
   template: `
     <div class="glass-card overflow-hidden">
-      <div class="px-4 sm:px-5 py-4 border-b border-card-border flex items-center justify-between">
+      <div class="px-4 py-4 sm:px-5 sm:py-5 border-b border-card-border flex items-center justify-between">
         <h2 class="text-sm font-semibold text-white">{{ title }}</h2>
         <span class="text-xs text-muted font-mono">{{ items.length }} items</span>
       </div>
       @if (items.length === 0) {
-        <div class="p-6 text-center">
+        <div class="px-4 py-4 sm:px-5 sm:py-5 text-center">
           <p class="text-sm text-muted">{{ emptyMessage }}</p>
         </div>
       }
@@ -107,7 +110,7 @@ export class SortIconComponent {
                   <tr class="history-row">
                     <td colspan="4" class="p-0 border-none">
                       <div class="history-panel">
-                        <div class="px-5 pt-3 pb-4 border-t border-card-border/50 history-panel-bg">
+                        <div class="px-4 pt-4 pb-4 sm:px-5 sm:pt-5 sm:pb-5 border-t border-card-border/50 history-panel-bg">
                           @if (isLoadingCurrentHistory) {
                             <div class="h-40 flex items-center justify-center gap-2.5">
                               <div class="w-5 h-5 border-2 border-sky-400/30 border-t-sky-400 rounded-full animate-spin"></div>

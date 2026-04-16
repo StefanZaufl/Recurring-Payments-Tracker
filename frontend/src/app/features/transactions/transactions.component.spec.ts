@@ -7,6 +7,7 @@ import { BankAccountsService, TransactionsService } from '../../api/generated';
 import { BankAccountDto } from '../../api/generated/model/bankAccountDto';
 import { TransactionPage } from '../../api/generated/model/transactionPage';
 import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
+import { getThisMonthDateRange } from '../../shared/date-range-presets';
 
 const mockPage: TransactionPage = {
   content: [
@@ -42,8 +43,12 @@ describe('TransactionsComponent', () => {
   let fixture: ComponentFixture<TransactionsComponent>;
   let service: jest.Mocked<TransactionsService>;
   let bankAccountsService: jest.Mocked<BankAccountsService>;
+  const initialRange = getThisMonthDateRange(new Date('2026-04-14T12:00:00Z'));
 
   beforeEach(async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(Date.parse('2026-04-14T12:00:00Z'));
+
     const serviceMock = {
       getTransactions: jest.fn().mockReturnValue(of(mockPage)),
     };
@@ -68,14 +73,21 @@ describe('TransactionsComponent', () => {
     fixture.detectChanges();
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('should create and load transactions on init', () => {
     expect(component).toBeTruthy();
     expect(service.getTransactions).toHaveBeenCalledWith(
-      undefined, undefined, undefined, undefined, undefined, 0, 25, 'bookingDate', 'desc'
+      initialRange.from, initialRange.to, undefined, undefined, 'ALL', 0, 25, 'bookingDate', 'desc'
     );
     expect(bankAccountsService.getBankAccounts).toHaveBeenCalled();
     expect(component.transactions.length).toBe(2);
     expect(component.totalElements).toBe(2);
+    expect(component.from).toBe(initialRange.from);
+    expect(component.to).toBe(initialRange.to);
+    expect(component.transactionType).toBe('ALL');
   });
 
   it('should display transaction count', () => {
@@ -87,7 +99,7 @@ describe('TransactionsComponent', () => {
     component.onDateRangeChanged({ from: '2026-01-01', to: '2026-01-31', label: 'January' });
 
     expect(service.getTransactions).toHaveBeenCalledWith(
-      '2026-01-01', '2026-01-31', undefined, undefined, undefined, 0, 25, 'bookingDate', 'desc'
+      '2026-01-01', '2026-01-31', undefined, undefined, 'ALL', 0, 25, 'bookingDate', 'desc'
     );
     expect(component.page).toBe(0);
   });
@@ -102,7 +114,7 @@ describe('TransactionsComponent', () => {
 
     tick(100);
     expect(service.getTransactions).toHaveBeenCalledWith(
-      undefined, undefined, 'netflix', undefined, undefined, 0, 25, 'bookingDate', 'desc'
+      initialRange.from, initialRange.to, 'netflix', undefined, 'ALL', 0, 25, 'bookingDate', 'desc'
     );
   }));
 
@@ -114,7 +126,7 @@ describe('TransactionsComponent', () => {
     expect(component.sortField).toBe('partnerName');
     expect(component.page).toBe(0);
     expect(service.getTransactions).toHaveBeenCalledWith(
-      undefined, undefined, undefined, undefined, undefined, 0, 25, 'partnerName', 'desc'
+      initialRange.from, initialRange.to, undefined, undefined, 'ALL', 0, 25, 'partnerName', 'desc'
     );
   });
 
@@ -124,7 +136,7 @@ describe('TransactionsComponent', () => {
 
     expect(component.sortDir).toBe('asc');
     expect(service.getTransactions).toHaveBeenCalledWith(
-      undefined, undefined, undefined, undefined, undefined, 0, 25, 'bookingDate', 'asc'
+      initialRange.from, initialRange.to, undefined, undefined, 'ALL', 0, 25, 'bookingDate', 'asc'
     );
   });
 
@@ -139,7 +151,7 @@ describe('TransactionsComponent', () => {
     component.goToPage(1);
     expect(component.page).toBe(1);
     expect(service.getTransactions).toHaveBeenCalledWith(
-      undefined, undefined, undefined, undefined, undefined, 1, 25, 'bookingDate', 'desc'
+      initialRange.from, initialRange.to, undefined, undefined, 'ALL', 1, 25, 'bookingDate', 'desc'
     );
   });
 
@@ -149,7 +161,20 @@ describe('TransactionsComponent', () => {
     component.onAccountChange('DE111');
 
     expect(service.getTransactions).toHaveBeenCalledWith(
-      undefined, undefined, undefined, 'DE111', undefined, 0, 25, 'bookingDate', 'desc'
+      initialRange.from, initialRange.to, undefined, 'DE111', 'ALL', 0, 25, 'bookingDate', 'desc'
+    );
+  });
+
+  it('should filter by transaction type and reset page', () => {
+    component.page = 2;
+    service.getTransactions.mockReturnValue(of(mockPage));
+
+    component.onTransactionTypeChange('ADDITIONAL');
+
+    expect(component.transactionType).toBe('ADDITIONAL');
+    expect(component.page).toBe(0);
+    expect(service.getTransactions).toHaveBeenCalledWith(
+      initialRange.from, initialRange.to, undefined, undefined, 'ADDITIONAL', 0, 25, 'bookingDate', 'desc'
     );
   });
 

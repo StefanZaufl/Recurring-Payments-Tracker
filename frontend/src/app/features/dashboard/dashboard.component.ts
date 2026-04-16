@@ -71,8 +71,8 @@ import { RecurringSummaryHistoryState, RecurringSummaryTableComponent } from './
       }
 
       @if (!loading && overview) {
-        <div class="animate-slide-up">
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
+        <div class="animate-slide-up space-y-4 sm:space-y-6">
+          <div class="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
             <app-summary-card
               label="Income"
               [value]="overview.totalIncome"
@@ -93,7 +93,7 @@ import { RecurringSummaryHistoryState, RecurringSummaryTableComponent } from './
             </app-summary-card>
           </div>
 
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 mb-6 sm:mb-8">
+          <div class="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
             <div class="lg:col-span-2 glass-card p-4 sm:p-5">
               <h2 class="text-sm font-semibold text-white mb-4">Monthly Income vs Expenses</h2>
               <div class="h-56 sm:h-72">
@@ -157,7 +157,7 @@ import { RecurringSummaryHistoryState, RecurringSummaryTableComponent } from './
             </div>
           </div>
 
-          <div class="space-y-6 sm:space-y-8">
+          <div class="space-y-4 sm:space-y-6">
             <app-recurring-summary-table
               title="Recurring Payments"
               tone="expense"

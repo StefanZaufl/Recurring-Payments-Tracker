@@ -3,6 +3,7 @@ package com.tracker.service;
 import com.tracker.model.entity.FileUpload;
 import com.tracker.model.entity.RecurringPayment;
 import com.tracker.model.entity.Transaction;
+import com.tracker.model.entity.TransactionRecurringLink;
 import com.tracker.model.entity.User;
 import com.tracker.repository.FileUploadRepository;
 import com.tracker.repository.TransactionRepository;
@@ -114,7 +115,7 @@ public class TransactionService {
 
     @Transactional(readOnly = true)
     public Page<Transaction> getTransactions(LocalDate from, LocalDate to, String text, String account,
-                                             Boolean unlinked, int page, int size,
+                                             String transactionType, int page, int size,
                                              String sort, String sortDirection) {
         UUID currentUserId = userContextService.getCurrentUserId();
         String sortField = sort != null && ALLOWED_SORT_FIELDS.contains(sort) ? sort : "bookingDate";
@@ -124,11 +125,7 @@ public class TransactionService {
             sorting = sorting.and(Sort.by(Sort.Direction.DESC, "bookingDate"));
         }
         PageRequest pageRequest = PageRequest.of(page, size, sorting);
-
-        if (Boolean.TRUE.equals(unlinked)) {
-            LocalDate cutoff = LocalDate.now().minusDays(RecurringPaymentDetectionService.LOOKBACK_DAYS);
-            return transactionRepository.findUnlinkedTransactionsAfterForUserPaged(cutoff, currentUserId, pageRequest);
-        }
+        TransactionTypeFilter filter = TransactionTypeFilter.fromQueryParam(transactionType);
 
         Specification<Transaction> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -148,6 +145,19 @@ public class TransactionService {
             }
             if (account != null && !account.isBlank()) {
                 predicates.add(cb.equal(root.get("account"), IbanNormalizationService.normalize(account)));
+            }
+            if (filter == TransactionTypeFilter.REGULAR || filter == TransactionTypeFilter.ADDITIONAL) {
+                predicates.add(cb.isFalse(root.get("isInterAccount")));
+                if (query == null) {
+                    throw new IllegalStateException("Transaction type filtering requires a criteria query");
+                }
+
+                var subquery = query.subquery(java.util.UUID.class);
+                var linkRoot = subquery.from(TransactionRecurringLink.class);
+                subquery.select(linkRoot.get("transaction").get("id"));
+                subquery.where(cb.equal(linkRoot.get("transaction").get("id"), root.get("id")));
+
+                predicates.add(filter == TransactionTypeFilter.REGULAR ? cb.exists(subquery) : cb.not(cb.exists(subquery)));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
@@ -197,6 +207,19 @@ public class TransactionService {
                                Integer recalculationRecurringPaymentsDetected) {}
 
     private record DuplicateFilterResult(List<Transaction> newTransactions, int skippedDuplicates) {}
+
+    enum TransactionTypeFilter {
+        ALL,
+        REGULAR,
+        ADDITIONAL;
+
+        static TransactionTypeFilter fromQueryParam(String value) {
+            if (value == null || value.isBlank()) {
+                return ALL;
+            }
+            return TransactionTypeFilter.valueOf(value);
+        }
+    }
 
     private record TransactionSignature(LocalDate bookingDate,
                                         String account,

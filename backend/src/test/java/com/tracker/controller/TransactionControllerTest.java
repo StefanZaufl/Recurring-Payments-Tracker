@@ -41,6 +41,7 @@ class TransactionControllerTest {
     private static final String FROM_PARAM = "from";
     private static final String TO_PARAM = "to";
     private static final String TEXT_PARAM = "text";
+    private static final String TRANSACTION_TYPE_PARAM = "transactionType";
     private static final String SORT_PARAM = "sort";
     private static final String SORT_DIR_PARAM = "sortDirection";
     private static final String MAPPING_PARAM = "mapping";
@@ -437,33 +438,65 @@ class TransactionControllerTest {
     }
 
     @Test
-    void getTransactions_unlinkedFilter_returnsOnlyUnlinkedTransactions() throws Exception {
-        Transaction tx1 = seedTransaction(TransactionMother.transaction(NETFLIX, LocalDate.now().minusDays(10), TEN));
-        Transaction tx2 = seedTransaction(TransactionMother.transaction(SPOTIFY, LocalDate.now().minusDays(10), TWENTY));
-
-        // Link tx1 to a recurring payment
-        RecurringPayment payment = new RecurringPayment();
-        payment.setName("Netflix");
-        payment.setNormalizedName("netflix");
-        payment.setAverageAmount(new BigDecimal("-10"));
-        payment.setFrequency(Frequency.MONTHLY);
-        payment.setIsActive(true);
-        payment.setUser(testUser);
-        payment = recurringPaymentRepository.save(payment);
-
-        TransactionRecurringLink link = new TransactionRecurringLink();
-        link.setTransaction(tx1);
-        link.setRecurringPayment(payment);
-        link.setConfidenceScore(BigDecimal.ONE);
-        link.setUser(testUser);
-        linkRepository.save(link);
+    void getTransactions_transactionTypeAll_returnsEveryTransaction() throws Exception {
+        Transaction regular = seedTransaction(TransactionMother.transaction(NETFLIX, LocalDate.now().minusDays(10), TEN));
+        Transaction additional = seedTransaction(TransactionMother.transaction(SPOTIFY, LocalDate.now().minusDays(9), TWENTY));
+        Transaction interAccount = seedTransaction(TransactionMother.transaction(EMPLOYER, LocalDate.now().minusDays(8), THIRTY));
+        interAccount.setIsInterAccount(true);
+        transactionRepository.save(interAccount);
+        linkTransaction(regular, "Netflix");
 
         mockMvc.perform(get(TRANSACTIONS_URL)
-                        .param("unlinked", "true")
+                        .param(TRANSACTION_TYPE_PARAM, "ALL")
+                        .with(authenticatedUser(testUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(3)))
+                .andExpect(jsonPath("$.content[*].partnerName", contains(EMPLOYER, SPOTIFY, NETFLIX)));
+    }
+
+    @Test
+    void getTransactions_transactionTypeRegular_returnsOnlyLinkedNonInterAccountTransactions() throws Exception {
+        Transaction regular = seedTransaction(TransactionMother.transaction(NETFLIX, LocalDate.now().minusDays(10), TEN));
+        Transaction additional = seedTransaction(TransactionMother.transaction(SPOTIFY, LocalDate.now().minusDays(9), TWENTY));
+        Transaction interAccount = seedTransaction(TransactionMother.transaction(EMPLOYER, LocalDate.now().minusDays(8), THIRTY));
+        interAccount.setIsInterAccount(true);
+        transactionRepository.save(interAccount);
+        linkTransaction(regular, "Netflix");
+        linkTransaction(interAccount, "Employer");
+
+        mockMvc.perform(get(TRANSACTIONS_URL)
+                        .param(TRANSACTION_TYPE_PARAM, "REGULAR")
+                        .with(authenticatedUser(testUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].partnerName").value(NETFLIX));
+    }
+
+    @Test
+    void getTransactions_transactionTypeAdditional_returnsOnlyUnlinkedNonInterAccountTransactions() throws Exception {
+        Transaction regular = seedTransaction(TransactionMother.transaction(NETFLIX, LocalDate.now().minusDays(10), TEN));
+        Transaction additional = seedTransaction(TransactionMother.transaction(SPOTIFY, LocalDate.now().minusDays(9), TWENTY));
+        Transaction interAccount = seedTransaction(TransactionMother.transaction(EMPLOYER, LocalDate.now().minusDays(8), THIRTY));
+        interAccount.setIsInterAccount(true);
+        transactionRepository.save(interAccount);
+        linkTransaction(regular, "Netflix");
+
+        mockMvc.perform(get(TRANSACTIONS_URL)
+                        .param(TRANSACTION_TYPE_PARAM, "ADDITIONAL")
                         .with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content", hasSize(1)))
                 .andExpect(jsonPath("$.content[0].partnerName").value(SPOTIFY));
+    }
+
+    @Test
+    void getTransactions_invalidTransactionType_returnsBadRequest() throws Exception {
+        seedTransaction(TransactionMother.netflix());
+
+        mockMvc.perform(get(TRANSACTIONS_URL)
+                        .param(TRANSACTION_TYPE_PARAM, "INVALID")
+                        .with(authenticatedUser(testUser)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -494,5 +527,23 @@ class TransactionControllerTest {
         tx.setUpload(upload);
         tx.setUser(testUser);
         return transactionRepository.save(tx);
+    }
+
+    private void linkTransaction(Transaction transaction, String paymentName) {
+        RecurringPayment payment = new RecurringPayment();
+        payment.setName(paymentName);
+        payment.setNormalizedName(paymentName.toLowerCase());
+        payment.setAverageAmount(transaction.getAmount());
+        payment.setFrequency(Frequency.MONTHLY);
+        payment.setIsActive(true);
+        payment.setUser(testUser);
+        payment = recurringPaymentRepository.save(payment);
+
+        TransactionRecurringLink link = new TransactionRecurringLink();
+        link.setTransaction(transaction);
+        link.setRecurringPayment(payment);
+        link.setConfidenceScore(BigDecimal.ONE);
+        link.setUser(testUser);
+        linkRepository.save(link);
     }
 }

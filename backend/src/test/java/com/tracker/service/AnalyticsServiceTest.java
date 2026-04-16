@@ -68,16 +68,17 @@ class AnalyticsServiceTest {
                 .thenReturn(transactions);
         when(recurringPaymentRepository.findByUserIdAndIsActiveTrue(userId))
                 .thenReturn(List.of(rent, gym, salary, orphan));
-        when(linkRepository.findWithTransactionByRecurringPaymentId(rent.getId()))
-                .thenReturn(List.of(
-                        link(transaction(LocalDate.of(2025, 2, 1), "Rent", "-1200.00")),
-                        link(transaction(LocalDate.of(2024, 12, 1), "Rent", "-1200.00"))
-                ));
-        when(linkRepository.findWithTransactionByRecurringPaymentId(gym.getId()))
+        when(linkRepository.findWithTransactionByRecurringPaymentIdAndTransactionBookingDateBetween(
+                rent.getId(), LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31)))
+                .thenReturn(List.of(link(transaction(LocalDate.of(2025, 2, 1), "Rent", "-1200.00"))));
+        when(linkRepository.findWithTransactionByRecurringPaymentIdAndTransactionBookingDateBetween(
+                gym.getId(), LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31)))
                 .thenReturn(List.of(link(transaction(LocalDate.of(2025, 2, 10), "Gym", "-50.00"))));
-        when(linkRepository.findWithTransactionByRecurringPaymentId(salary.getId()))
+        when(linkRepository.findWithTransactionByRecurringPaymentIdAndTransactionBookingDateBetween(
+                salary.getId(), LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31)))
                 .thenReturn(List.of(link(transaction(LocalDate.of(2025, 1, 3), "Salary", "3000.00"))));
-        when(linkRepository.findWithTransactionByRecurringPaymentId(orphan.getId()))
+        when(linkRepository.findWithTransactionByRecurringPaymentIdAndTransactionBookingDateBetween(
+                orphan.getId(), LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31)))
                 .thenReturn(List.of());
 
         AnalyticsService.AnnualOverviewResult result = analyticsService.getAnnualOverview(2025);

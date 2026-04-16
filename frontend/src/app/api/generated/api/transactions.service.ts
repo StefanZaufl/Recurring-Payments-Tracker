@@ -104,7 +104,7 @@ export class TransactionsService extends BaseService {
      * @param to 
      * @param text Search in partner name and details (case-insensitive, partial match)
      * @param account Filter by source account IBAN
-     * @param unlinked When true, returns only transactions not linked to any recurring payment (last 2 years)
+     * @param transactionType Filter transactions by analytical type
      * @param page 
      * @param size 
      * @param sort Field to sort by
@@ -113,10 +113,10 @@ export class TransactionsService extends BaseService {
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public getTransactions(from?: string, to?: string, text?: string, account?: string, unlinked?: boolean, page?: number, size?: number, sort?: 'bookingDate' | 'partnerName' | 'amount', sortDirection?: 'asc' | 'desc', observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<TransactionPage>;
-    public getTransactions(from?: string, to?: string, text?: string, account?: string, unlinked?: boolean, page?: number, size?: number, sort?: 'bookingDate' | 'partnerName' | 'amount', sortDirection?: 'asc' | 'desc', observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<TransactionPage>>;
-    public getTransactions(from?: string, to?: string, text?: string, account?: string, unlinked?: boolean, page?: number, size?: number, sort?: 'bookingDate' | 'partnerName' | 'amount', sortDirection?: 'asc' | 'desc', observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<TransactionPage>>;
-    public getTransactions(from?: string, to?: string, text?: string, account?: string, unlinked?: boolean, page?: number, size?: number, sort?: 'bookingDate' | 'partnerName' | 'amount', sortDirection?: 'asc' | 'desc', observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public getTransactions(from?: string, to?: string, text?: string, account?: string, transactionType?: 'ALL' | 'REGULAR' | 'ADDITIONAL', page?: number, size?: number, sort?: 'bookingDate' | 'partnerName' | 'amount', sortDirection?: 'asc' | 'desc', observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<TransactionPage>;
+    public getTransactions(from?: string, to?: string, text?: string, account?: string, transactionType?: 'ALL' | 'REGULAR' | 'ADDITIONAL', page?: number, size?: number, sort?: 'bookingDate' | 'partnerName' | 'amount', sortDirection?: 'asc' | 'desc', observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<TransactionPage>>;
+    public getTransactions(from?: string, to?: string, text?: string, account?: string, transactionType?: 'ALL' | 'REGULAR' | 'ADDITIONAL', page?: number, size?: number, sort?: 'bookingDate' | 'partnerName' | 'amount', sortDirection?: 'asc' | 'desc', observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<TransactionPage>>;
+    public getTransactions(from?: string, to?: string, text?: string, account?: string, transactionType?: 'ALL' | 'REGULAR' | 'ADDITIONAL', page?: number, size?: number, sort?: 'bookingDate' | 'partnerName' | 'amount', sortDirection?: 'asc' | 'desc', observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
 
         let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
 
@@ -158,8 +158,8 @@ export class TransactionsService extends BaseService {
 
         localVarQueryParameters = this.addToHttpParams(
             localVarQueryParameters,
-            'unlinked',
-            <any>unlinked,
+            'transactionType',
+            <any>transactionType,
             QueryParamStyle.Form,
             true,
         );

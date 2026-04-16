@@ -39,144 +39,23 @@ public class AnalyticsService {
     public AnnualOverviewResult getAnnualOverview(int year) {
         LocalDate startOfYear = LocalDate.of(year, 1, 1);
         LocalDate endOfYear = LocalDate.of(year, 12, 31);
-
         UUID currentUserId = userContextService.getCurrentUserId();
-        List<Transaction> transactions = transactionRepository.findByUserIdAndBookingDateBetweenAndIsInterAccountFalse(currentUserId, startOfYear, endOfYear);
-        List<RecurringPayment> activePayments = recurringPaymentRepository.findByUserIdAndIsActiveTrue(currentUserId);
+        List<Transaction> transactions = loadTransactions(currentUserId, startOfYear, endOfYear);
+        List<RecurringPayment> activePayments = loadActivePayments(currentUserId);
+        List<List<Transaction>> transactionsByMonth = bucketByMonth(transactions);
+        RecurringTotals recurringTotals = summarizeRecurring(activePayments, startOfYear, endOfYear);
+        List<MonthlyBreakdownResult> monthlyBreakdown = buildMonthlyBreakdown(transactionsByMonth, recurringTotals.monthlyExpenses());
 
-        // Presort transactions by month (index 0 = January, 11 = December)
-        List<List<Transaction>> transactionsByMonth = new ArrayList<>(12);
-        for (int i = 0; i < 12; i++) {
-            transactionsByMonth.add(new ArrayList<>());
-        }
-        for (Transaction tx : transactions) {
-            transactionsByMonth.get(tx.getBookingDate().getMonthValue() - 1).add(tx);
-        }
-
-        // Build map of recurring payment ID -> total amount and per-month recurring expenses
-        BigDecimal[] monthlyRecurringExpenses = new BigDecimal[12];
-        Arrays.fill(monthlyRecurringExpenses, BigDecimal.ZERO);
-
-        Map<UUID, BigDecimal> yearTotalByPayment = new HashMap<>();
-        for (RecurringPayment payment : activePayments) {
-            BigDecimal paymentTotal = BigDecimal.ZERO;
-            List<TransactionRecurringLink> links = linkRepository.findWithTransactionByRecurringPaymentId(payment.getId());
-            for (TransactionRecurringLink link : links) {
-                LocalDate date = link.getTransaction().getBookingDate();
-                if (!date.isBefore(startOfYear) && !date.isAfter(endOfYear)) {
-                    BigDecimal absAmount = link.getTransaction().getAmount().abs();
-                    paymentTotal = paymentTotal.add(absAmount);
-                    if (!Boolean.TRUE.equals(payment.getIsIncome())) {
-                        int monthIndex = date.getMonthValue() - 1;
-                        monthlyRecurringExpenses[monthIndex] = monthlyRecurringExpenses[monthIndex].add(absAmount);
-                    }
-                }
-            }
-            if (paymentTotal.compareTo(BigDecimal.ZERO) > 0) {
-                yearTotalByPayment.put(payment.getId(), paymentTotal);
-            }
-        }
-
-        // Calculate monthly breakdown from presorted buckets
-        List<MonthlyBreakdownResult> monthlyBreakdown = new ArrayList<>();
-        for (int month = 1; month <= 12; month++) {
-            List<Transaction> monthTransactions = transactionsByMonth.get(month - 1);
-
-            BigDecimal income = BigDecimal.ZERO;
-            BigDecimal expenses = BigDecimal.ZERO;
-            for (Transaction tx : monthTransactions) {
-                if (tx.getAmount().compareTo(BigDecimal.ZERO) > 0) {
-                    income = income.add(tx.getAmount());
-                } else if (tx.getAmount().compareTo(BigDecimal.ZERO) < 0) {
-                    expenses = expenses.add(tx.getAmount());
-                }
-            }
-            expenses = expenses.abs();
-
-            monthlyBreakdown.add(new MonthlyBreakdownResult(month, income, expenses, income.subtract(expenses), monthlyRecurringExpenses[month - 1]));
-        }
-
-        // Total income and expenses for the year
-        BigDecimal totalIncome = monthlyBreakdown.stream()
-                .map(MonthlyBreakdownResult::income)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalExpenses = monthlyBreakdown.stream()
-                .map(MonthlyBreakdownResult::expenses)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        // Recurring income total
-        BigDecimal totalRecurringIncome = BigDecimal.ZERO;
-        for (RecurringPayment payment : activePayments) {
-            if (!Boolean.TRUE.equals(payment.getIsIncome())) continue;
-            BigDecimal amount = yearTotalByPayment.getOrDefault(payment.getId(), BigDecimal.ZERO);
-            totalRecurringIncome = totalRecurringIncome.add(amount);
-        }
-
-        // Recurring expenses total
-        BigDecimal totalRecurringExpenses = BigDecimal.ZERO;
-        for (RecurringPayment payment : activePayments) {
-            if (Boolean.TRUE.equals(payment.getIsIncome())) continue;
-            BigDecimal amount = yearTotalByPayment.getOrDefault(payment.getId(), BigDecimal.ZERO);
-            totalRecurringExpenses = totalRecurringExpenses.add(amount);
-        }
-
-        // Category breakdown (expenses only, from linked transactions within the year)
-        Map<String, BigDecimal> categoryTotals = new LinkedHashMap<>();
-        Map<String, String> categoryColors = new LinkedHashMap<>();
-        for (RecurringPayment payment : activePayments) {
-            if (Boolean.TRUE.equals(payment.getIsIncome())) continue;
-
-            BigDecimal amount = yearTotalByPayment.getOrDefault(payment.getId(), BigDecimal.ZERO);
-            if (amount.compareTo(BigDecimal.ZERO) == 0) continue;
-
-            String categoryName = payment.getCategory() != null ? payment.getCategory().getName() : "Uncategorized";
-            categoryTotals.merge(categoryName, amount, BigDecimal::add);
-            if (!categoryColors.containsKey(categoryName) && payment.getCategory() != null) {
-                categoryColors.put(categoryName, payment.getCategory().getColor());
-            }
-        }
-
-        BigDecimal categoryTotal = categoryTotals.values().stream()
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        List<CategoryBreakdownResult> byCategory = categoryTotals.entrySet().stream()
-                .map(e -> {
-                    double percentage = categoryTotal.compareTo(BigDecimal.ZERO) > 0
-                            ? e.getValue().multiply(BigDecimal.valueOf(100))
-                                .divide(categoryTotal, 2, RoundingMode.HALF_UP).doubleValue()
-                            : 0.0;
-                    return new CategoryBreakdownResult(e.getKey(), e.getValue(), percentage, categoryColors.get(e.getKey()));
-                })
-                .sorted(Comparator.comparing(CategoryBreakdownResult::total).reversed())
-                .toList();
-
-        // Recurring payment summaries (only payments with transactions in the selected year)
-        List<RecurringPaymentSummaryResult> recurringExpenseSummaries = activePayments.stream()
-                .filter(p -> !Boolean.TRUE.equals(p.getIsIncome()))
-                .filter(p -> yearTotalByPayment.containsKey(p.getId()))
-                .map(p -> {
-                    BigDecimal annualAmount = yearTotalByPayment.get(p.getId());
-                    BigDecimal monthlyAmount = annualAmount.divide(BigDecimal.valueOf(12), 2, RoundingMode.HALF_UP);
-                    String categoryName = p.getCategory() != null ? p.getCategory().getName() : "Uncategorized";
-                    return new RecurringPaymentSummaryResult(p.getId(), p.getName(), monthlyAmount, annualAmount, categoryName);
-                })
-                .sorted(Comparator.comparing(RecurringPaymentSummaryResult::annualAmount).reversed())
-                .toList();
-
-        List<RecurringPaymentSummaryResult> recurringIncomeSummaries = activePayments.stream()
-                .filter(p -> Boolean.TRUE.equals(p.getIsIncome()))
-                .filter(p -> yearTotalByPayment.containsKey(p.getId()))
-                .map(p -> {
-                    BigDecimal annualAmount = yearTotalByPayment.get(p.getId());
-                    BigDecimal monthlyAmount = annualAmount.divide(BigDecimal.valueOf(12), 2, RoundingMode.HALF_UP);
-                    String categoryName = p.getCategory() != null ? p.getCategory().getName() : "Uncategorized";
-                    return new RecurringPaymentSummaryResult(p.getId(), p.getName(), monthlyAmount, annualAmount, categoryName);
-                })
-                .sorted(Comparator.comparing(RecurringPaymentSummaryResult::annualAmount).reversed())
-                .toList();
-
-        return new AnnualOverviewResult(totalIncome, totalExpenses, totalRecurringIncome, totalRecurringExpenses,
-                monthlyBreakdown, byCategory, recurringExpenseSummaries, recurringIncomeSummaries);
+        return new AnnualOverviewResult(
+                sumIncome(monthlyBreakdown),
+                sumExpenses(monthlyBreakdown),
+                sumRecurringIncome(activePayments, recurringTotals.totalsByPayment()),
+                sumRecurringExpenses(activePayments, recurringTotals.totalsByPayment()),
+                monthlyBreakdown,
+                buildCategoryBreakdown(activePayments, recurringTotals.totalsByPayment()),
+                buildRecurringExpenseSummaries(activePayments, recurringTotals.totalsByPayment()),
+                buildRecurringIncomeSummaries(activePayments, recurringTotals.totalsByPayment())
+        );
     }
 
     @Transactional(readOnly = true)
@@ -238,6 +117,188 @@ public class AnalyticsService {
         };
     }
 
+    private List<Transaction> loadTransactions(UUID userId, LocalDate startOfYear, LocalDate endOfYear) {
+        return transactionRepository.findByUserIdAndBookingDateBetweenAndIsInterAccountFalse(userId, startOfYear, endOfYear);
+    }
+
+    private List<RecurringPayment> loadActivePayments(UUID userId) {
+        return recurringPaymentRepository.findByUserIdAndIsActiveTrue(userId);
+    }
+
+    private List<List<Transaction>> bucketByMonth(List<Transaction> transactions) {
+        List<List<Transaction>> transactionsByMonth = new ArrayList<>(12);
+        for (int i = 0; i < 12; i++) {
+            transactionsByMonth.add(new ArrayList<>());
+        }
+        for (Transaction transaction : transactions) {
+            transactionsByMonth.get(transaction.getBookingDate().getMonthValue() - 1).add(transaction);
+        }
+        return transactionsByMonth;
+    }
+
+    private RecurringTotals summarizeRecurring(List<RecurringPayment> activePayments, LocalDate startOfYear, LocalDate endOfYear) {
+        BigDecimal[] monthlyExpenses = new BigDecimal[12];
+        Arrays.fill(monthlyExpenses, BigDecimal.ZERO);
+
+        Map<UUID, BigDecimal> totalsByPayment = new HashMap<>();
+        for (RecurringPayment payment : activePayments) {
+            BigDecimal paymentTotal = BigDecimal.ZERO;
+            List<TransactionRecurringLink> links = linkRepository
+                    .findWithTransactionByRecurringPaymentIdAndTransactionBookingDateBetween(
+                            payment.getId(),
+                            startOfYear,
+                            endOfYear
+                    );
+            for (TransactionRecurringLink link : links) {
+                LocalDate bookingDate = link.getTransaction().getBookingDate();
+                BigDecimal amount = link.getTransaction().getAmount().abs();
+                paymentTotal = paymentTotal.add(amount);
+                if (!Boolean.TRUE.equals(payment.getIsIncome())) {
+                    int monthIndex = bookingDate.getMonthValue() - 1;
+                    monthlyExpenses[monthIndex] = monthlyExpenses[monthIndex].add(amount);
+                }
+            }
+            if (paymentTotal.compareTo(BigDecimal.ZERO) > 0) {
+                totalsByPayment.put(payment.getId(), paymentTotal);
+            }
+        }
+
+        return new RecurringTotals(totalsByPayment, monthlyExpenses);
+    }
+
+    private List<MonthlyBreakdownResult> buildMonthlyBreakdown(List<List<Transaction>> transactionsByMonth, BigDecimal[] monthlyRecurringExpenses) {
+        List<MonthlyBreakdownResult> monthlyBreakdown = new ArrayList<>();
+        for (int month = 1; month <= 12; month++) {
+            BigDecimal income = BigDecimal.ZERO;
+            BigDecimal expenses = BigDecimal.ZERO;
+
+            for (Transaction transaction : transactionsByMonth.get(month - 1)) {
+                if (transaction.getAmount().compareTo(BigDecimal.ZERO) > 0) {
+                    income = income.add(transaction.getAmount());
+                } else if (transaction.getAmount().compareTo(BigDecimal.ZERO) < 0) {
+                    expenses = expenses.add(transaction.getAmount());
+                }
+            }
+
+            expenses = expenses.abs();
+            monthlyBreakdown.add(new MonthlyBreakdownResult(
+                    month,
+                    income,
+                    expenses,
+                    income.subtract(expenses),
+                    monthlyRecurringExpenses[month - 1]
+            ));
+        }
+        return monthlyBreakdown;
+    }
+
+    private BigDecimal sumIncome(List<MonthlyBreakdownResult> monthlyBreakdown) {
+        return monthlyBreakdown.stream()
+                .map(MonthlyBreakdownResult::income)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal sumExpenses(List<MonthlyBreakdownResult> monthlyBreakdown) {
+        return monthlyBreakdown.stream()
+                .map(MonthlyBreakdownResult::expenses)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal sumRecurringIncome(List<RecurringPayment> activePayments, Map<UUID, BigDecimal> totalsByPayment) {
+        return sumRecurringByType(activePayments, totalsByPayment, true);
+    }
+
+    private BigDecimal sumRecurringExpenses(List<RecurringPayment> activePayments, Map<UUID, BigDecimal> totalsByPayment) {
+        return sumRecurringByType(activePayments, totalsByPayment, false);
+    }
+
+    private BigDecimal sumRecurringByType(List<RecurringPayment> activePayments, Map<UUID, BigDecimal> totalsByPayment, boolean income) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (RecurringPayment payment : activePayments) {
+            if (Boolean.TRUE.equals(payment.getIsIncome()) != income) {
+                continue;
+            }
+            total = total.add(totalsByPayment.getOrDefault(payment.getId(), BigDecimal.ZERO));
+        }
+        return total;
+    }
+
+    private List<CategoryBreakdownResult> buildCategoryBreakdown(List<RecurringPayment> activePayments, Map<UUID, BigDecimal> totalsByPayment) {
+        Map<String, BigDecimal> categoryTotals = new LinkedHashMap<>();
+        Map<String, String> categoryColors = new LinkedHashMap<>();
+
+        for (RecurringPayment payment : activePayments) {
+            if (Boolean.TRUE.equals(payment.getIsIncome())) {
+                continue;
+            }
+
+            BigDecimal amount = totalsByPayment.getOrDefault(payment.getId(), BigDecimal.ZERO);
+            if (amount.compareTo(BigDecimal.ZERO) == 0) {
+                continue;
+            }
+
+            String category = categoryName(payment);
+            categoryTotals.merge(category, amount, BigDecimal::add);
+            if (!categoryColors.containsKey(category) && payment.getCategory() != null) {
+                categoryColors.put(category, payment.getCategory().getColor());
+            }
+        }
+
+        BigDecimal categoryTotal = categoryTotals.values().stream()
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return categoryTotals.entrySet().stream()
+                .map(entry -> new CategoryBreakdownResult(
+                        entry.getKey(),
+                        entry.getValue(),
+                        toPercentage(entry.getValue(), categoryTotal),
+                        categoryColors.get(entry.getKey())
+                ))
+                .sorted(Comparator.comparing(CategoryBreakdownResult::total).reversed())
+                .toList();
+    }
+
+    private List<RecurringPaymentSummaryResult> buildRecurringExpenseSummaries(List<RecurringPayment> activePayments, Map<UUID, BigDecimal> totalsByPayment) {
+        return buildRecurringSummariesByType(activePayments, totalsByPayment, false);
+    }
+
+    private List<RecurringPaymentSummaryResult> buildRecurringIncomeSummaries(List<RecurringPayment> activePayments, Map<UUID, BigDecimal> totalsByPayment) {
+        return buildRecurringSummariesByType(activePayments, totalsByPayment, true);
+    }
+
+    private List<RecurringPaymentSummaryResult> buildRecurringSummariesByType(List<RecurringPayment> activePayments, Map<UUID, BigDecimal> totalsByPayment, boolean income) {
+        return activePayments.stream()
+                .filter(payment -> Boolean.TRUE.equals(payment.getIsIncome()) == income)
+                .filter(payment -> totalsByPayment.containsKey(payment.getId()))
+                .map(payment -> toRecurringSummary(payment, totalsByPayment.get(payment.getId())))
+                .sorted(Comparator.comparing(RecurringPaymentSummaryResult::annualAmount).reversed())
+                .toList();
+    }
+
+    private RecurringPaymentSummaryResult toRecurringSummary(RecurringPayment payment, BigDecimal annualAmount) {
+        BigDecimal monthlyAmount = annualAmount.divide(BigDecimal.valueOf(12), 2, RoundingMode.HALF_UP);
+        return new RecurringPaymentSummaryResult(
+                payment.getId(),
+                payment.getName(),
+                monthlyAmount,
+                annualAmount,
+                categoryName(payment)
+        );
+    }
+
+    private String categoryName(RecurringPayment payment) {
+        return payment.getCategory() != null ? payment.getCategory().getName() : "Uncategorized";
+    }
+
+    private double toPercentage(BigDecimal amount, BigDecimal total) {
+        if (total.compareTo(BigDecimal.ZERO) == 0) {
+            return 0.0;
+        }
+        return amount.multiply(BigDecimal.valueOf(100))
+                .divide(total, 2, RoundingMode.HALF_UP)
+                .doubleValue();
+    }
+
     private BigDecimal monthlyEquivalent(BigDecimal amount, Frequency frequency) {
         return switch (frequency) {
             case MONTHLY -> amount;
@@ -281,6 +342,8 @@ public class AnalyticsService {
 
     public record RecurringPaymentSummaryResult(UUID id, String name, BigDecimal monthlyAmount,
                                                  BigDecimal annualAmount, String category) {}
+
+    private record RecurringTotals(Map<UUID, BigDecimal> totalsByPayment, BigDecimal[] monthlyExpenses) {}
 
     public record PredictionResult(List<MonthlyPredictionResult> predictions,
                                     List<UpcomingPaymentResult> upcomingPayments) {}
