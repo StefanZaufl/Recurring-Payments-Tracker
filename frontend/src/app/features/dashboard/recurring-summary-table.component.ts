@@ -15,6 +15,11 @@ export interface RecurringSummaryHistoryState {
   data: ChartConfiguration<'line'>['data'];
 }
 
+interface RecurringSummaryTotals {
+  monthlyAmount: number;
+  annualAmount: number;
+}
+
 @Component({
   selector: 'app-sort-icon',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -143,12 +148,28 @@ export class SortIconComponent {
                 }
               }
             </tbody>
+            <tfoot>
+              <tr class="summary-row border-t border-card-border">
+                <td class="table-cell font-semibold text-white">Total</td>
+                <td class="table-cell text-muted">All items</td>
+                <td class="table-cell text-right font-mono text-xs font-semibold" [ngClass]="amountClass">
+                  {{ totals.monthlyAmount | appCurrency }}
+                </td>
+                <td class="table-cell text-right font-mono text-xs font-semibold" [ngClass]="amountClass">
+                  {{ totals.annualAmount | appCurrency }}
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       }
     </div>
   `,
   styles: [`
+    .summary-row {
+      background: rgba(255, 255, 255, 0.04);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
     .history-row td {
       padding: 0 !important;
     }
@@ -204,6 +225,13 @@ export class RecurringSummaryTableComponent implements OnChanges {
 
   get amountClass(): string {
     return this.tone === 'income' ? 'text-accent' : 'text-coral';
+  }
+
+  get totals(): RecurringSummaryTotals {
+    return this.items.reduce<RecurringSummaryTotals>((summary, item) => ({
+      monthlyAmount: summary.monthlyAmount + item.monthlyAmount,
+      annualAmount: summary.annualAmount + item.annualAmount,
+    }), { monthlyAmount: 0, annualAmount: 0 });
   }
 
   get isLoadingCurrentHistory(): boolean {

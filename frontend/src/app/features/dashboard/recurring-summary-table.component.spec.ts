@@ -79,4 +79,29 @@ describe('RecurringSummaryTableComponent', () => {
 
     expect(component.expandedPaymentId).toBeNull();
   });
+
+  it('should render totals in a footer row', () => {
+    fixture.detectChanges();
+
+    const cells = Array.from(fixture.nativeElement.querySelectorAll('tfoot td'))
+      .map((cell: HTMLTableCellElement) => cell.textContent?.trim() ?? '');
+
+    expect(cells[0]).toBe('Total');
+    expect(cells[1]).toBe('All items');
+    expect(cells[2]).toContain('45');
+    expect(cells[3]).toContain('600');
+  });
+
+  it('should keep footer totals unchanged when sorting and expanding rows', () => {
+    component.sortBy('name');
+    component.togglePaymentHistory('2');
+    fixture.detectChanges();
+
+    const footerTexts = Array.from(fixture.nativeElement.querySelectorAll('tfoot td'))
+      .map((cell: HTMLTableCellElement) => cell.textContent?.trim() ?? '');
+
+    expect(footerTexts[0]).toBe('Total');
+    expect(footerTexts[2]).toContain('45');
+    expect(footerTexts[3]).toContain('600');
+  });
 });
