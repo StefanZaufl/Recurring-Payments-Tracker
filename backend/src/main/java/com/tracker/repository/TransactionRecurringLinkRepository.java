@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -17,6 +18,13 @@ public interface TransactionRecurringLinkRepository extends JpaRepository<Transa
 
     @EntityGraph(attributePaths = {"transaction", "transaction.upload"})
     List<TransactionRecurringLink> findWithTransactionByRecurringPaymentId(UUID recurringPaymentId);
+
+    @EntityGraph(attributePaths = {"transaction", "transaction.upload"})
+    List<TransactionRecurringLink> findWithTransactionByRecurringPaymentIdAndTransactionBookingDateBetween(
+            UUID recurringPaymentId,
+            LocalDate startDate,
+            LocalDate endDate
+    );
 
     @EntityGraph(attributePaths = {"transaction", "transaction.upload"})
     List<TransactionRecurringLink> findWithTransactionByRecurringPaymentIdAndUserId(UUID recurringPaymentId, UUID userId);
