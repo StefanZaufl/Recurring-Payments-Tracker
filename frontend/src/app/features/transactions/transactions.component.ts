@@ -46,16 +46,19 @@ const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
           <p class="text-sm text-muted mt-0.5">Browse and search all imported transactions</p>
         </div>
         <div class="flex items-center gap-3 flex-wrap">
-          @if (totalElements > 0) {
-            <div class="text-xs text-muted">
+          <div class="flex items-center gap-3 flex-wrap text-xs">
+            <div class="text-muted">
               {{ totalElements }} transaction{{ totalElements === 1 ? '' : 's' }}
             </div>
-            <div class="text-xs font-mono font-semibold"
-              [class.text-accent]="(filteredSum ?? 0) >= 0"
-              [class.text-coral]="(filteredSum ?? 0) < 0">
-              {{ (filteredSum ?? 0) | appCurrency:true }}
+            <div class="flex items-center gap-1.5">
+              <span class="text-muted uppercase tracking-[0.12em]">Sum</span>
+              <span class="font-mono font-semibold"
+                [class.text-accent]="(filteredSum ?? 0) >= 0"
+                [class.text-coral]="(filteredSum ?? 0) < 0">
+                {{ (filteredSum ?? 0) | appCurrency:true }}
+              </span>
             </div>
-          }
+          </div>
           <a routerLink="/transactions/import"
             class="btn-primary text-xs flex items-center gap-1.5">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

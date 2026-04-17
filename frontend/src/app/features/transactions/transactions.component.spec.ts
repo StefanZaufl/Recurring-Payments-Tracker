@@ -107,15 +107,20 @@ describe('TransactionsComponent', () => {
   it('should display filtered sum when results exist', () => {
     const pipe = new CurrencyFormatPipe();
 
+    expect(fixture.nativeElement.textContent).toContain('Sum');
     expect(fixture.nativeElement.textContent).toContain(pipe.transform(3487.01, true));
   });
 
-  it('should hide filtered sum when no transactions are found', () => {
+  it('should display zero filtered sum when no transactions are found', () => {
     service.getTransactions.mockReturnValue(of(emptyPage));
     component.loadTransactions();
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).not.toContain('0.00');
+    const pipe = new CurrencyFormatPipe();
+
+    expect(fixture.nativeElement.textContent).toContain('0 transactions');
+    expect(fixture.nativeElement.textContent).toContain('Sum');
+    expect(fixture.nativeElement.textContent).toContain(pipe.transform(0, true));
   });
 
   it('should filter by date range', () => {
