@@ -165,7 +165,7 @@ const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
       <!-- Mobile card view -->
       @if (!loading && !error && transactions.length > 0) {
         <div class="sm:hidden space-y-2 animate-slide-up">
-          @for (tx of transactions; track tx) {
+          @for (tx of transactions; track tx.id) {
             <div class="glass-card p-3.5">
               <div class="flex items-start justify-between gap-2 mb-1.5">
                 <p class="text-sm font-medium text-white truncate min-w-0 flex-1">{{ tx.partnerName || 'Unknown' }}</p>
@@ -207,7 +207,7 @@ const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
                 </tr>
               </thead>
               <tbody class="divide-y divide-card-border">
-                @for (tx of transactions; track tx) {
+                @for (tx of transactions; track tx.id) {
                   <tr class="hover:bg-card-hover transition-colors">
                     <td class="table-cell text-muted whitespace-nowrap">{{ formatDate(tx.bookingDate) }}</td>
                     <td class="table-cell font-medium text-white">{{ tx.partnerName || 'Unknown' }}</td>
