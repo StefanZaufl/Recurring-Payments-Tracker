@@ -35,3 +35,6 @@ replay_pid*
 # Codex local state
 .codex
 .codex/
+
+# Features
+/feature-docs/

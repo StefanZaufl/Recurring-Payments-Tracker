@@ -1,28 +1,31 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { Router } from '@angular/router';
 import { authInterceptor } from './auth.interceptor';
+import { AuthNavigationService } from './auth-navigation.service';
 
 describe('authInterceptor', () => {
   let http: HttpClient;
   let httpTesting: HttpTestingController;
-  let router: jest.Mocked<Router>;
+  let authNavigation: jest.Mocked<AuthNavigationService>;
 
   beforeEach(() => {
-    const routerMock = { navigate: jest.fn() };
+    const authNavigationMock = {
+      redirectToLogin: jest.fn(),
+      currentAppUrl: jest.fn().mockReturnValue('/transactions?search=netflix&page=1'),
+    };
 
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(withInterceptors([authInterceptor])),
         provideHttpClientTesting(),
-        { provide: Router, useValue: routerMock },
+        { provide: AuthNavigationService, useValue: authNavigationMock },
       ],
     });
 
     http = TestBed.inject(HttpClient);
     httpTesting = TestBed.inject(HttpTestingController);
-    router = TestBed.inject(Router) as jest.Mocked<Router>;
+    authNavigation = TestBed.inject(AuthNavigationService) as jest.Mocked<AuthNavigationService>;
   });
 
   afterEach(() => {
@@ -34,7 +37,7 @@ describe('authInterceptor', () => {
     const req = httpTesting.expectOne('/api/data');
     req.flush({ ok: true });
 
-    expect(router.navigate).not.toHaveBeenCalled();
+    expect(authNavigation.redirectToLogin).not.toHaveBeenCalled();
   });
 
   it('should redirect to /login on 401 for non-auth URLs', () => {
@@ -42,7 +45,8 @@ describe('authInterceptor', () => {
     const req = httpTesting.expectOne('/api/data');
     req.flush('Unauthorized', { status: 401, statusText: 'Unauthorized' });
 
-    expect(router.navigate).toHaveBeenCalledWith(['/login']);
+    expect(authNavigation.currentAppUrl).toHaveBeenCalled();
+    expect(authNavigation.redirectToLogin).toHaveBeenCalledWith('/transactions?search=netflix&page=1');
   });
 
   it('should not redirect on 401 for /api/auth/ URLs', () => {
@@ -50,7 +54,7 @@ describe('authInterceptor', () => {
     const req = httpTesting.expectOne('/api/auth/me');
     req.flush('Unauthorized', { status: 401, statusText: 'Unauthorized' });
 
-    expect(router.navigate).not.toHaveBeenCalled();
+    expect(authNavigation.redirectToLogin).not.toHaveBeenCalled();
   });
 
   it('should not redirect on 401 for /api/setup/ URLs', () => {
@@ -58,7 +62,7 @@ describe('authInterceptor', () => {
     const req = httpTesting.expectOne('/api/setup/status');
     req.flush('Unauthorized', { status: 401, statusText: 'Unauthorized' });
 
-    expect(router.navigate).not.toHaveBeenCalled();
+    expect(authNavigation.redirectToLogin).not.toHaveBeenCalled();
   });
 
   it('should not redirect on non-401 errors', () => {
@@ -66,6 +70,6 @@ describe('authInterceptor', () => {
     const req = httpTesting.expectOne('/api/data');
     req.flush('Server Error', { status: 500, statusText: 'Internal Server Error' });
 
-    expect(router.navigate).not.toHaveBeenCalled();
+    expect(authNavigation.redirectToLogin).not.toHaveBeenCalled();
   });
 });

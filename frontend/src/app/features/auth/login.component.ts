@@ -1,8 +1,9 @@
 import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthStateService } from '../../core/auth-state.service';
+import { AuthNavigationService } from '../../core/auth-navigation.service';
 import { Subject, takeUntil } from 'rxjs';
 
 @Component({
@@ -91,6 +92,8 @@ import { Subject, takeUntil } from 'rxjs';
 export class LoginComponent implements OnInit, OnDestroy {
   private authState = inject(AuthStateService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
+  private authNavigation = inject(AuthNavigationService);
   private cdr = inject(ChangeDetectorRef);
 
   private destroy$ = new Subject<void>();
@@ -99,8 +102,11 @@ export class LoginComponent implements OnInit, OnDestroy {
   error = '';
   loading = false;
   checking = true;
+  private returnUrl: string | null = null;
 
   ngOnInit(): void {
+    this.returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+
     this.authState.checkSetupNeeded().pipe(takeUntil(this.destroy$)).subscribe(needed => {
       if (needed) {
         this.router.navigate(['/setup']);
@@ -122,7 +128,7 @@ export class LoginComponent implements OnInit, OnDestroy {
 
     this.authState.login(this.username, this.password).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
-        this.router.navigate(['/dashboard']);
+        this.router.navigateByUrl(this.authNavigation.resolvePostLoginUrl(this.returnUrl));
         this.cdr.markForCheck();
       },
       error: (err) => {

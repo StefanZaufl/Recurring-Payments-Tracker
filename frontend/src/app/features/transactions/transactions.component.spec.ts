@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, Params, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { TransactionsComponent } from './transactions.component';
 import { BankAccountsService, TransactionsService } from '../../api/generated';
@@ -43,11 +43,14 @@ describe('TransactionsComponent', () => {
   let fixture: ComponentFixture<TransactionsComponent>;
   let service: jest.Mocked<TransactionsService>;
   let bankAccountsService: jest.Mocked<BankAccountsService>;
+  let router: Router;
   const initialRange = getThisMonthDateRange(new Date('2026-04-14T12:00:00Z'));
+  let queryParams: Params;
 
   beforeEach(async () => {
     jest.useFakeTimers();
     jest.setSystemTime(Date.parse('2026-04-14T12:00:00Z'));
+    queryParams = {};
 
     const serviceMock = {
       getTransactions: jest.fn().mockReturnValue(of(mockPage)),
@@ -60,6 +63,7 @@ describe('TransactionsComponent', () => {
       imports: [TransactionsComponent],
       providers: [
         provideRouter([]),
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap(queryParams)) } },
         { provide: TransactionsService, useValue: serviceMock },
         { provide: BankAccountsService, useValue: bankAccountsServiceMock },
       ],
@@ -68,6 +72,8 @@ describe('TransactionsComponent', () => {
 
     service = TestBed.inject(TransactionsService) as jest.Mocked<TransactionsService>;
     bankAccountsService = TestBed.inject(BankAccountsService) as jest.Mocked<BankAccountsService>;
+    router = TestBed.inject(Router);
+    jest.spyOn(router, 'navigate').mockResolvedValue(true);
     fixture = TestBed.createComponent(TransactionsComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
@@ -98,24 +104,23 @@ describe('TransactionsComponent', () => {
     service.getTransactions.mockReturnValue(of(emptyPage));
     component.onDateRangeChanged({ from: '2026-01-01', to: '2026-01-31', label: 'January' });
 
-    expect(service.getTransactions).toHaveBeenCalledWith(
-      '2026-01-01', '2026-01-31', undefined, undefined, 'ALL', 0, 25, 'bookingDate', 'desc'
-    );
     expect(component.page).toBe(0);
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: expect.objectContaining({ from: '2026-01-01', to: '2026-01-31' }),
+    }));
   });
 
   it('should filter by search text with debounce', fakeAsync(() => {
-    service.getTransactions.mockClear();
-    service.getTransactions.mockReturnValue(of(mockPage));
     component.onSearchChange('netflix');
 
     tick(300);
-    expect(service.getTransactions).not.toHaveBeenCalled();
+    expect(router.navigate).not.toHaveBeenCalled();
 
     tick(100);
-    expect(service.getTransactions).toHaveBeenCalledWith(
-      initialRange.from, initialRange.to, 'netflix', undefined, 'ALL', 0, 25, 'bookingDate', 'desc'
-    );
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: expect.objectContaining({ search: 'netflix' }),
+      replaceUrl: true,
+    }));
   }));
 
   it('should change sort field and reset page', () => {
@@ -125,9 +130,9 @@ describe('TransactionsComponent', () => {
 
     expect(component.sortField).toBe('partnerName');
     expect(component.page).toBe(0);
-    expect(service.getTransactions).toHaveBeenCalledWith(
-      initialRange.from, initialRange.to, undefined, undefined, 'ALL', 0, 25, 'partnerName', 'desc'
-    );
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: expect.objectContaining({ sort: 'partnerName' }),
+    }));
   });
 
   it('should toggle sort direction', () => {
@@ -135,9 +140,9 @@ describe('TransactionsComponent', () => {
     component.toggleSortDirection();
 
     expect(component.sortDir).toBe('asc');
-    expect(service.getTransactions).toHaveBeenCalledWith(
-      initialRange.from, initialRange.to, undefined, undefined, 'ALL', 0, 25, 'bookingDate', 'asc'
-    );
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: expect.objectContaining({ dir: 'asc' }),
+    }));
   });
 
   it('should navigate pages', () => {
@@ -150,9 +155,9 @@ describe('TransactionsComponent', () => {
     service.getTransactions.mockReturnValue(of(mockPageMulti));
     component.goToPage(1);
     expect(component.page).toBe(1);
-    expect(service.getTransactions).toHaveBeenCalledWith(
-      initialRange.from, initialRange.to, undefined, undefined, 'ALL', 1, 25, 'bookingDate', 'desc'
-    );
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: expect.objectContaining({ page: 1 }),
+    }));
   });
 
   it('should filter by account', () => {
@@ -160,9 +165,9 @@ describe('TransactionsComponent', () => {
 
     component.onAccountChange('DE111');
 
-    expect(service.getTransactions).toHaveBeenCalledWith(
-      initialRange.from, initialRange.to, undefined, 'DE111', 'ALL', 0, 25, 'bookingDate', 'desc'
-    );
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: expect.objectContaining({ account: 'DE111' }),
+    }));
   });
 
   it('should filter by transaction type and reset page', () => {
@@ -173,9 +178,9 @@ describe('TransactionsComponent', () => {
 
     expect(component.transactionType).toBe('ADDITIONAL');
     expect(component.page).toBe(0);
-    expect(service.getTransactions).toHaveBeenCalledWith(
-      initialRange.from, initialRange.to, undefined, undefined, 'ADDITIONAL', 0, 25, 'bookingDate', 'desc'
-    );
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: expect.objectContaining({ type: 'ADDITIONAL' }),
+    }));
   });
 
   it('should resolve account label from bank accounts', () => {
@@ -219,4 +224,115 @@ describe('TransactionsComponent', () => {
     expect(result).toContain('Mar');
     expect(result).toContain('2026');
   });
+
+  it('should initialize filters from query params', async () => {
+    TestBed.resetTestingModule();
+    jest.useFakeTimers();
+    jest.setSystemTime(Date.parse('2026-04-14T12:00:00Z'));
+
+    const serviceMock = {
+      getTransactions: jest.fn().mockReturnValue(of(mockPage)),
+    };
+    const bankAccountsServiceMock = {
+      getBankAccounts: jest.fn().mockReturnValue(of(mockBankAccounts)),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [TransactionsComponent],
+      providers: [
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            queryParamMap: of(convertToParamMap({
+              from: '2026-01-01',
+              to: '2026-01-31',
+              search: 'netflix',
+              account: 'DE111',
+              type: 'ADDITIONAL',
+              sort: 'partnerName',
+              dir: 'asc',
+              page: '2',
+            })),
+          },
+        },
+        { provide: TransactionsService, useValue: serviceMock },
+        { provide: BankAccountsService, useValue: bankAccountsServiceMock },
+      ],
+      schemas: [NO_ERRORS_SCHEMA],
+    }).compileComponents();
+
+    const newFixture = TestBed.createComponent(TransactionsComponent);
+    const newComponent = newFixture.componentInstance;
+    newFixture.detectChanges();
+
+    expect(newComponent.from).toBe('2026-01-01');
+    expect(newComponent.to).toBe('2026-01-31');
+    expect(newComponent.searchText).toBe('netflix');
+    expect(newComponent.accountFilter).toBe('DE111');
+    expect(newComponent.transactionType).toBe('ADDITIONAL');
+    expect(newComponent.sortField).toBe('partnerName');
+    expect(newComponent.sortDir).toBe('asc');
+    expect(newComponent.page).toBe(2);
+    expect(serviceMock.getTransactions).toHaveBeenCalledWith(
+      '2026-01-01', '2026-01-31', 'netflix', 'DE111', 'ADDITIONAL', 2, 25, 'partnerName', 'asc'
+    );
+  });
+
+  it('should ignore invalid query params and fall back to defaults', async () => {
+    TestBed.resetTestingModule();
+    jest.useFakeTimers();
+    jest.setSystemTime(Date.parse('2026-04-14T12:00:00Z'));
+
+    const serviceMock = {
+      getTransactions: jest.fn().mockReturnValue(of(mockPage)),
+    };
+    const bankAccountsServiceMock = {
+      getBankAccounts: jest.fn().mockReturnValue(of(mockBankAccounts)),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [TransactionsComponent],
+      providers: [
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            queryParamMap: of(convertToParamMap({
+              from: 'bad-date',
+              type: 'WRONG',
+              sort: 'foo',
+              dir: 'down',
+              page: '-1',
+            })),
+          },
+        },
+        { provide: TransactionsService, useValue: serviceMock },
+        { provide: BankAccountsService, useValue: bankAccountsServiceMock },
+      ],
+      schemas: [NO_ERRORS_SCHEMA],
+    }).compileComponents();
+
+    const newFixture = TestBed.createComponent(TransactionsComponent);
+    const newComponent = newFixture.componentInstance;
+    newFixture.detectChanges();
+
+    expect(newComponent.from).toBe(initialRange.from);
+    expect(newComponent.to).toBe(initialRange.to);
+    expect(newComponent.transactionType).toBe('ALL');
+    expect(newComponent.sortField).toBe('bookingDate');
+    expect(newComponent.sortDir).toBe('desc');
+    expect(newComponent.page).toBe(0);
+  });
+
+  it('should update query params after debounced search', fakeAsync(() => {
+    component.onSearchChange('netflix');
+
+    tick(400);
+
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: expect.objectContaining({ search: 'netflix' }),
+      replaceUrl: true,
+    }));
+  }));
 });

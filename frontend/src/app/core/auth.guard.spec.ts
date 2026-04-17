@@ -1,32 +1,34 @@
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRouteSnapshot, Router, RouterStateSnapshot, UrlTree } from '@angular/router';
+import { ActivatedRouteSnapshot, RouterStateSnapshot, UrlTree } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { authGuard } from './auth.guard';
 import { AuthStateService } from './auth-state.service';
+import { AuthNavigationService } from './auth-navigation.service';
 import { CurrentUserResponse, UserRole } from '../api/generated';
 
 const mockUser: CurrentUserResponse = { id: 'u1', username: 'admin', role: UserRole.Admin };
 const mockRoute = {} as ActivatedRouteSnapshot;
-const mockState = {} as RouterStateSnapshot;
+const mockState = { url: '/transactions?search=netflix&page=1' } as RouterStateSnapshot;
 
 describe('authGuard', () => {
   let authState: { currentUser: CurrentUserResponse | null; checkSession: jest.Mock };
-  let router: Router;
+  let authNavigation: { createLoginRedirectTree: jest.Mock };
 
   beforeEach(() => {
     authState = {
       currentUser: null,
       checkSession: jest.fn(),
     };
+    authNavigation = {
+      createLoginRedirectTree: jest.fn().mockReturnValue('login-tree'),
+    };
 
     TestBed.configureTestingModule({
       providers: [
         { provide: AuthStateService, useValue: authState },
-        { provide: Router, useValue: { createUrlTree: jest.fn().mockReturnValue('login-tree') } },
+        { provide: AuthNavigationService, useValue: authNavigation },
       ],
     });
-
-    router = TestBed.inject(Router);
   });
 
   function runGuard(): boolean | Observable<boolean | UrlTree> {
@@ -57,7 +59,7 @@ describe('authGuard', () => {
     const result = runGuard();
     (result as Observable<boolean | UrlTree>).subscribe((val) => {
       expect(val).toBe('login-tree');
-      expect(router.createUrlTree).toHaveBeenCalledWith(['/login']);
+      expect(authNavigation.createLoginRedirectTree).toHaveBeenCalledWith('/transactions?search=netflix&page=1');
       done();
     });
   });

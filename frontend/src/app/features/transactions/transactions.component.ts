@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Params, Router, RouterLink } from '@angular/router';
 import { BankAccountsService, TransactionsService } from '../../api/generated';
 import { BankAccountDto } from '../../api/generated/model/bankAccountDto';
 import { TransactionDto } from '../../api/generated/model/transactionDto';
@@ -11,11 +11,27 @@ import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component'
 import { ErrorStateComponent } from '../../shared/error-state.component';
 import { DEFAULT_PAGE_SIZE } from '../../shared/constants';
 import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
+import { parseDateParam, parseEnumParam, parseNonNegativeIntParam } from '../../shared/query-param-utils';
 import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 
 type SortField = 'bookingDate' | 'partnerName' | 'amount';
 type SortDir = 'asc' | 'desc';
 type TransactionType = 'ALL' | 'REGULAR' | 'ADDITIONAL';
+
+interface TransactionsUrlState {
+  from: string | null;
+  to: string | null;
+  searchText: string;
+  accountFilter: string;
+  transactionType: TransactionType;
+  sortField: SortField;
+  sortDir: SortDir;
+  page: number;
+}
+
+const TRANSACTION_TYPES: readonly TransactionType[] = ['ALL', 'REGULAR', 'ADDITIONAL'];
+const SORT_FIELDS: readonly SortField[] = ['bookingDate', 'partnerName', 'amount'];
+const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
 
 @Component({
   selector: 'app-transactions',
@@ -248,6 +264,8 @@ type TransactionType = 'ALL' | 'REGULAR' | 'ADDITIONAL';
 export class TransactionsComponent implements OnInit, OnDestroy {
   private transactionsService = inject(TransactionsService);
   private bankAccountsService = inject(BankAccountsService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
 
   bankAccounts: BankAccountDto[] = [];
@@ -281,12 +299,17 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     ).subscribe(text => {
       this.searchText = text;
       this.page = 0;
+      this.syncUrlWithState(true);
+      this.cdr.markForCheck();
+    });
+
+    this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe(queryParamMap => {
+      this.applyUrlState(this.parseUrlState(queryParamMap));
       this.loadTransactions();
       this.cdr.markForCheck();
     });
 
     this.loadBankAccounts();
-    this.loadTransactions();
   }
 
   ngOnDestroy(): void {
@@ -298,7 +321,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     this.from = range.from;
     this.to = range.to;
     this.page = 0;
-    this.loadTransactions();
+    this.syncUrlWithState();
   }
 
   onSearchChange(text: string): void {
@@ -308,31 +331,31 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   onSortChange(field: SortField): void {
     this.sortField = field;
     this.page = 0;
-    this.loadTransactions();
+    this.syncUrlWithState();
   }
 
   onAccountChange(account: string): void {
     this.accountFilter = account;
     this.page = 0;
-    this.loadTransactions();
+    this.syncUrlWithState();
   }
 
   onTransactionTypeChange(transactionType: TransactionType): void {
     this.transactionType = transactionType;
     this.page = 0;
-    this.loadTransactions();
+    this.syncUrlWithState();
   }
 
   toggleSortDirection(): void {
     this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
     this.page = 0;
-    this.loadTransactions();
+    this.syncUrlWithState();
   }
 
   goToPage(p: number): void {
     if (p < 0 || p >= this.totalPages) return;
     this.page = p;
-    this.loadTransactions();
+    this.syncUrlWithState();
   }
 
   loadTransactions(): void {
@@ -389,5 +412,54 @@ export class TransactionsComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       }
     });
+  }
+
+  private parseUrlState(queryParamMap: { get(name: string): string | null }): TransactionsUrlState {
+    const defaultRange = getThisMonthDateRange();
+
+    return {
+      from: parseDateParam(queryParamMap.get('from')) ?? defaultRange.from,
+      to: parseDateParam(queryParamMap.get('to')) ?? defaultRange.to,
+      searchText: queryParamMap.get('search') ?? '',
+      accountFilter: queryParamMap.get('account') ?? '',
+      transactionType: parseEnumParam(queryParamMap.get('type'), TRANSACTION_TYPES) ?? 'ALL',
+      sortField: parseEnumParam(queryParamMap.get('sort'), SORT_FIELDS) ?? 'bookingDate',
+      sortDir: parseEnumParam(queryParamMap.get('dir'), SORT_DIRS) ?? 'desc',
+      page: parseNonNegativeIntParam(queryParamMap.get('page')) ?? 0,
+    };
+  }
+
+  private applyUrlState(state: TransactionsUrlState): void {
+    this.from = state.from;
+    this.to = state.to;
+    this.searchText = state.searchText;
+    this.accountFilter = state.accountFilter;
+    this.transactionType = state.transactionType;
+    this.sortField = state.sortField;
+    this.sortDir = state.sortDir;
+    this.page = state.page;
+  }
+
+  private syncUrlWithState(replaceUrl = false): void {
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: this.buildQueryParams(),
+      replaceUrl,
+    });
+  }
+
+  private buildQueryParams(): Params {
+    const defaultRange = getThisMonthDateRange();
+
+    return {
+      from: this.from !== defaultRange.from ? this.from : null,
+      to: this.to !== defaultRange.to ? this.to : null,
+      search: this.searchText || null,
+      account: this.accountFilter || null,
+      type: this.transactionType !== 'ALL' ? this.transactionType : null,
+      sort: this.sortField !== 'bookingDate' ? this.sortField : null,
+      dir: this.sortDir !== 'desc' ? this.sortDir : null,
+      page: this.page > 0 ? this.page : null,
+    };
   }
 }
