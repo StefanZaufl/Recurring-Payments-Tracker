@@ -50,6 +50,11 @@ const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
             <div class="text-xs text-muted">
               {{ totalElements }} transaction{{ totalElements === 1 ? '' : 's' }}
             </div>
+            <div class="text-xs font-mono font-semibold"
+              [class.text-accent]="(filteredSum ?? 0) >= 0"
+              [class.text-coral]="(filteredSum ?? 0) < 0">
+              {{ (filteredSum ?? 0) | appCurrency:true }}
+            </div>
           }
           <a routerLink="/transactions/import"
             class="btn-primary text-xs flex items-center gap-1.5">
@@ -287,6 +292,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   pageSize = DEFAULT_PAGE_SIZE;
   totalElements = 0;
   totalPages = 0;
+  filteredSum: number | null = null;
 
   private searchSubject = new Subject<string>();
   private destroy$ = new Subject<void>();
@@ -361,6 +367,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   loadTransactions(): void {
     this.loading = true;
     this.error = null;
+    this.filteredSum = null;
 
     this.transactionsService.getTransactions(
       this.from || undefined,
@@ -377,11 +384,13 @@ export class TransactionsComponent implements OnInit, OnDestroy {
         this.transactions = result.content;
         this.totalElements = result.totalElements;
         this.totalPages = result.totalPages;
+        this.filteredSum = result.filteredSum;
         this.loading = false;
         this.cdr.markForCheck();
       },
       error: (err) => {
         this.error = err.error?.message || 'Failed to load transactions. Please try again.';
+        this.filteredSum = null;
         this.loading = false;
         this.cdr.markForCheck();
       }

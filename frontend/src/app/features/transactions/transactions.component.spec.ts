@@ -16,6 +16,7 @@ const mockPage: TransactionPage = {
   ],
   totalElements: 2,
   totalPages: 1,
+  filteredSum: 3487.01,
 };
 
 const mockBankAccounts: BankAccountDto[] = [
@@ -30,12 +31,14 @@ const mockPageMulti: TransactionPage = {
   ],
   totalElements: 50,
   totalPages: 2,
+  filteredSum: -22.98,
 };
 
 const emptyPage: TransactionPage = {
   content: [],
   totalElements: 0,
   totalPages: 0,
+  filteredSum: 0,
 };
 
 describe('TransactionsComponent', () => {
@@ -91,6 +94,7 @@ describe('TransactionsComponent', () => {
     expect(bankAccountsService.getBankAccounts).toHaveBeenCalled();
     expect(component.transactions.length).toBe(2);
     expect(component.totalElements).toBe(2);
+    expect(component.filteredSum).toBe(3487.01);
     expect(component.from).toBe(initialRange.from);
     expect(component.to).toBe(initialRange.to);
     expect(component.transactionType).toBe('ALL');
@@ -98,6 +102,20 @@ describe('TransactionsComponent', () => {
 
   it('should display transaction count', () => {
     expect(component.totalElements).toBe(2);
+  });
+
+  it('should display filtered sum when results exist', () => {
+    const pipe = new CurrencyFormatPipe();
+
+    expect(fixture.nativeElement.textContent).toContain(pipe.transform(3487.01, true));
+  });
+
+  it('should hide filtered sum when no transactions are found', () => {
+    service.getTransactions.mockReturnValue(of(emptyPage));
+    component.loadTransactions();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).not.toContain('0.00');
   });
 
   it('should filter by date range', () => {
@@ -203,6 +221,7 @@ describe('TransactionsComponent', () => {
 
     expect(component.error).toBe('Server error');
     expect(component.loading).toBe(false);
+    expect(component.filteredSum).toBeNull();
   });
 
   it('should show empty state when no transactions', () => {

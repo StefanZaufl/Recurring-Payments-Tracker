@@ -73,6 +73,7 @@ class TransactionServiceTest {
         user.setId(UUID.randomUUID());
         lenient().when(userContextService.getCurrentUser()).thenReturn(user);
         lenient().when(userContextService.getCurrentUserId()).thenReturn(user.getId());
+        lenient().when(transactionRepository.sumAmounts(any())).thenReturn(BigDecimal.ZERO);
     }
 
     @Test
@@ -147,7 +148,7 @@ class TransactionServiceTest {
                 10,
                 "partnerName",
                 "asc"
-        )).isSameAs(page);
+        ).page()).isSameAs(page);
     }
 
     @Test
@@ -156,9 +157,10 @@ class TransactionServiceTest {
         when(transactionRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class)))
                 .thenReturn(page);
 
-        Page<Transaction> result = service.getTransactions(null, null, null, null, "ALL", 0, 5, "unknown", "sideways");
+        TransactionService.TransactionQueryResult result =
+                service.getTransactions(null, null, null, null, "ALL", 0, 5, "unknown", "sideways");
 
-        assertThat(result).isSameAs(page);
+        assertThat(result.page()).isSameAs(page);
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         verify(transactionRepository).findAll(any(org.springframework.data.jpa.domain.Specification.class), pageableCaptor.capture());
         assertThat(pageableCaptor.getValue().getSort().toString()).contains("bookingDate: DESC");
@@ -170,7 +172,7 @@ class TransactionServiceTest {
         when(transactionRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class)))
                 .thenReturn(page);
 
-        assertThat(service.getTransactions(null, null, null, null, "REGULAR", 0, 20, null, null))
+        assertThat(service.getTransactions(null, null, null, null, "REGULAR", 0, 20, null, null).page())
                 .isSameAs(page);
 
         verify(transactionRepository).findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class));
@@ -182,7 +184,7 @@ class TransactionServiceTest {
         when(transactionRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class)))
                 .thenReturn(page);
 
-        assertThat(service.getTransactions(null, null, null, null, "ADDITIONAL", 0, 20, null, null))
+        assertThat(service.getTransactions(null, null, null, null, "ADDITIONAL", 0, 20, null, null).page())
                 .isSameAs(page);
 
         verify(transactionRepository).findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class));
@@ -242,6 +244,21 @@ class TransactionServiceTest {
         assertThat(captor.getValue().getMimeType()).isEqualTo("text/csv");
         assertThat(captor.getValue().getRowCount()).isEqualTo(1);
         assertThat(captor.getValue().getUser()).isSameAs(user);
+    }
+
+    @Test
+    void getTransactions_returnsFilteredSumFromRepository() {
+        PageImpl<Transaction> page = new PageImpl<>(List.of());
+        when(transactionRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class)))
+                .thenReturn(page);
+        when(transactionRepository.sumAmounts(any())).thenReturn(new BigDecimal("-22.99"));
+
+        TransactionService.TransactionQueryResult result =
+                service.getTransactions(null, null, null, null, "ALL", 0, 20, null, null);
+
+        assertThat(result.page()).isSameAs(page);
+        assertThat(result.filteredSum()).isEqualByComparingTo("-22.99");
+        verify(transactionRepository).sumAmounts(any());
     }
 
     private TransactionService.CsvUploadRequest request() {

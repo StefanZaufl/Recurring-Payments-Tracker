@@ -314,6 +314,7 @@ class TransactionControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(2))
                 .andExpect(jsonPath("$.totalPages").value(1))
+                .andExpect(jsonPath("$.filteredSum").value(-22.98))
                 .andExpect(jsonPath("$.content", hasSize(2)))
                 .andExpect(header().string(HEADER_TOTAL_ITEMS, "2"))
                 .andExpect(header().string(HEADER_PAGE, "0"))
@@ -334,6 +335,7 @@ class TransactionControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(TOTAL_PAGING_ITEMS))
                 .andExpect(jsonPath("$.totalPages").value(EXPECTED_PAGES))
+                .andExpect(jsonPath("$.filteredSum").value(-60.00))
                 .andExpect(jsonPath("$.content", hasSize(PAGE_SIZE_2)))
                 .andExpect(jsonPath("$.content[0].partnerName").value(EMPLOYER))
                 .andExpect(jsonPath("$.content[0].amount").value(-30.00))
@@ -351,6 +353,7 @@ class TransactionControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(TOTAL_PAGING_ITEMS))
                 .andExpect(jsonPath("$.totalPages").value(EXPECTED_PAGES))
+                .andExpect(jsonPath("$.filteredSum").value(-60.00))
                 .andExpect(jsonPath("$.content", hasSize(1)))
                 .andExpect(jsonPath("$.content[0].partnerName").value(NETFLIX))
                 .andExpect(jsonPath("$.content[0].amount").value(-10.00))
@@ -371,6 +374,7 @@ class TransactionControllerTest {
                         .with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.filteredSum").value(-20.00))
                 .andExpect(jsonPath("$.content[0].partnerName").value(PARTNER_MAR));
     }
 
@@ -383,6 +387,7 @@ class TransactionControllerTest {
                         .with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.filteredSum").value(-12.99))
                 .andExpect(jsonPath("$.content[0].partnerName").value(NETFLIX));
     }
 
@@ -450,6 +455,7 @@ class TransactionControllerTest {
                         .param(TRANSACTION_TYPE_PARAM, "ALL")
                         .with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.filteredSum").value(-60.00))
                 .andExpect(jsonPath("$.content", hasSize(3)))
                 .andExpect(jsonPath("$.content[*].partnerName", contains(EMPLOYER, SPOTIFY, NETFLIX)));
     }
@@ -468,6 +474,7 @@ class TransactionControllerTest {
                         .param(TRANSACTION_TYPE_PARAM, "REGULAR")
                         .with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.filteredSum").value(-10.00))
                 .andExpect(jsonPath("$.content", hasSize(1)))
                 .andExpect(jsonPath("$.content[0].partnerName").value(NETFLIX));
     }
@@ -485,6 +492,7 @@ class TransactionControllerTest {
                         .param(TRANSACTION_TYPE_PARAM, "ADDITIONAL")
                         .with(authenticatedUser(testUser)))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.filteredSum").value(-20.00))
                 .andExpect(jsonPath("$.content", hasSize(1)))
                 .andExpect(jsonPath("$.content[0].partnerName").value(SPOTIFY));
     }

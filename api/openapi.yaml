@@ -1171,7 +1171,7 @@ components:
 
     TransactionPage:
       type: object
-      required: [content, totalElements, totalPages]
+      required: [content, totalElements, totalPages, filteredSum]
       properties:
         content:
           type: array
@@ -1182,6 +1182,8 @@ components:
           format: int64
         totalPages:
           type: integer
+        filteredSum:
+          type: number
 
     CategoryDto:
       type: object
