@@ -37,4 +37,4 @@ replay_pid*
 .codex/
 
 # Features
-features/
+/feature-docs/
