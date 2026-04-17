@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { RecurringPaymentsListComponent } from './recurring-payments-list.component';
@@ -39,6 +39,7 @@ describe('RecurringPaymentsListComponent', () => {
   let fixture: ComponentFixture<RecurringPaymentsListComponent>;
   let recurringService: jest.Mocked<RecurringPaymentsService>;
   let categoriesService: jest.Mocked<CategoriesService>;
+  let router: Router;
 
   beforeEach(async () => {
     const recurringServiceMock = {
@@ -63,6 +64,7 @@ describe('RecurringPaymentsListComponent', () => {
       imports: [RecurringPaymentsListComponent],
       providers: [
         provideRouter([]),
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
         { provide: RecurringPaymentsService, useValue: recurringServiceMock },
         { provide: CategoriesService, useValue: categoriesServiceMock },
         { provide: RecurringPaymentRulesService, useValue: rulesServiceMock },
@@ -75,6 +77,8 @@ describe('RecurringPaymentsListComponent', () => {
 
     recurringService = TestBed.inject(RecurringPaymentsService) as jest.Mocked<RecurringPaymentsService>;
     categoriesService = TestBed.inject(CategoriesService) as jest.Mocked<CategoriesService>;
+    router = TestBed.inject(Router);
+    jest.spyOn(router, 'navigate').mockResolvedValue(true);
     fixture = TestBed.createComponent(RecurringPaymentsListComponent);
     component = fixture.componentInstance;
   });
@@ -103,19 +107,21 @@ describe('RecurringPaymentsListComponent', () => {
   it('should show inactive payments when checkbox is toggled', () => {
     fixture.detectChanges();
 
-    component.showInactive = true;
-    component.applyFilter();
-    expect(component.filteredPayments.length).toBe(4);
-    expect(component.filteredPayments.find(p => p.name === 'Old Gym')).toBeDefined();
+    component.onShowInactiveChange(true);
+
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: expect.objectContaining({ showInactive: 'true' }),
+    }));
   });
 
   it('should filter by frequency', () => {
     fixture.detectChanges();
 
-    component.filterFrequency = 'QUARTERLY';
-    component.applyFilter();
-    expect(component.filteredPayments.length).toBe(1);
-    expect(component.filteredPayments[0].name).toBe('Insurance');
+    component.onFrequencyChange('QUARTERLY');
+
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: expect.objectContaining({ frequency: 'QUARTERLY' }),
+    }));
   });
 
   it('should combine frequency filter and inactive filter', () => {
@@ -140,12 +146,11 @@ describe('RecurringPaymentsListComponent', () => {
   it('should sort alphabetically when sortBy is name', () => {
     fixture.detectChanges();
 
-    component.sortBy = 'name';
-    component.applyFilter();
+    component.onSortByChange('name');
 
-    expect(component.filteredPayments[0].name).toBe('Insurance');
-    expect(component.filteredPayments[1].name).toBe('Netflix');
-    expect(component.filteredPayments[2].name).toBe('Salary');
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: expect.objectContaining({ sort: 'name' }),
+    }));
   });
 
   it('should render payment names', () => {
@@ -293,6 +298,114 @@ describe('RecurringPaymentsListComponent', () => {
     fixture.detectChanges();
 
     expect(component.loading).toBe(false);
+  });
+
+  it('should initialize filters from query params', async () => {
+    TestBed.resetTestingModule();
+
+    const recurringServiceMock = {
+      getRecurringPayments: jest.fn().mockImplementation(() => of(mockPayments.map(p => ({ ...p })))),
+      updateRecurringPayment: jest.fn(),
+      deleteRecurringPayment: jest.fn().mockReturnValue(of(undefined)),
+      getRecurringPaymentTransactions: jest.fn().mockReturnValue(of([])),
+    };
+    const categoriesServiceMock = {
+      getCategories: jest.fn().mockReturnValue(of(mockCategories)),
+      createCategory: jest.fn(),
+    };
+    const rulesServiceMock = {
+      getRules: jest.fn().mockReturnValue(of([])),
+      createRule: jest.fn(),
+      updateRule: jest.fn(),
+      deleteRule: jest.fn(),
+      reEvaluateRecurringPayment: jest.fn(),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [RecurringPaymentsListComponent],
+      providers: [
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: { queryParamMap: of(convertToParamMap({ showInactive: 'true', frequency: 'MONTHLY', sort: 'name', tab: 'GROUPED' })) },
+        },
+        { provide: RecurringPaymentsService, useValue: recurringServiceMock },
+        { provide: CategoriesService, useValue: categoriesServiceMock },
+        { provide: RecurringPaymentRulesService, useValue: rulesServiceMock },
+      ],
+    })
+    .overrideComponent(RecurringPaymentsListComponent, {
+      set: { schemas: [NO_ERRORS_SCHEMA] },
+    })
+    .compileComponents();
+
+    const newFixture = TestBed.createComponent(RecurringPaymentsListComponent);
+    const newComponent = newFixture.componentInstance;
+    newFixture.detectChanges();
+
+    expect(newComponent.showInactive).toBe(true);
+    expect(newComponent.filterFrequency).toBe('MONTHLY');
+    expect(newComponent.sortBy).toBe('name');
+    expect(newComponent.selectedTab).toBe('GROUPED');
+  });
+
+  it('should ignore invalid query params and fall back to defaults', async () => {
+    TestBed.resetTestingModule();
+
+    const recurringServiceMock = {
+      getRecurringPayments: jest.fn().mockImplementation(() => of(mockPayments.map(p => ({ ...p })))),
+      updateRecurringPayment: jest.fn(),
+      deleteRecurringPayment: jest.fn().mockReturnValue(of(undefined)),
+      getRecurringPaymentTransactions: jest.fn().mockReturnValue(of([])),
+    };
+    const categoriesServiceMock = {
+      getCategories: jest.fn().mockReturnValue(of(mockCategories)),
+      createCategory: jest.fn(),
+    };
+    const rulesServiceMock = {
+      getRules: jest.fn().mockReturnValue(of([])),
+      createRule: jest.fn(),
+      updateRule: jest.fn(),
+      deleteRule: jest.fn(),
+      reEvaluateRecurringPayment: jest.fn(),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [RecurringPaymentsListComponent],
+      providers: [
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: { queryParamMap: of(convertToParamMap({ showInactive: 'maybe', frequency: 'WEEKLY', sort: 'foo', tab: 'OTHER' })) },
+        },
+        { provide: RecurringPaymentsService, useValue: recurringServiceMock },
+        { provide: CategoriesService, useValue: categoriesServiceMock },
+        { provide: RecurringPaymentRulesService, useValue: rulesServiceMock },
+      ],
+    })
+    .overrideComponent(RecurringPaymentsListComponent, {
+      set: { schemas: [NO_ERRORS_SCHEMA] },
+    })
+    .compileComponents();
+
+    const newFixture = TestBed.createComponent(RecurringPaymentsListComponent);
+    const newComponent = newFixture.componentInstance;
+    newFixture.detectChanges();
+
+    expect(newComponent.showInactive).toBe(false);
+    expect(newComponent.filterFrequency).toBe('');
+    expect(newComponent.sortBy).toBe('amount');
+    expect(newComponent.selectedTab).toBe('RECURRING');
+  });
+
+  it('should update query params when switching tabs', () => {
+    fixture.detectChanges();
+
+    component.onTabChange('GROUPED');
+
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: expect.objectContaining({ tab: 'GROUPED' }),
+    }));
   });
 
   it('should format currency correctly via pipe', () => {

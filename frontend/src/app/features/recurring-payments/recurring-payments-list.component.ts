@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Params, Router, RouterLink } from '@angular/router';
 import { RecurringPaymentsService, CategoriesService } from '../../api/generated';
 import { RecurringPaymentDto } from '../../api/generated/model/recurringPaymentDto';
 import { CategoryDto } from '../../api/generated/model/categoryDto';
@@ -12,7 +12,22 @@ import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 import { PaymentCategoryDialogComponent } from './payment-category-dialog.component';
 import { PaymentTransactionsModalComponent } from './payment-transactions-modal.component';
 import { PaymentRulesModalComponent } from './payment-rules-modal.component';
+import { parseBooleanParam, parseEnumParam } from '../../shared/query-param-utils';
 import { Subject, forkJoin, takeUntil } from 'rxjs';
+
+type RecurringSortBy = 'amount' | 'name';
+type RecurringTab = 'RECURRING' | 'GROUPED';
+
+interface RecurringPaymentsUrlState {
+  showInactive: boolean;
+  filterFrequency: string;
+  sortBy: RecurringSortBy;
+  selectedTab: RecurringTab;
+}
+
+const RECURRING_SORT_OPTIONS: readonly RecurringSortBy[] = ['amount', 'name'];
+const RECURRING_TAB_OPTIONS: readonly RecurringTab[] = ['RECURRING', 'GROUPED'];
+const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
 
 @Component({
   selector: 'app-recurring-payments-list',
@@ -38,20 +53,20 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
             <div class="relative">
               <input type="checkbox" [(ngModel)]="showInactive"
                 class="sr-only peer"
-                (change)="applyFilter()">
+                (ngModelChange)="onShowInactiveChange($event)">
               <div class="w-8 h-[18px] bg-subtle rounded-full peer-checked:bg-accent/30 transition-colors"></div>
               <div class="absolute top-[3px] left-[3px] w-3 h-3 bg-muted rounded-full peer-checked:translate-x-3.5 peer-checked:bg-accent transition-all"></div>
             </div>
             Show inactive
           </label>
-          <select [(ngModel)]="filterFrequency" (change)="applyFilter()"
+          <select [(ngModel)]="filterFrequency" (ngModelChange)="onFrequencyChange($event)"
             class="text-xs bg-card border border-card-border rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-subtle">
             <option value="">All frequencies</option>
             <option value="MONTHLY">Monthly</option>
             <option value="QUARTERLY">Quarterly</option>
             <option value="YEARLY">Yearly</option>
           </select>
-          <select [(ngModel)]="sortBy" (change)="applyFilter()"
+          <select [(ngModel)]="sortBy" (ngModelChange)="onSortByChange($event)"
             class="text-xs bg-card border border-card-border rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-subtle">
             <option value="amount">Sort by amount</option>
             <option value="name">Sort by name</option>
@@ -76,7 +91,7 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
             class="px-4 py-2 text-sm font-medium transition-colors relative"
             [class.text-white]="selectedTab === 'RECURRING'"
             [class.text-muted]="selectedTab !== 'RECURRING'"
-            (click)="selectedTab = 'RECURRING'; applyFilter()">
+            (click)="onTabChange('RECURRING')">
             Recurring
             <span class="text-xs ml-1 text-muted">({{ recurringCount }})</span>
             @if (selectedTab === 'RECURRING') {
@@ -87,7 +102,7 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
             class="px-4 py-2 text-sm font-medium transition-colors relative"
             [class.text-white]="selectedTab === 'GROUPED'"
             [class.text-muted]="selectedTab !== 'GROUPED'"
-            (click)="selectedTab = 'GROUPED'; applyFilter()">
+            (click)="onTabChange('GROUPED')">
             Grouped
             <span class="text-xs ml-1 text-muted">({{ groupedCount }})</span>
             @if (selectedTab === 'GROUPED') {
@@ -327,9 +342,12 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
 export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
   private recurringPaymentsService = inject(RecurringPaymentsService);
   private categoriesService = inject(CategoriesService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
 
   private destroy$ = new Subject<void>();
+  private dataLoaded = false;
   payments: RecurringPaymentDto[] = [];
   filteredPayments: RecurringPaymentDto[] = [];
   categories: CategoryDto[] = [];
@@ -337,8 +355,8 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
   error: string | null = null;
   showInactive = false;
   filterFrequency = '';
-  sortBy: 'amount' | 'name' = 'amount';
-  selectedTab: 'RECURRING' | 'GROUPED' = 'RECURRING';
+  sortBy: RecurringSortBy = 'amount';
+  selectedTab: RecurringTab = 'RECURRING';
   recurringCount = 0;
   groupedCount = 0;
 
@@ -349,7 +367,17 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
   deletePayment: RecurringPaymentDto | null = null;
 
   ngOnInit(): void {
-    this.loadData();
+    this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe(queryParamMap => {
+      this.applyUrlState(this.parseUrlState(queryParamMap));
+
+      if (!this.dataLoaded) {
+        this.loadData();
+        return;
+      }
+
+      this.applyFilter();
+      this.cdr.markForCheck();
+    });
   }
 
   ngOnDestroy(): void {
@@ -374,6 +402,30 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
     } else {
       this.filteredPayments.sort((a, b) => a.name.localeCompare(b.name));
     }
+  }
+
+  onShowInactiveChange(showInactive: boolean): void {
+    this.showInactive = showInactive;
+    this.syncUrlWithState();
+  }
+
+  onFrequencyChange(frequency: string): void {
+    this.filterFrequency = frequency;
+    this.syncUrlWithState();
+  }
+
+  onSortByChange(sortBy: RecurringSortBy): void {
+    this.sortBy = sortBy;
+    this.syncUrlWithState();
+  }
+
+  onTabChange(tab: RecurringTab): void {
+    if (this.selectedTab === tab) {
+      return;
+    }
+
+    this.selectedTab = tab;
+    this.syncUrlWithState();
   }
 
   toggleActive(payment: RecurringPaymentDto): void {
@@ -481,6 +533,7 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
       next: ({ payments, categories }) => {
         this.payments = payments;
         this.categories = categories;
+        this.dataLoaded = true;
         this.applyFilter();
         this.loading = false;
         this.cdr.markForCheck();
@@ -491,5 +544,37 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       }
     });
+  }
+
+  private parseUrlState(queryParamMap: { get(name: string): string | null }): RecurringPaymentsUrlState {
+    return {
+      showInactive: parseBooleanParam(queryParamMap.get('showInactive')) ?? false,
+      filterFrequency: parseEnumParam(queryParamMap.get('frequency'), FREQUENCY_OPTIONS) ?? '',
+      sortBy: parseEnumParam(queryParamMap.get('sort'), RECURRING_SORT_OPTIONS) ?? 'amount',
+      selectedTab: parseEnumParam(queryParamMap.get('tab'), RECURRING_TAB_OPTIONS) ?? 'RECURRING',
+    };
+  }
+
+  private applyUrlState(state: RecurringPaymentsUrlState): void {
+    this.showInactive = state.showInactive;
+    this.filterFrequency = state.filterFrequency;
+    this.sortBy = state.sortBy;
+    this.selectedTab = state.selectedTab;
+  }
+
+  private syncUrlWithState(): void {
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: this.buildQueryParams(),
+    });
+  }
+
+  private buildQueryParams(): Params {
+    return {
+      showInactive: this.showInactive ? 'true' : null,
+      frequency: this.filterFrequency || null,
+      sort: this.sortBy !== 'amount' ? this.sortBy : null,
+      tab: this.selectedTab !== 'RECURRING' ? this.selectedTab : null,
+    };
   }
 }

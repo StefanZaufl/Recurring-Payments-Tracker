@@ -58,9 +58,9 @@ describe('Guard chaining (authGuard + adminGuard)', () => {
     authState.currentUser = null;
     authState.checkSession.mockReturnValue(of(null));
 
-    await router.navigateByUrl('/admin/users');
+    await router.navigateByUrl('/admin/users?tab=RECURRING');
 
-    expect(router.url).toBe('/login');
+    expect(router.url).toBe('/login?returnUrl=%2Fadmin%2Fusers%3Ftab%3DRECURRING');
   });
 
   it('should allow admin user after session check', async () => {
