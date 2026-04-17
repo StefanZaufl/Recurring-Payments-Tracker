@@ -133,7 +133,7 @@ const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
         <!-- Mobile card view -->
         @if (filteredPayments.length > 0) {
           <div class="sm:hidden space-y-3 animate-slide-up">
-            @for (payment of filteredPayments; track payment) {
+            @for (payment of filteredPayments; track payment.id) {
               <div
                 class="glass-card p-4 transition-opacity cursor-pointer"
                 [class.opacity-40]="!payment.isActive"
@@ -220,7 +220,7 @@ const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-card-border">
-                  @for (payment of filteredPayments; track payment) {
+                  @for (payment of filteredPayments; track payment.id) {
                     <tr
                       class="group hover:bg-card-hover transition-colors cursor-pointer"
                       [class.opacity-40]="!payment.isActive"

@@ -76,7 +76,7 @@ import { Subject, takeUntil } from 'rxjs';
       <!-- Mobile transaction cards -->
       @if (!loading && !error && filteredTransactions.length > 0) {
         <div class="sm:hidden p-3 space-y-2">
-          @for (tx of filteredTransactions; track tx) {
+          @for (tx of filteredTransactions; track tx.id) {
             <div class="bg-subtle rounded-xl p-3">
               <div class="flex items-start justify-between gap-2 mb-1">
                 <p class="text-sm font-medium text-white truncate min-w-0 flex-1">{{ tx.partnerName || 'Unknown' }}</p>
@@ -108,7 +108,7 @@ import { Subject, takeUntil } from 'rxjs';
             </tr>
           </thead>
           <tbody class="divide-y divide-card-border">
-            @for (tx of filteredTransactions; track tx) {
+            @for (tx of filteredTransactions; track tx.id) {
               <tr class="hover:bg-card-hover transition-colors">
                 <td class="table-cell text-muted whitespace-nowrap">{{ formatDate(tx.bookingDate) }}</td>
                 <td class="table-cell font-medium text-white">{{ tx.partnerName || 'Unknown' }}</td>

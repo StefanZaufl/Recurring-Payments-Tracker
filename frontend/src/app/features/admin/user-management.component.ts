@@ -106,7 +106,7 @@ import { EditableFieldComponent } from '../../shared/editable-field.component';
       <!-- User Cards -->
       @if (!loading) {
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          @for (user of users; track user) {
+          @for (user of users; track user.id) {
             <div class="glass-card p-5 flex flex-col gap-3 animate-fade-in">
               <!-- Card Header: Username -->
               <div class="flex items-center justify-between gap-2 min-h-[2rem]">
