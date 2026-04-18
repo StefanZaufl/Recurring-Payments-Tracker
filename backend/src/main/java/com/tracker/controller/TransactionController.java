@@ -65,18 +65,20 @@ public class TransactionController implements TransactionsApi {
 
     @Override
     public ResponseEntity<TransactionPage> getTransactions(LocalDate from, LocalDate to, String text, String account, String transactionType, Integer page, Integer size, String sort, String sortDirection) {
-        Page<Transaction> result = transactionService.getTransactions(from, to, text, account, transactionType, page, size, sort, sortDirection);
+        TransactionService.TransactionQueryResult result = transactionService.getTransactions(from, to, text, account, transactionType, page, size, sort, sortDirection);
+        Page<Transaction> transactionPageResult = result.page();
         TransactionPage transactionPage = new TransactionPage(
-                transactionMapper.toDtoList(result.getContent()),
-                result.getTotalElements(),
-                result.getTotalPages()
+                transactionMapper.toDtoList(transactionPageResult.getContent()),
+                transactionPageResult.getTotalElements(),
+                transactionPageResult.getTotalPages(),
+                result.filteredSum()
         );
 
         HttpHeaders headers = new HttpHeaders();
-        headers.set(HEADER_TOTAL_ITEMS, String.valueOf(result.getTotalElements()));
-        headers.set(HEADER_PAGE, String.valueOf(result.getNumber()));
-        headers.set(HEADER_PAGE_SIZE, String.valueOf(result.getSize()));
-        headers.set(HEADER_TOTAL_PAGES, String.valueOf(result.getTotalPages()));
+        headers.set(HEADER_TOTAL_ITEMS, String.valueOf(transactionPageResult.getTotalElements()));
+        headers.set(HEADER_PAGE, String.valueOf(transactionPageResult.getNumber()));
+        headers.set(HEADER_PAGE_SIZE, String.valueOf(transactionPageResult.getSize()));
+        headers.set(HEADER_TOTAL_PAGES, String.valueOf(transactionPageResult.getTotalPages()));
 
         return ResponseEntity.ok().headers(headers).body(transactionPage);
     }

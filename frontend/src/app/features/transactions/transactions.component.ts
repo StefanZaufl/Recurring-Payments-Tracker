@@ -46,11 +46,23 @@ const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
           <p class="text-sm text-muted mt-0.5">Browse and search all imported transactions</p>
         </div>
         <div class="flex items-center gap-3 flex-wrap">
-          @if (totalElements > 0) {
-            <div class="text-xs text-muted">
+          <div class="flex items-center gap-3 flex-wrap text-xs">
+            <div class="text-muted">
               {{ totalElements }} transaction{{ totalElements === 1 ? '' : 's' }}
             </div>
-          }
+            <div class="flex items-center gap-1.5">
+              <span class="text-muted uppercase tracking-[0.12em]">Sum</span>
+              @if (filteredSum !== null) {
+                <span class="font-mono font-semibold"
+                  [class.text-accent]="filteredSum >= 0"
+                  [class.text-coral]="filteredSum < 0">
+                  {{ filteredSum | appCurrency:true }}
+                </span>
+              } @else {
+                <span class="font-mono font-semibold text-muted/60">--</span>
+              }
+            </div>
+          </div>
           <a routerLink="/transactions/import"
             class="btn-primary text-xs flex items-center gap-1.5">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -157,7 +169,7 @@ const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
       <!-- Mobile card view -->
       @if (!loading && !error && transactions.length > 0) {
         <div class="sm:hidden space-y-2 animate-slide-up">
-          @for (tx of transactions; track tx) {
+          @for (tx of transactions; track tx.id) {
             <div class="glass-card p-3.5">
               <div class="flex items-start justify-between gap-2 mb-1.5">
                 <p class="text-sm font-medium text-white truncate min-w-0 flex-1">{{ tx.partnerName || 'Unknown' }}</p>
@@ -199,7 +211,7 @@ const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
                 </tr>
               </thead>
               <tbody class="divide-y divide-card-border">
-                @for (tx of transactions; track tx) {
+                @for (tx of transactions; track tx.id) {
                   <tr class="hover:bg-card-hover transition-colors">
                     <td class="table-cell text-muted whitespace-nowrap">{{ formatDate(tx.bookingDate) }}</td>
                     <td class="table-cell font-medium text-white">{{ tx.partnerName || 'Unknown' }}</td>
@@ -287,6 +299,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   pageSize = DEFAULT_PAGE_SIZE;
   totalElements = 0;
   totalPages = 0;
+  filteredSum: number | null = null;
 
   private searchSubject = new Subject<string>();
   private destroy$ = new Subject<void>();
@@ -361,6 +374,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   loadTransactions(): void {
     this.loading = true;
     this.error = null;
+    this.filteredSum = null;
 
     this.transactionsService.getTransactions(
       this.from || undefined,
@@ -377,11 +391,13 @@ export class TransactionsComponent implements OnInit, OnDestroy {
         this.transactions = result.content;
         this.totalElements = result.totalElements;
         this.totalPages = result.totalPages;
+        this.filteredSum = result.filteredSum;
         this.loading = false;
         this.cdr.markForCheck();
       },
       error: (err) => {
         this.error = err.error?.message || 'Failed to load transactions. Please try again.';
+        this.filteredSum = null;
         this.loading = false;
         this.cdr.markForCheck();
       }

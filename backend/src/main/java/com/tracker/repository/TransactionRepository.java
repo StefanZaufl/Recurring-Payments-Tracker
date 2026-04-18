@@ -17,7 +17,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface TransactionRepository extends JpaRepository<Transaction, UUID>, JpaSpecificationExecutor<Transaction> {
+public interface TransactionRepository extends JpaRepository<Transaction, UUID>, JpaSpecificationExecutor<Transaction>, TransactionRepositoryCustom {
 
     @Override
     @EntityGraph(attributePaths = "upload")

@@ -14,5 +14,6 @@ export interface TransactionPage {
     content: Array<TransactionDto>;
     totalElements: number;
     totalPages: number;
+    filteredSum: number;
 }
 

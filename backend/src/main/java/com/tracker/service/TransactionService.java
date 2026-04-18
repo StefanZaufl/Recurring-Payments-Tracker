@@ -3,10 +3,11 @@ package com.tracker.service;
 import com.tracker.model.entity.FileUpload;
 import com.tracker.model.entity.RecurringPayment;
 import com.tracker.model.entity.Transaction;
-import com.tracker.model.entity.TransactionRecurringLink;
 import com.tracker.model.entity.User;
 import com.tracker.repository.FileUploadRepository;
+import com.tracker.repository.TransactionFilter;
 import com.tracker.repository.TransactionRepository;
+import com.tracker.repository.TransactionTypeFilter;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -15,6 +16,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -114,10 +116,17 @@ public class TransactionService {
     private static final java.util.Set<String> ALLOWED_SORT_FIELDS = java.util.Set.of("bookingDate", "partnerName", "amount");
 
     @Transactional(readOnly = true)
-    public Page<Transaction> getTransactions(LocalDate from, LocalDate to, String text, String account,
-                                             String transactionType, int page, int size,
-                                             String sort, String sortDirection) {
-        UUID currentUserId = userContextService.getCurrentUserId();
+    public TransactionQueryResult getTransactions(LocalDate from, LocalDate to, String text, String account,
+                                                  String transactionType, int page, int size,
+                                                  String sort, String sortDirection) {
+        TransactionFilter filter = new TransactionFilter(
+                userContextService.getCurrentUserId(),
+                from,
+                to,
+                text,
+                account,
+                TransactionTypeFilter.fromQueryParam(transactionType)
+        );
         String sortField = sort != null && ALLOWED_SORT_FIELDS.contains(sort) ? sort : "bookingDate";
         Sort.Direction direction = "asc".equalsIgnoreCase(sortDirection) ? Sort.Direction.ASC : Sort.Direction.DESC;
         Sort sorting = Sort.by(direction, sortField);
@@ -125,44 +134,11 @@ public class TransactionService {
             sorting = sorting.and(Sort.by(Sort.Direction.DESC, "bookingDate"));
         }
         PageRequest pageRequest = PageRequest.of(page, size, sorting);
-        TransactionTypeFilter filter = TransactionTypeFilter.fromQueryParam(transactionType);
 
-        Specification<Transaction> spec = (root, query, cb) -> {
-            List<Predicate> predicates = new ArrayList<>();
-            predicates.add(cb.equal(root.get("user").get("id"), currentUserId));
-            if (from != null) {
-                predicates.add(cb.greaterThanOrEqualTo(root.get("bookingDate"), from));
-            }
-            if (to != null) {
-                predicates.add(cb.lessThanOrEqualTo(root.get("bookingDate"), to));
-            }
-            if (text != null && !text.isBlank()) {
-                String pattern = "%" + text.toLowerCase() + "%";
-                predicates.add(cb.or(
-                        cb.like(cb.lower(root.get("partnerName")), pattern),
-                        cb.like(cb.lower(root.get("details")), pattern)
-                ));
-            }
-            if (account != null && !account.isBlank()) {
-                predicates.add(cb.equal(root.get("account"), IbanNormalizationService.normalize(account)));
-            }
-            if (filter == TransactionTypeFilter.REGULAR || filter == TransactionTypeFilter.ADDITIONAL) {
-                predicates.add(cb.isFalse(root.get("isInterAccount")));
-                if (query == null) {
-                    throw new IllegalStateException("Transaction type filtering requires a criteria query");
-                }
+        Page<Transaction> transactionPage = transactionRepository.findAll(toSpecification(filter), pageRequest);
+        BigDecimal filteredSum = transactionRepository.sumAmounts(filter);
 
-                var subquery = query.subquery(java.util.UUID.class);
-                var linkRoot = subquery.from(TransactionRecurringLink.class);
-                subquery.select(linkRoot.get("transaction").get("id"));
-                subquery.where(cb.equal(linkRoot.get("transaction").get("id"), root.get("id")));
-
-                predicates.add(filter == TransactionTypeFilter.REGULAR ? cb.exists(subquery) : cb.not(cb.exists(subquery)));
-            }
-            return cb.and(predicates.toArray(new Predicate[0]));
-        };
-
-        return transactionRepository.findAll(spec, pageRequest);
+        return new TransactionQueryResult(transactionPage, filteredSum);
     }
 
     @Transactional(readOnly = true)
@@ -208,17 +184,10 @@ public class TransactionService {
 
     private record DuplicateFilterResult(List<Transaction> newTransactions, int skippedDuplicates) {}
 
-    enum TransactionTypeFilter {
-        ALL,
-        REGULAR,
-        ADDITIONAL;
+    public record TransactionQueryResult(Page<Transaction> page, BigDecimal filteredSum) {}
 
-        static TransactionTypeFilter fromQueryParam(String value) {
-            if (value == null || value.isBlank()) {
-                return ALL;
-            }
-            return TransactionTypeFilter.valueOf(value);
-        }
+    private Specification<Transaction> toSpecification(TransactionFilter filter) {
+        return (root, query, cb) -> cb.and(com.tracker.repository.TransactionPredicates.build(filter, root, query, cb).toArray(new Predicate[0]));
     }
 
     private record TransactionSignature(LocalDate bookingDate,
