@@ -52,11 +52,15 @@ const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
             </div>
             <div class="flex items-center gap-1.5">
               <span class="text-muted uppercase tracking-[0.12em]">Sum</span>
-              <span class="font-mono font-semibold"
-                [class.text-accent]="(filteredSum ?? 0) >= 0"
-                [class.text-coral]="(filteredSum ?? 0) < 0">
-                {{ (filteredSum ?? 0) | appCurrency:true }}
-              </span>
+              @if (filteredSum !== null) {
+                <span class="font-mono font-semibold"
+                  [class.text-accent]="filteredSum >= 0"
+                  [class.text-coral]="filteredSum < 0">
+                  {{ filteredSum | appCurrency:true }}
+                </span>
+              } @else {
+                <span class="font-mono font-semibold text-muted/60">--</span>
+              }
             </div>
           </div>
           <a routerLink="/transactions/import"

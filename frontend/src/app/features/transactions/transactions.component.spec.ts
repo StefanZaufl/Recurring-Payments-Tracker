@@ -123,6 +123,17 @@ describe('TransactionsComponent', () => {
     expect(fixture.nativeElement.textContent).toContain(pipe.transform(0, true));
   });
 
+  it('should not display a zero filtered sum while transactions are still loading', () => {
+    component.filteredSum = null;
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent;
+
+    expect(text).toContain('Sum');
+    expect(text).toContain('--');
+    expect(text).not.toContain('$0.00');
+  });
+
   it('should filter by date range', () => {
     service.getTransactions.mockReturnValue(of(emptyPage));
     component.onDateRangeChanged({ from: '2026-01-01', to: '2026-01-31', label: 'January' });
@@ -223,10 +234,12 @@ describe('TransactionsComponent', () => {
   it('should handle error state', () => {
     service.getTransactions.mockReturnValue(throwError(() => ({ error: { message: 'Server error' } })));
     component.loadTransactions();
+    fixture.detectChanges();
 
     expect(component.error).toBe('Server error');
     expect(component.loading).toBe(false);
     expect(component.filteredSum).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('--');
   });
 
   it('should show empty state when no transactions', () => {

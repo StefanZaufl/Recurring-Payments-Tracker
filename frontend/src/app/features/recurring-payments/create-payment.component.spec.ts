@@ -10,6 +10,7 @@ const emptyPage: TransactionPage = {
   content: [],
   totalElements: 0,
   totalPages: 0,
+  filteredSum: 0,
 };
 
 describe('CreatePaymentComponent', () => {
