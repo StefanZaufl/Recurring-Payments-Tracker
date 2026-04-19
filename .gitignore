@@ -4,6 +4,8 @@ node_modules/
 # Build output
 dist/
 target/
+.scannerwork/
+coverage/
 
 # IDE
 .idea/
@@ -31,6 +33,7 @@ replay_pid*
 
 # Env
 .env
+sonar.env
 
 # Codex local state
 .codex
