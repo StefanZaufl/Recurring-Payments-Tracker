@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.ArrayList;
@@ -34,9 +35,20 @@ class SetupServiceTest {
     @Autowired
     private SetupStateRepository setupStateRepository;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     @BeforeEach
     void setUp() {
-        userRepository.deleteAll();
+        jdbcTemplate.update("delete from payment_period_history");
+        jdbcTemplate.update("delete from transaction_recurring_link");
+        jdbcTemplate.update("delete from rules");
+        jdbcTemplate.update("delete from recurring_payments");
+        jdbcTemplate.update("delete from transactions");
+        jdbcTemplate.update("delete from file_uploads");
+        jdbcTemplate.update("delete from bank_accounts");
+        jdbcTemplate.update("delete from categories");
+        jdbcTemplate.update("delete from users");
         setupStateRepository.deleteAll();
         setupStateRepository.save(new SetupState());
     }
