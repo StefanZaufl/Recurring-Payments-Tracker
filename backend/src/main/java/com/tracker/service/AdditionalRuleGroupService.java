@@ -14,13 +14,13 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
 public class AdditionalRuleGroupService {
 
     private static final int MAX_NAME_LENGTH = 120;
+    private static final String NOT_FOUND_MESSAGE = "Additional rule group not found: ";
 
     private final AdditionalRuleGroupRepository groupRepository;
     private final RuleRepository ruleRepository;
@@ -55,10 +55,7 @@ public class AdditionalRuleGroupService {
     @Transactional(readOnly = true)
     public GroupWithCount getById(UUID id) {
         UUID userId = userContextService.getCurrentUserId();
-        AdditionalRuleGroup group = groupRepository.findByIdAndUserId(id, userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Additional rule group not found: " + id));
-        Map<UUID, Long> counts = matchingService.countMatchesByGroupInLookback();
-        return new GroupWithCount(group, counts.getOrDefault(id, 0L));
+        return getGroupWithCount(id, userId);
     }
 
     @Transactional
@@ -80,14 +77,13 @@ public class AdditionalRuleGroupService {
 
         RecurringPaymentRecalculationService.RecalculationResult recalculation =
                 recalculationService.recalculateCurrentUserRecurringPayments();
-        return new MutationResult(getById(group.getId()), recalculation);
+        return new MutationResult(getGroupWithCount(group.getId(), user.getId()), recalculation);
     }
 
     @Transactional
     public MutationResult update(UUID id, String name, List<RuleCreateParams> rules) {
         UUID userId = userContextService.getCurrentUserId();
-        AdditionalRuleGroup group = groupRepository.findByIdAndUserId(id, userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Additional rule group not found: " + id));
+        AdditionalRuleGroup group = findGroup(id, userId);
 
         String trimmedName = normalizeDisplayName(name);
         String normalizedName = normalizeName(trimmedName);
@@ -108,14 +104,13 @@ public class AdditionalRuleGroupService {
             replaceRules(group, normalizedRules, userContextService.getCurrentUser());
             recalculation = recalculationService.recalculateCurrentUserRecurringPayments();
         }
-        return new MutationResult(getById(group.getId()), recalculation);
+        return new MutationResult(getGroupWithCount(group.getId(), userId), recalculation);
     }
 
     @Transactional
     public RecurringPaymentRecalculationService.RecalculationResult delete(UUID id) {
         UUID userId = userContextService.getCurrentUserId();
-        AdditionalRuleGroup group = groupRepository.findByIdAndUserId(id, userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Additional rule group not found: " + id));
+        AdditionalRuleGroup group = findGroup(id, userId);
         groupRepository.delete(group);
         groupRepository.flush();
         return recalculationService.recalculateCurrentUserRecurringPayments();
@@ -135,6 +130,18 @@ public class AdditionalRuleGroupService {
             group.getRules().add(rule);
         }
         groupRepository.save(group);
+        groupRepository.flush();
+    }
+
+    private GroupWithCount getGroupWithCount(UUID id, UUID userId) {
+        AdditionalRuleGroup group = findGroup(id, userId);
+        Map<UUID, Long> counts = matchingService.countMatchesByGroupInLookback();
+        return new GroupWithCount(group, counts.getOrDefault(id, 0L));
+    }
+
+    private AdditionalRuleGroup findGroup(UUID id, UUID userId) {
+        return groupRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND_MESSAGE + id));
     }
 
     private List<RuleValidationService.NormalizedRule> normalizeRules(List<RuleCreateParams> rules) {

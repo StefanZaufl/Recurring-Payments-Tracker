@@ -118,6 +118,9 @@ public class RecurringPaymentController implements RecurringPaymentsApi {
             SimulationService.AdditionalTransactionMatch match) {
         AdditionalGroupTransactionMatchDto dto = new AdditionalGroupTransactionMatchDto();
         dto.setTransactionId(match.transactionId());
+        if (match.transaction() != null) {
+            dto.setTransaction(recurringPaymentMapper.toTransactionDto(match.transaction()));
+        }
         dto.setGroups(match.groups().stream()
                 .map(group -> {
                     AdditionalGroupReferenceDto reference = new AdditionalGroupReferenceDto();

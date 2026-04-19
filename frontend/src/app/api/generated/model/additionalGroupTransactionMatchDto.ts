@@ -7,11 +7,13 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
+import { TransactionDto } from './transactionDto';
 import { AdditionalGroupReferenceDto } from './additionalGroupReferenceDto';
 
 
 export interface AdditionalGroupTransactionMatchDto { 
     transactionId: string;
+    transaction?: TransactionDto;
     groups: Array<AdditionalGroupReferenceDto>;
 }
 

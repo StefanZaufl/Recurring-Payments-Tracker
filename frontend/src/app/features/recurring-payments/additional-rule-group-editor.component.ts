@@ -16,22 +16,12 @@ import { RecalculationSummaryResponse } from '../../api/generated/model/recalcul
 import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 import { formatLocalDate } from '../../shared/date-range-presets';
 import { TooltipComponent } from '../../shared/tooltip.component';
-
-interface LocalRule {
-  id: string;
-  ruleType: string;
-  targetField?: string;
-  text?: string;
-  strict?: boolean;
-  threshold?: number;
-  amount?: number;
-  fluctuationRange?: number;
-}
+import { LocalRule, RuleEditorComponent } from './rule-editor.component';
 
 @Component({
   selector: 'app-additional-rule-group-editor',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RouterLink, CurrencyFormatPipe, TooltipComponent],
+  imports: [CommonModule, FormsModule, RouterLink, CurrencyFormatPipe, TooltipComponent, RuleEditorComponent],
   template: `
     <div class="animate-fade-in">
       <div class="flex items-center gap-4 mb-6">
@@ -73,7 +63,11 @@ interface LocalRule {
                 }
                 @if (simulationActive) {
                   <label class="flex items-center gap-2 text-[11px] text-muted cursor-pointer select-none">
-                    <input type="checkbox" [(ngModel)]="showOnlyMatches" class="rounded border-card-border bg-card text-accent focus:ring-0 focus:ring-offset-0">
+                    <div class="relative">
+                      <input type="checkbox" [(ngModel)]="showOnlyMatches" class="sr-only peer">
+                      <div class="w-7 h-[16px] bg-subtle rounded-full peer-checked:bg-accent/30 transition-colors"></div>
+                      <div class="absolute top-[2px] left-[2px] w-3 h-3 bg-muted rounded-full peer-checked:translate-x-3 peer-checked:bg-accent transition-all"></div>
+                    </div>
                     Matches only
                   </label>
                 }
@@ -149,7 +143,7 @@ interface LocalRule {
             }
           </div>
 
-          <div class="lg:col-span-2 space-y-4">
+          <div class="lg:col-span-2 space-y-6">
             <div class="glass-card p-5 space-y-4">
               <h2 class="text-sm font-semibold text-white">Group Details</h2>
               <div>
@@ -173,60 +167,33 @@ interface LocalRule {
               </div>
             </div>
 
-            <div class="glass-card overflow-hidden">
-              <div class="px-5 py-4 border-b border-card-border flex items-center justify-between">
-                <h2 class="text-sm font-semibold text-white">Rules</h2>
-                <span class="badge bg-subtle text-muted text-[10px]">{{ rules.length }} rule{{ rules.length === 1 ? '' : 's' }}</span>
-              </div>
-              <div class="p-4 space-y-2">
-                @for (rule of rules; track rule.id) {
-                  <div class="bg-subtle rounded-xl p-3 flex items-start justify-between gap-2">
-                    <div>
-                      <div class="text-[10px] text-muted mb-1">{{ formatRuleType(rule.ruleType) }}</div>
-                      <p class="text-[11px] text-muted/80 break-all">{{ formatRuleSummary(rule) }}</p>
-                    </div>
-                    <div class="flex gap-1">
-                      <button (click)="startEditRule(rule)" class="text-xs text-muted hover:text-white">Edit</button>
-                      <button (click)="removeRule(rule)" class="text-xs text-muted hover:text-coral">Remove</button>
-                    </div>
-                  </div>
-                } @empty {
-                  <p class="text-sm text-muted p-2">Add at least one rule.</p>
-                }
-              </div>
-              <div class="px-5 py-4 border-t border-card-border space-y-3">
-                <p class="text-[11px] text-muted uppercase tracking-wider font-medium">{{ editingRule ? 'Edit rule' : 'Add rule' }}</p>
-                <select [(ngModel)]="ruleFormType" class="w-full text-xs bg-card border border-card-border rounded-lg px-3 py-2 text-white">
-                  <option value="JARO_WINKLER">Jaro-Winkler</option>
-                  <option value="REGEX">Regex</option>
-                  <option value="AMOUNT">Amount</option>
-                </select>
-                @if (isTextRule()) {
-                  <select [(ngModel)]="ruleFormTargetField" class="w-full text-xs bg-card border border-card-border rounded-lg px-3 py-2 text-white">
-                    <option value="ACCOUNT">Account</option>
-                    <option value="PARTNER_NAME">Partner Name</option>
-                    <option value="PARTNER_IBAN">Partner IBAN</option>
-                    <option value="DETAILS">Details</option>
-                  </select>
-                  <input [(ngModel)]="ruleFormText" class="w-full text-xs bg-card border border-card-border rounded-lg px-3 py-2 text-white" placeholder="Text or pattern">
-                  @if (ruleFormType === 'JARO_WINKLER') {
-                    <input type="number" [(ngModel)]="ruleFormThreshold" min="0" max="1" step="0.05" class="w-full text-xs bg-card border border-card-border rounded-lg px-3 py-2 text-white">
-                  }
-                  <label class="flex items-center gap-2 text-xs text-muted"><input type="checkbox" [(ngModel)]="ruleFormStrict"> Strict</label>
-                } @else {
-                  <input type="number" [(ngModel)]="ruleFormAmount" step="0.01" class="w-full text-xs bg-card border border-card-border rounded-lg px-3 py-2 text-white" placeholder="Amount">
-                  <input type="number" [(ngModel)]="ruleFormFluctuationRange" min="0" step="0.01" class="w-full text-xs bg-card border border-card-border rounded-lg px-3 py-2 text-white" placeholder="Fluctuation range">
-                }
-                @if (ruleFormError) {
-                  <p class="text-xs text-coral">{{ ruleFormError }}</p>
-                }
-                <div class="flex gap-2">
-                  <button (click)="saveRule()" class="btn-primary text-xs px-3 py-1.5">{{ editingRule ? 'Update Rule' : 'Add Rule' }}</button>
-                  @if (editingRule) {
-                    <button (click)="cancelRuleForm()" class="text-xs text-muted hover:text-white">Cancel</button>
-                  }
-                </div>
-              </div>
+            <app-rule-editor
+              title="Rules"
+              [rules]="rules"
+              (rulesChange)="onRulesChange($event)" />
+          </div>
+        </div>
+      }
+
+      @if (showDeleteConfirmation) {
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          role="button" tabindex="0" aria-label="Close additional rule group deletion"
+          (click)="closeDeleteConfirmation()" (keydown.enter)="closeDeleteConfirmation()" (keydown.escape)="closeDeleteConfirmation()">
+          <div class="glass-card p-6 max-w-sm w-full" role="dialog" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">
+            <h3 class="text-base font-semibold text-white mb-2">Delete Additional Rule Group</h3>
+            <p class="text-sm text-muted mb-4">
+              This will delete <strong class="text-white">{{ groupName }}</strong> and recalculate recurring payments. Transactions excluded only by this group may become eligible again.
+            </p>
+            <div class="flex gap-3 justify-end">
+              <button type="button" (click)="closeDeleteConfirmation()" class="text-sm text-muted hover:text-white transition-colors px-3 py-1.5">
+                Cancel
+              </button>
+              <button type="button"
+                (click)="executeDelete()"
+                [disabled]="deleting"
+                class="text-sm bg-coral/20 text-coral hover:bg-coral/30 transition-colors px-3 py-1.5 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed">
+                {{ deleting ? 'Deleting...' : 'Delete' }}
+              </button>
             </div>
           </div>
         </div>
@@ -235,15 +202,14 @@ interface LocalRule {
   `
 })
 export class AdditionalRuleGroupEditorComponent implements OnInit, OnDestroy {
-  private route = inject(ActivatedRoute);
-  private router = inject(Router);
-  private groupsService = inject(AdditionalRuleGroupsService);
-  private transactionsService = inject(TransactionsService);
-  private recurringPaymentsService = inject(RecurringPaymentsService);
-  private cdr = inject(ChangeDetectorRef);
-  private currencyPipe = new CurrencyFormatPipe();
-  private destroy$ = new Subject<void>();
-  private rulesChanged$ = new Subject<void>();
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly groupsService = inject(AdditionalRuleGroupsService);
+  private readonly transactionsService = inject(TransactionsService);
+  private readonly recurringPaymentsService = inject(RecurringPaymentsService);
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly destroy$ = new Subject<void>();
+  private readonly rulesChanged$ = new Subject<void>();
 
   isNew = false;
   groupId: string | null = null;
@@ -258,6 +224,8 @@ export class AdditionalRuleGroupEditorComponent implements OnInit, OnDestroy {
   saveError: string | null = null;
   successMessage: string | null = null;
   nameError: string | null = null;
+  showDeleteConfirmation = false;
+  deleting = false;
 
   allTransactions: TransactionDto[] = [];
   matchingTransactions: TransactionDto[] = [];
@@ -273,16 +241,6 @@ export class AdditionalRuleGroupEditorComponent implements OnInit, OnDestroy {
   simulationError: string | null = null;
   totalMatchCount = 0;
   uniqueExclusionCount = 0;
-
-  editingRule: LocalRule | null = null;
-  ruleFormType = 'JARO_WINKLER';
-  ruleFormTargetField = 'PARTNER_NAME';
-  ruleFormText = '';
-  ruleFormStrict = true;
-  ruleFormThreshold = 0.85;
-  ruleFormAmount: number | null = null;
-  ruleFormFluctuationRange: number | null = null;
-  ruleFormError: string | null = null;
 
   get displayedTransactions(): TransactionDto[] {
     return this.showOnlyMatches && this.simulationActive ? this.matchingTransactions : this.allTransactions;
@@ -457,79 +415,39 @@ export class AdditionalRuleGroupEditorComponent implements OnInit, OnDestroy {
       }
       return;
     }
-    if (!confirm(`Delete "${this.groupName}"?`)) return;
+    this.showDeleteConfirmation = true;
+  }
+
+  closeDeleteConfirmation(): void {
+    if (this.deleting) {
+      return;
+    }
+    this.showDeleteConfirmation = false;
+  }
+
+  executeDelete(): void {
+    if (!this.groupId || this.deleting) {
+      return;
+    }
+    this.deleting = true;
     this.groupsService.deleteAdditionalRuleGroup(this.groupId!).pipe(takeUntil(this.destroy$)).subscribe({
-      next: summary => {
-        alert(`Group deleted. Recalculation: ${this.formatSummary(summary)}.`);
+      next: () => {
+        this.deleting = false;
+        this.showDeleteConfirmation = false;
         this.router.navigate(['/recurring-payments'], { queryParams: { tab: 'ADDITIONAL' } });
       },
       error: err => {
+        this.deleting = false;
+        this.showDeleteConfirmation = false;
         this.saveError = err.error?.message || 'Failed to delete group.';
         this.cdr.markForCheck();
       }
     });
   }
 
-  saveRule(): void {
-    this.ruleFormError = null;
-    if (this.isTextRule() && !this.ruleFormText.trim()) {
-      this.ruleFormError = 'Text is required.';
-      return;
-    }
-    if (this.ruleFormType === 'JARO_WINKLER' && (this.ruleFormThreshold < 0 || this.ruleFormThreshold > 1)) {
-      this.ruleFormError = 'Threshold must be between 0 and 1.';
-      return;
-    }
-    if (this.ruleFormType === 'AMOUNT' && (this.ruleFormAmount == null || this.ruleFormFluctuationRange == null || this.ruleFormFluctuationRange < 0)) {
-      this.ruleFormError = 'Amount and non-negative fluctuation range are required.';
-      return;
-    }
-    const rule: LocalRule = {
-      id: this.editingRule?.id || crypto.randomUUID(),
-      ruleType: this.ruleFormType,
-      targetField: this.isTextRule() ? this.ruleFormTargetField : undefined,
-      text: this.isTextRule() ? this.ruleFormText.trim() : undefined,
-      strict: this.isTextRule() ? this.ruleFormStrict : undefined,
-      threshold: this.ruleFormType === 'JARO_WINKLER' ? this.ruleFormThreshold : undefined,
-      amount: this.ruleFormType === 'AMOUNT' ? this.ruleFormAmount! : undefined,
-      fluctuationRange: this.ruleFormType === 'AMOUNT' ? this.ruleFormFluctuationRange! : undefined
-    };
-    const nextRules = this.editingRule
-      ? this.rules.map(existing => existing.id === this.editingRule!.id ? rule : existing)
-      : [...this.rules, rule];
-    if (this.hasDuplicateRules(nextRules)) {
-      this.ruleFormError = 'Duplicate rules are not allowed.';
-      return;
-    }
-    this.rules = nextRules;
-    this.editingRule = null;
-    this.resetRuleForm();
+  onRulesChange(rules: LocalRule[]): void {
+    this.rules = rules;
     this.rulesChanged$.next();
-  }
-
-  startEditRule(rule: LocalRule): void {
-    this.editingRule = rule;
-    this.ruleFormType = rule.ruleType;
-    this.ruleFormTargetField = rule.targetField || 'PARTNER_NAME';
-    this.ruleFormText = rule.text || '';
-    this.ruleFormStrict = rule.strict !== false;
-    this.ruleFormThreshold = rule.threshold || 0.85;
-    this.ruleFormAmount = rule.amount ?? null;
-    this.ruleFormFluctuationRange = rule.fluctuationRange ?? null;
-  }
-
-  cancelRuleForm(): void {
-    this.editingRule = null;
-    this.resetRuleForm();
-  }
-
-  removeRule(rule: LocalRule): void {
-    this.rules = this.rules.filter(existing => existing.id !== rule.id);
-    this.rulesChanged$.next();
-  }
-
-  isTextRule(): boolean {
-    return this.ruleFormType === 'JARO_WINKLER' || this.ruleFormType === 'REGEX';
   }
 
   isCurrentMatch(id: string): boolean {
@@ -551,15 +469,6 @@ export class AdditionalRuleGroupEditorComponent implements OnInit, OnDestroy {
   linkBadge(tx: TransactionDto): string {
     const count = tx.linkedPaymentCount || 0;
     return count === 1 ? '1 Link' : `${count} Links`;
-  }
-
-  formatRuleType(type: string): string {
-    return type === 'JARO_WINKLER' ? 'Jaro-Winkler' : type === 'REGEX' ? 'Regex' : 'Amount';
-  }
-
-  formatRuleSummary(rule: LocalRule): string {
-    if (rule.ruleType === 'AMOUNT') return `${this.currencyPipe.transform(rule.amount || 0)} +/- ${this.currencyPipe.transform(rule.fluctuationRange || 0)}`;
-    return `${rule.targetField}: "${rule.text}"${rule.ruleType === 'JARO_WINKLER' ? ` (${rule.threshold})` : ''}${rule.strict ? ' [strict]' : ''}`;
   }
 
   private fromRuleDto(rule: RuleDto): LocalRule {
@@ -615,7 +524,7 @@ export class AdditionalRuleGroupEditorComponent implements OnInit, OnDestroy {
   }
 
   private normalizeName(name: string): string {
-    return name.trim().replace(/\s+/g, ' ').toLowerCase();
+    return name.trim().replaceAll(/\s+/g, ' ').toLowerCase();
   }
 
   private isDirty(): boolean {
@@ -624,27 +533,6 @@ export class AdditionalRuleGroupEditorComponent implements OnInit, OnDestroy {
 
   private rulesFingerprint(): string {
     return JSON.stringify(this.toRuleRequests());
-  }
-
-  private ruleKey(rule: LocalRule): string {
-    if (rule.ruleType === 'AMOUNT') return `AMOUNT:${rule.amount}:${rule.fluctuationRange}`;
-    return `${rule.ruleType}:${rule.targetField}:${(rule.text || '').trim().toLowerCase()}:${rule.strict !== false}:${rule.threshold || ''}`;
-  }
-
-  private hasDuplicateRules(rules: LocalRule[]): boolean {
-    const keys = rules.map(rule => this.ruleKey(rule));
-    return new Set(keys).size !== keys.length;
-  }
-
-  private resetRuleForm(): void {
-    this.ruleFormType = 'JARO_WINKLER';
-    this.ruleFormTargetField = 'PARTNER_NAME';
-    this.ruleFormText = '';
-    this.ruleFormStrict = true;
-    this.ruleFormThreshold = 0.85;
-    this.ruleFormAmount = null;
-    this.ruleFormFluctuationRange = null;
-    this.ruleFormError = null;
   }
 
   private formatSummary(summary: RecalculationSummaryResponse): string {

@@ -44,6 +44,9 @@ class RecurringPaymentControllerTest {
     private RecurringPaymentRepository recurringPaymentRepository;
 
     @Autowired
+    private AdditionalRuleGroupRepository additionalRuleGroupRepository;
+
+    @Autowired
     private TransactionRepository transactionRepository;
 
     @Autowired
@@ -72,6 +75,7 @@ class RecurringPaymentControllerTest {
         linkRepository.deleteAll();
         ruleRepository.deleteAll();
         recurringPaymentRepository.deleteAll();
+        additionalRuleGroupRepository.deleteAll();
         transactionRepository.deleteAll();
         fileUploadRepository.deleteAll();
         categoryRepository.deleteAll();
@@ -460,6 +464,36 @@ class RecurringPaymentControllerTest {
                     .andExpect(jsonPath("$.overlappingPayments", hasSize(1)))
                     .andExpect(jsonPath("$.overlappingPayments[0].name").value("Netflix Subscription"));
         }
+
+        @Test
+        void returnsOmittedAdditionalTransactionsWithTransactionDetails() throws Exception {
+            seedAdditionalRuleGroup("Ignore Amazon", "amazon");
+            seedTransaction("Amazon Marketplace", LocalDate.now().minusDays(10), "-42.00");
+            seedTransaction("Spotify", LocalDate.now().minusDays(10), "-9.99");
+
+            mockMvc.perform(post(RECURRING_URL + "/simulate")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                {
+                                  "rules": [
+                                    {
+                                      "ruleType": "JARO_WINKLER",
+                                      "targetField": "PARTNER_NAME",
+                                      "text": "amazon",
+                                      "threshold": 0.85,
+                                      "strict": true
+                                    }
+                                  ]
+                                }
+                                """)
+                            .with(authenticatedUser(testUser)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.totalMatchCount").value(0))
+                    .andExpect(jsonPath("$.omittedAdditionalMatchCount").value(1))
+                    .andExpect(jsonPath("$.omittedAdditionalMatches", hasSize(1)))
+                    .andExpect(jsonPath("$.omittedAdditionalMatches[0].transaction.partnerName").value("Amazon Marketplace"))
+                    .andExpect(jsonPath("$.omittedAdditionalMatches[0].groups[0].name").value("Ignore Amazon"));
+        }
     }
 
     // ────────────────────────────────────────────────────────────────────
@@ -632,6 +666,27 @@ class RecurringPaymentControllerTest {
         payment.setIsActive(true);
         payment.setUser(testUser);
         return recurringPaymentRepository.save(payment);
+    }
+
+    private AdditionalRuleGroup seedAdditionalRuleGroup(String name, String text) {
+        AdditionalRuleGroup group = new AdditionalRuleGroup();
+        group.setName(name);
+        group.setNormalizedName(name.toLowerCase());
+        group.setUser(testUser);
+        group = additionalRuleGroupRepository.save(group);
+
+        Rule rule = new Rule();
+        rule.setAdditionalRuleGroup(group);
+        rule.setRuleType(RuleType.JARO_WINKLER);
+        rule.setTargetField(TargetField.PARTNER_NAME);
+        rule.setText(text);
+        rule.setThreshold(0.85);
+        rule.setStrict(true);
+        rule.setUser(testUser);
+        ruleRepository.save(rule);
+
+        group.getRules().add(rule);
+        return group;
     }
 
     private Transaction seedTransaction(String partnerName, LocalDate date, String amount) {

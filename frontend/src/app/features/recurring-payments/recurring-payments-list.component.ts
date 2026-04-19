@@ -159,8 +159,8 @@ const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
                 </div>
               }
               <button (click)="createAdditionalGroup()"
-                class="w-full px-5 py-4 text-left text-sm text-accent hover:bg-card-hover transition-colors">
-                Add Additional Payments Rule Group
+                class="w-full px-5 py-4 text-center text-sm text-accent hover:bg-card-hover transition-colors">
+                + Add Additional Payments Group
               </button>
             </div>
           </div>
@@ -367,6 +367,27 @@ const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
         </div>
       }
 
+      @if (deleteAdditionalGroup) {
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          role="button" tabindex="0" aria-label="Close additional rule group deletion"
+          (click)="deleteAdditionalGroup = null" (keydown.enter)="deleteAdditionalGroup = null" (keydown.escape)="deleteAdditionalGroup = null">
+          <div class="glass-card p-6 max-w-sm w-full" role="dialog" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">
+            <h3 class="text-base font-semibold text-white mb-2">Delete Additional Rule Group</h3>
+            <p class="text-sm text-muted mb-4">
+              This will delete <strong class="text-white">{{ deleteAdditionalGroup.name }}</strong> and recalculate recurring payments. Transactions excluded only by this group may become eligible again.
+            </p>
+            <div class="flex gap-3 justify-end">
+              <button type="button" (click)="deleteAdditionalGroup = null" class="text-sm text-muted hover:text-white transition-colors px-3 py-1.5">
+                Cancel
+              </button>
+              <button type="button" (click)="executeDeleteAdditionalGroup()" class="text-sm bg-coral/20 text-coral hover:bg-coral/30 transition-colors px-3 py-1.5 rounded-lg">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+
       <!-- Category dialog -->
       @if (dialogPayment) {
         <app-payment-category-dialog
@@ -397,7 +418,7 @@ const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
 export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
   private recurringPaymentsService = inject(RecurringPaymentsService);
   private categoriesService = inject(CategoriesService);
-  private additionalRuleGroupsService = inject(AdditionalRuleGroupsService);
+  private readonly additionalRuleGroupsService = inject(AdditionalRuleGroupsService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
@@ -523,15 +544,18 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
 
   confirmDeleteAdditionalGroup(group: AdditionalRuleGroupDto): void {
     this.deleteAdditionalGroup = group;
-    if (confirm(`Delete Additional rule group "${group.name}"?`)) {
-      this.additionalRuleGroupsService.deleteAdditionalRuleGroup(group.id)
-        .pipe(takeUntil(this.destroy$)).subscribe({
-          next: () => {
-            this.deleteAdditionalGroup = null;
-            this.loadData();
-          }
-        });
-    }
+  }
+
+  executeDeleteAdditionalGroup(): void {
+    if (!this.deleteAdditionalGroup) return;
+    const id = this.deleteAdditionalGroup.id;
+    this.additionalRuleGroupsService.deleteAdditionalRuleGroup(id)
+      .pipe(takeUntil(this.destroy$)).subscribe({
+        next: () => {
+          this.deleteAdditionalGroup = null;
+          this.loadData();
+        }
+      });
   }
 
   openAdditionalGroup(id: string): void {

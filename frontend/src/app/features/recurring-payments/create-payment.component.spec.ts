@@ -63,4 +63,43 @@ describe('CreatePaymentComponent', () => {
     expect(el.textContent).toContain('Showing transactions from the last 2 years');
     expect(el.textContent).not.toContain('Unlinked Transactions');
   });
+
+  it('should render omitted additional transactions below the summary', () => {
+    component.omittedAdditionalMatchCount = 1;
+    component.omittedAdditionalGroupNames = ['Ignore Amazon'];
+    component.omittedAdditionalMatches = [{
+      transactionId: 'tx-1',
+      transaction: {
+        id: 'tx-1',
+        bookingDate: '2026-04-01',
+        partnerName: 'Amazon Marketplace',
+        amount: -42,
+        details: 'Order 123',
+      },
+      groupNames: ['Ignore Amazon'],
+    }];
+
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent || '';
+    expect(text).toContain('1 matching transaction were excluded by Additional rule groups.');
+    expect(text).toContain('Amazon Marketplace');
+    expect(text).toContain('Ignore Amazon');
+    expect(text).toContain('Order 123');
+  });
+
+  it('should not hide omitted matches when transaction details are absent', () => {
+    component.omittedAdditionalMatchCount = 1;
+    component.omittedAdditionalMatches = [{
+      transactionId: 'tx-without-details',
+      groupNames: ['Ignore Unknown'],
+    }];
+
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent || '';
+    expect(text).toContain('Transaction details unavailable');
+    expect(text).toContain('tx-without-details');
+    expect(text).toContain('Ignore Unknown');
+  });
 });

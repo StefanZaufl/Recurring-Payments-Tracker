@@ -104,25 +104,24 @@ class AdditionalRuleGroupServiceTest {
         assertThat(group.getRules().get(0).getStrict()).isTrue();
         assertThat(result.recalculationResult().transactionLinksRemoved()).isEqualTo(2);
         verify(ruleRepository).deleteByAdditionalRuleGroupId(group.getId());
+        verify(groupRepository).flush();
         verify(recalculationService).recalculateCurrentUserRecurringPayments();
     }
 
     @Test
     void create_rejectsDuplicateNormalizedNameBeforeSaving() {
         when(groupRepository.existsByUserIdAndNormalizedName(userId, "amazon payments")).thenReturn(true);
+        List<RuleCreateParams> rules = List.of(new RuleCreateParams(
+                RuleType.REGEX,
+                TargetField.PARTNER_NAME,
+                "AMZN.*",
+                true,
+                null,
+                null,
+                null
+        ));
 
-        assertThatThrownBy(() -> service.create(
-                "Amazon   Payments",
-                List.of(new RuleCreateParams(
-                        RuleType.REGEX,
-                        TargetField.PARTNER_NAME,
-                        "AMZN.*",
-                        true,
-                        null,
-                        null,
-                        null
-                ))
-        ))
+        assertThatThrownBy(() -> service.create("Amazon   Payments", rules))
                 .isInstanceOf(ConflictException.class)
                 .hasMessage("An Additional rule group with this name already exists.");
 
@@ -167,6 +166,7 @@ class AdditionalRuleGroupServiceTest {
         assertThat(result.groupWithCount().group().getName()).isEqualTo("House Utilities");
         assertThat(result.recalculationResult()).isNull();
         verify(ruleRepository, never()).deleteByAdditionalRuleGroupId(any());
+        verify(groupRepository, never()).flush();
         verify(recalculationService, never()).recalculateCurrentUserRecurringPayments();
     }
 }

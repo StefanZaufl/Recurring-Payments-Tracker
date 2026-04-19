@@ -132,6 +132,7 @@ public class SimulationService {
     public record OverlappingPayment(UUID id, String name) {}
 
     public record AdditionalTransactionMatch(UUID transactionId,
+                                             Transaction transaction,
                                              List<AdditionalMatchingService.AdditionalGroupReference> groups) {}
 
     public enum DraftType {
@@ -148,7 +149,7 @@ public class SimulationService {
                     Transaction tx = byId.get(entry.getKey());
                     return tx == null ? LocalDate.MIN : tx.getBookingDate();
                 }, java.util.Comparator.reverseOrder()))
-                .map(entry -> new AdditionalTransactionMatch(entry.getKey(), entry.getValue()))
+                .map(entry -> new AdditionalTransactionMatch(entry.getKey(), byId.get(entry.getKey()), entry.getValue()))
                 .toList();
     }
 }
