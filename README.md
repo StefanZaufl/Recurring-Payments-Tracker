@@ -72,6 +72,42 @@ bash tooling/install-hooks.sh
 
 The hook automatically skips linting if the commit does not touch any files under `frontend/`.
 
+### Sonar Analysis
+
+The monorepo is configured as two Sonar projects:
+
+- Backend: `Recurring-Payment-Tracker-Backend`
+- Frontend: `Recurring-Payments-Tracker-Frontend`
+
+Each project has its own checked-in `runSonar.sh` script. Tokens are intentionally not stored in the scripts or committed to git. Create a local ignored env file for each project:
+
+```bash
+cp backend/sonar.env.example backend/sonar.env
+cp frontend/sonar.env.example frontend/sonar.env
+```
+
+Then set `SONAR_HOST_URL` and the real `SONAR_TOKEN` in each `sonar.env`. The scripts fail fast if either value is missing.
+
+Run backend analysis with JaCoCo coverage:
+
+```bash
+cd backend
+./runSonar.sh
+```
+
+The backend script runs `mvn clean verify`, generates `target/site/jacoco/jacoco.xml`, and passes that report to Sonar.
+
+Run frontend analysis with Jest LCOV coverage:
+
+```bash
+cd frontend
+./runSonar.sh
+```
+
+The frontend script runs Jest with coverage, generates `coverage/lcov.info`, and passes that report to Sonar. Generated frontend API client code is excluded from frontend coverage and analysis.
+
+Do not commit `sonar.env`, `.scannerwork/`, `coverage/`, or `target/`; these are ignored by git.
+
 ### Docker Deployment
 
 Run the full stack with Docker Compose:
