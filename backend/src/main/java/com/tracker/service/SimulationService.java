@@ -69,6 +69,13 @@ public class SimulationService {
         List<Transaction> unlinked = transactionRepository.findUnlinkedTransactionsAfterForUser(cutoff, currentUserId);
         log.debug("Simulation: {} unlinked transactions found for user {}", unlinked.size(), currentUserId);
 
+        if (transientRules.isEmpty()) {
+            var additionalMatches = additionalMatchingService.matchGroups(unlinked, null);
+            List<AdditionalTransactionMatch> omitted = toAdditionalMatches(additionalMatches, unlinked);
+            return new SimulationResult(List.of(), 0, 0,
+                    additionalMatches.size(), omitted, List.of(), List.of());
+        }
+
         List<Transaction> rawMatches = ruleEvaluationService.findMatchingTransactions(transientRules, unlinked);
         var additionalMatches = additionalMatchingService.matchGroups(rawMatches, null);
         List<Transaction> matchingTransactions = additionalMatchingService.sortNewestFirst(rawMatches.stream()
@@ -79,9 +86,7 @@ public class SimulationService {
         List<RecurringPayment> activePayments = recurringPaymentRepository.findByUserIdAndIsActiveTrue(currentUserId);
         List<OverlappingPayment> overlapping = detectOverlaps(transientRules, matchingTransactions, activePayments);
 
-        List<AdditionalTransactionMatch> omitted = toAdditionalMatches(additionalMatches, rawMatches).stream()
-                .limit(10)
-                .toList();
+        List<AdditionalTransactionMatch> omitted = toAdditionalMatches(additionalMatches, rawMatches);
         return new SimulationResult(matchingTransactions, matchingTransactions.size(), 0,
                 additionalMatches.size(), omitted, List.of(), overlapping);
     }

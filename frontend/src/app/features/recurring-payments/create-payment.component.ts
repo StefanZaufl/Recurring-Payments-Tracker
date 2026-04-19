@@ -13,7 +13,7 @@ import { Frequency } from '../../api/generated/model/frequency';
 import { SimulationDraftType } from '../../api/generated/model/simulationDraftType';
 import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 import { formatLocalDate } from '../../shared/date-range-presets';
-import { Subject, takeUntil, debounceTime, switchMap, EMPTY } from 'rxjs';
+import { Subject, takeUntil, debounceTime, switchMap } from 'rxjs';
 import { LocalRule, RuleEditorComponent } from './rule-editor.component';
 
 interface OmittedAdditionalMatch {
@@ -51,12 +51,12 @@ interface OmittedAdditionalMatch {
             <!-- Transaction header -->
             <div class="px-5 py-4 border-b border-card-border flex items-center justify-between">
               <div>
-                @if (simulationActive && matchingIds.size > 0) {
+                @if (simulationActive && rules.length > 0 && matchingIds.size > 0) {
                   <h2 class="text-sm font-semibold text-white">
                     Matching <span class="text-accent">{{ matchingIds.size }}</span> transaction{{ matchingIds.size === 1 ? '' : 's' }}
                   </h2>
                   <p class="text-[11px] text-muted mt-0.5">of {{ totalTransactions }} additional transactions from the last 2 years</p>
-                } @else if (simulationActive) {
+                } @else if (simulationActive && rules.length > 0) {
                   <h2 class="text-sm font-semibold text-white">No matches</h2>
                   <p class="text-[11px] text-muted mt-0.5">Adjust your rules to match transactions</p>
                 } @else {
@@ -68,7 +68,7 @@ interface OmittedAdditionalMatch {
                 @if (simulating) {
                   <div class="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin"></div>
                 }
-                @if (simulationActive) {
+                @if (simulationActive && rules.length > 0) {
                   <label class="flex items-center gap-2 text-[11px] text-muted cursor-pointer select-none">
                     <div class="relative">
                       <input type="checkbox" [(ngModel)]="showOnlyMatches"
@@ -336,21 +336,26 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
   omittedAdditionalMatchCount = 0;
   omittedAdditionalGroupNames: string[] = [];
   omittedAdditionalMatches: OmittedAdditionalMatch[] = [];
+  omittedAdditionalIds = new Set<string>();
 
   // Submit
   submitting = false;
   submitError: string | null = null;
 
   get displayedTransactions(): TransactionDto[] {
-    if (this.showOnlyMatches && this.simulationActive) {
+    if (this.showOnlyMatches && this.simulationActive && this.rules.length > 0) {
       return this.matchingTransactionDtos;
+    }
+    if (this.omittedAdditionalIds.size > 0) {
+      return this.allTransactions.filter(transaction => !this.omittedAdditionalIds.has(transaction.id));
     }
     return this.allTransactions;
   }
 
   ngOnInit(): void {
-    this.loadTransactions(0);
     this.setupSimulationPipeline();
+    this.loadTransactions(0);
+    this.rulesChanged$.next();
   }
 
   ngOnDestroy(): void {
@@ -362,32 +367,13 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
     this.rulesChanged$.pipe(
       debounceTime(400),
       switchMap(() => {
-        if (this.rules.length === 0) {
-          this.simulationActive = false;
-          this.matchingIds.clear();
-          this.matchingTransactionDtos = [];
-          this.overlappingPayments = [];
-          this.omittedAdditionalMatchCount = 0;
-          this.omittedAdditionalGroupNames = [];
-          this.omittedAdditionalMatches = [];
-          this.cdr.markForCheck();
-          return EMPTY;
-        }
-
         this.simulating = true;
         this.cdr.markForCheck();
 
-        const ruleRequests: CreateRuleRequest[] = this.rules.map(r => ({
-          ruleType: r.ruleType as RuleType,
-          targetField: r.targetField as TargetField | undefined,
-          text: r.text,
-          strict: r.strict,
-          threshold: r.threshold,
-          amount: r.amount,
-          fluctuationRange: r.fluctuationRange,
-        }));
-
-        return this.recurringPaymentsService.simulateRules({ draftType: SimulationDraftType.RecurringPayment, rules: ruleRequests });
+        return this.recurringPaymentsService.simulateRules({
+          draftType: SimulationDraftType.RecurringPayment,
+          rules: this.toRuleRequests()
+        });
       }),
       takeUntil(this.destroy$)
     ).subscribe({
@@ -406,6 +392,7 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
             transaction: match.transaction!,
             groupNames: match.groups.map(group => group.name).sort((left, right) => left.localeCompare(right))
           }));
+        this.omittedAdditionalIds = new Set(this.omittedAdditionalMatches.map(match => match.transactionId));
         this.cdr.markForCheck();
       },
       error: () => {
@@ -452,6 +439,18 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
     this.rulesChanged$.next();
   }
 
+  private toRuleRequests(): CreateRuleRequest[] {
+    return this.rules.map(r => ({
+      ruleType: r.ruleType as RuleType,
+      targetField: r.targetField as TargetField | undefined,
+      text: r.text,
+      strict: r.strict,
+      threshold: r.threshold,
+      amount: r.amount,
+      fluctuationRange: r.fluctuationRange,
+    }));
+  }
+
   // Submit
 
   canSubmit(): boolean {
@@ -467,15 +466,7 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
       name: this.paymentName.trim(),
       paymentType: this.paymentType as PaymentType,
       frequency: this.paymentFrequency as Frequency,
-      rules: this.rules.map(r => ({
-        ruleType: r.ruleType as RuleType,
-        targetField: r.targetField as TargetField | undefined,
-        text: r.text,
-        strict: r.strict,
-        threshold: r.threshold,
-        amount: r.amount,
-        fluctuationRange: r.fluctuationRange,
-      }))
+      rules: this.toRuleRequests()
     };
 
     this.recurringPaymentsService.createRecurringPayment(request)

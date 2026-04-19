@@ -494,6 +494,29 @@ class RecurringPaymentControllerTest {
                     .andExpect(jsonPath("$.omittedAdditionalMatches[0].transaction.partnerName").value("Amazon Marketplace"))
                     .andExpect(jsonPath("$.omittedAdditionalMatches[0].groups[0].name").value("Ignore Amazon"));
         }
+
+        @Test
+        void acceptsEmptyRulesAndReturnsAdditionalGroupMatches() throws Exception {
+            seedAdditionalRuleGroup("Ignore Amazon", "amazon");
+            seedTransaction("Amazon Marketplace", LocalDate.now().minusDays(10), "-42.00");
+            seedTransaction("Spotify", LocalDate.now().minusDays(10), "-9.99");
+
+            mockMvc.perform(post(RECURRING_URL + "/simulate")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                {
+                                  "rules": []
+                                }
+                                """)
+                            .with(authenticatedUser(testUser)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.totalMatchCount").value(0))
+                    .andExpect(jsonPath("$.matchingTransactions", hasSize(0)))
+                    .andExpect(jsonPath("$.omittedAdditionalMatchCount").value(1))
+                    .andExpect(jsonPath("$.omittedAdditionalMatches", hasSize(1)))
+                    .andExpect(jsonPath("$.omittedAdditionalMatches[0].transaction.partnerName").value("Amazon Marketplace"))
+                    .andExpect(jsonPath("$.omittedAdditionalMatches[0].groups[0].name").value("Ignore Amazon"));
+        }
     }
 
     // ────────────────────────────────────────────────────────────────────
