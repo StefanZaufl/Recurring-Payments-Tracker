@@ -86,7 +86,7 @@ cp backend/sonar.env.example backend/sonar.env
 cp frontend/sonar.env.example frontend/sonar.env
 ```
 
-Then set the real `SONAR_TOKEN` in each `sonar.env`. You can also override `SONAR_HOST_URL` there if the Sonar server changes.
+Then set `SONAR_HOST_URL` and the real `SONAR_TOKEN` in each `sonar.env`. The scripts fail fast if either value is missing.
 
 Run backend analysis with JaCoCo coverage:
 

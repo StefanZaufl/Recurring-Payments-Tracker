@@ -10,11 +10,15 @@ if [[ -f "${SCRIPT_DIR}/sonar.env" ]]; then
   set +a
 fi
 
-: "${SONAR_HOST_URL:=http://187.124.182.149:9000}"
 : "${SONAR_SCANNER_BIN:=sonar}"
 
 if [[ -z "${SONAR_TOKEN:-}" ]]; then
   echo "SONAR_TOKEN is required. Copy sonar.env.example to sonar.env and set your token." >&2
+  exit 1
+fi
+
+if [[ -z "${SONAR_HOST_URL:-}" ]]; then
+  echo "SONAR_HOST_URL is required. Copy sonar.env.example to sonar.env and set your Sonar server URL." >&2
   exit 1
 fi
 
