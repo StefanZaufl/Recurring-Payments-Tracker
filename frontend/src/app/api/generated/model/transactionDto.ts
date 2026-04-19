@@ -21,6 +21,8 @@ export interface TransactionDto {
     currency?: string;
     details?: string;
     isInterAccount?: boolean;
+    linkedPaymentCount?: number;
+    linkedPaymentNames?: Array<string>;
     createdAt?: string;
 }
 

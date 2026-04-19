@@ -45,7 +45,7 @@ class RuleServiceTest {
 
     @BeforeEach
     void setUp() {
-        ruleService = new RuleService(ruleRepository, recurringPaymentRepository, userContextService);
+        ruleService = new RuleService(ruleRepository, recurringPaymentRepository, userContextService, new RuleValidationService());
         userId = UUID.randomUUID();
         user = new User();
         user.setId(userId);
@@ -58,6 +58,8 @@ class RuleServiceTest {
         lenient().when(recurringPaymentRepository.findByIdAndUserId(recurringPayment.getId(), userId))
                 .thenReturn(Optional.of(recurringPayment));
         lenient().when(ruleRepository.save(any(Rule.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        lenient().when(ruleRepository.findByRecurringPaymentIdAndUserId(recurringPayment.getId(), userId))
+                .thenReturn(List.of());
     }
 
     @Test

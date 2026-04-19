@@ -10,6 +10,7 @@ import { RuleType } from '../../api/generated/model/ruleType';
 import { TargetField } from '../../api/generated/model/targetField';
 import { PaymentType } from '../../api/generated/model/paymentType';
 import { Frequency } from '../../api/generated/model/frequency';
+import { SimulationDraftType } from '../../api/generated/model/simulationDraftType';
 import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 import { formatLocalDate } from '../../shared/date-range-presets';
 import { Subject, takeUntil, debounceTime, switchMap, EMPTY } from 'rxjs';
@@ -147,6 +148,14 @@ interface LocalRule {
               }
             }
           </div>
+          @if (omittedAdditionalMatchCount > 0) {
+            <div class="glass-card p-4 border border-amber/20 bg-amber/5">
+              <p class="text-sm text-amber font-medium">{{ omittedAdditionalMatchCount }} matching transaction{{ omittedAdditionalMatchCount === 1 ? '' : 's' }} were excluded by Additional rule groups.</p>
+              @if (omittedAdditionalGroupNames.length > 0) {
+                <p class="text-xs text-muted mt-1">Groups in preview: {{ omittedAdditionalGroupNames.join(', ') }}</p>
+              }
+            </div>
+          }
         </div>
 
         <!-- Right: Payment Form (2/5) -->
@@ -450,6 +459,8 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
 
   // Simulation results
   overlappingPayments: OverlappingPaymentDto[] = [];
+  omittedAdditionalMatchCount = 0;
+  omittedAdditionalGroupNames: string[] = [];
 
   // Submit
   submitting = false;
@@ -481,6 +492,8 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
           this.matchingIds.clear();
           this.matchingTransactionDtos = [];
           this.overlappingPayments = [];
+          this.omittedAdditionalMatchCount = 0;
+          this.omittedAdditionalGroupNames = [];
           this.cdr.markForCheck();
           return EMPTY;
         }
@@ -498,7 +511,7 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
           fluctuationRange: r.fluctuationRange,
         }));
 
-        return this.recurringPaymentsService.simulateRules({ rules: ruleRequests });
+        return this.recurringPaymentsService.simulateRules({ draftType: SimulationDraftType.RecurringPayment, rules: ruleRequests });
       }),
       takeUntil(this.destroy$)
     ).subscribe({
@@ -508,6 +521,9 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
         this.matchingIds = new Set(result.matchingTransactions.map(t => t.id));
         this.matchingTransactionDtos = result.matchingTransactions;
         this.overlappingPayments = result.overlappingPayments;
+        this.omittedAdditionalMatchCount = result.omittedAdditionalMatchCount || 0;
+        this.omittedAdditionalGroupNames = Array.from(new Set((result.omittedAdditionalMatches || [])
+          .flatMap(match => match.groups.map(group => group.name)))).sort();
         this.cdr.markForCheck();
       },
       error: () => {

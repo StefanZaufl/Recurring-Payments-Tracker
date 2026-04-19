@@ -1,3 +1,8 @@
+export * from './additionalGroupReferenceDto';
+export * from './additionalGroupTransactionMatchDto';
+export * from './additionalRuleGroupDto';
+export * from './additionalRuleGroupMutationResponse';
+export * from './additionalRuleGroupRequest';
 export * from './adminUserDto';
 export * from './annualOverview';
 export * from './bankAccountDto';
@@ -31,6 +36,7 @@ export * from './setupRequest';
 export * from './setupStatusResponse';
 export * from './simulateRulesRequest';
 export * from './simulateRulesResponse';
+export * from './simulationDraftType';
 export * from './targetField';
 export * from './transactionCsvImportMapping';
 export * from './transactionDto';

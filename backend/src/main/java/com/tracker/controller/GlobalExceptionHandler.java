@@ -114,6 +114,12 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, e.getMessage());
     }
 
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ErrorResponse> handleConflict(ConflictException e) {
+        log.debug("Conflict: {}", e.getMessage(), e);
+        return buildResponse(HttpStatus.CONFLICT, e.getMessage());
+    }
+
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ErrorResponse> handleNoResourceFound(NoResourceFoundException e) {
         return buildResponse(HttpStatus.NOT_FOUND, "The requested resource was not found.");

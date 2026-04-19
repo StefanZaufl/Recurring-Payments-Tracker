@@ -11,12 +11,13 @@ import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component'
 import { ErrorStateComponent } from '../../shared/error-state.component';
 import { DEFAULT_PAGE_SIZE } from '../../shared/constants';
 import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
+import { TooltipComponent } from '../../shared/tooltip.component';
 import { parseDateParam, parseEnumParam, parseNonNegativeIntParam } from '../../shared/query-param-utils';
 import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 
 type SortField = 'bookingDate' | 'partnerName' | 'amount';
 type SortDir = 'asc' | 'desc';
-type TransactionType = 'ALL' | 'REGULAR' | 'ADDITIONAL';
+type TransactionType = 'ALL' | 'NON_INTER_ACCOUNT' | 'REGULAR' | 'ADDITIONAL';
 
 interface TransactionsUrlState {
   from: string | null;
@@ -29,14 +30,14 @@ interface TransactionsUrlState {
   page: number;
 }
 
-const TRANSACTION_TYPES: readonly TransactionType[] = ['ALL', 'REGULAR', 'ADDITIONAL'];
+const TRANSACTION_TYPES: readonly TransactionType[] = ['ALL', 'NON_INTER_ACCOUNT', 'REGULAR', 'ADDITIONAL'];
 const SORT_FIELDS: readonly SortField[] = ['bookingDate', 'partnerName', 'amount'];
 const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
 
 @Component({
   selector: 'app-transactions',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RouterLink, DateRangePickerComponent, LoadingSpinnerComponent, ErrorStateComponent, CurrencyFormatPipe],
+  imports: [CommonModule, FormsModule, RouterLink, DateRangePickerComponent, LoadingSpinnerComponent, ErrorStateComponent, CurrencyFormatPipe, TooltipComponent],
   template: `
     <div class="animate-fade-in">
       <!-- Header -->
@@ -109,6 +110,7 @@ const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
             (ngModelChange)="onTransactionTypeChange($event)"
             class="text-xs bg-card border border-card-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-subtle shrink-0 min-w-0 sm:min-w-[220px]">
             <option value="ALL">All transactions</option>
+            <option value="NON_INTER_ACCOUNT">Non-inter-account transactions</option>
             <option value="REGULAR">Regular transactions</option>
             <option value="ADDITIONAL">Additional transactions</option>
           </select>
@@ -190,6 +192,16 @@ const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
                 @if (tx.isInterAccount) {
                   <span class="badge bg-amber-dim text-amber text-[10px]">Inter-account</span>
                 }
+                @if ((tx.linkedPaymentCount || 0) > 0) {
+                  <app-tooltip>
+                    <span tooltip-trigger class="badge bg-sky-dim text-sky text-[10px]">{{ linkBadge(tx) }}</span>
+                    <div class="space-y-1">
+                      @for (name of tx.linkedPaymentNames || []; track name) {
+                        <div>{{ name }}</div>
+                      }
+                    </div>
+                  </app-tooltip>
+                }
               </div>
             </div>
           }
@@ -220,6 +232,16 @@ const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
                         <span>{{ accountLabel(tx.account) }}</span>
                         @if (tx.isInterAccount) {
                           <span class="badge bg-amber-dim text-amber text-[10px]">Inter-account</span>
+                        }
+                        @if ((tx.linkedPaymentCount || 0) > 0) {
+                          <app-tooltip>
+                            <span tooltip-trigger class="badge bg-sky-dim text-sky text-[10px]">{{ linkBadge(tx) }}</span>
+                            <div class="space-y-1">
+                              @for (name of tx.linkedPaymentNames || []; track name) {
+                                <div>{{ name }}</div>
+                              }
+                            </div>
+                          </app-tooltip>
                         }
                       </div>
                     </td>
@@ -415,6 +437,11 @@ export class TransactionsComponent implements OnInit, OnDestroy {
       return '-';
     }
     return account.name || account.iban || '-';
+  }
+
+  linkBadge(tx: TransactionDto): string {
+    const count = tx.linkedPaymentCount || 0;
+    return count === 1 ? '1 Link' : `${count} Links`;
   }
 
   private loadBankAccounts(): void {

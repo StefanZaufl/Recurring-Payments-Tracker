@@ -82,7 +82,7 @@ paths:
           schema:
             type: string
             default: ALL
-            enum: [ALL, REGULAR, ADDITIONAL]
+            enum: [ALL, NON_INTER_ACCOUNT, REGULAR, ADDITIONAL]
         - name: page
           in: query
           schema:
@@ -228,6 +228,142 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SimulateRulesResponse'
+
+  /api/additional-rule-groups:
+    get:
+      operationId: getAdditionalRuleGroups
+      summary: List Additional rule groups
+      tags: [AdditionalRuleGroups]
+      responses:
+        '200':
+          description: Additional rule groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdditionalRuleGroupDto'
+    post:
+      operationId: createAdditionalRuleGroup
+      summary: Create an Additional rule group
+      tags: [AdditionalRuleGroups]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdditionalRuleGroupRequest'
+      responses:
+        '201':
+          description: Additional rule group created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdditionalRuleGroupMutationResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Duplicate group name
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/additional-rule-groups/{id}:
+    get:
+      operationId: getAdditionalRuleGroup
+      summary: Get an Additional rule group
+      tags: [AdditionalRuleGroups]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Additional rule group
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdditionalRuleGroupDto'
+        '404':
+          description: Additional rule group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: updateAdditionalRuleGroup
+      summary: Update an Additional rule group
+      tags: [AdditionalRuleGroups]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdditionalRuleGroupRequest'
+      responses:
+        '200':
+          description: Additional rule group updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdditionalRuleGroupMutationResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Additional rule group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Duplicate group name
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteAdditionalRuleGroup
+      summary: Delete an Additional rule group
+      tags: [AdditionalRuleGroups]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Additional rule group deleted and matching recalculated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecalculationSummaryResponse'
+        '404':
+          description: Additional rule group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/recurring-payments/{id}:
     put:
@@ -1165,6 +1301,12 @@ components:
           type: string
         isInterAccount:
           type: boolean
+        linkedPaymentCount:
+          type: integer
+        linkedPaymentNames:
+          type: array
+          items:
+            type: string
         createdAt:
           type: string
           format: date-time
@@ -1519,6 +1661,11 @@ components:
       type: object
       required: [rules]
       properties:
+        draftType:
+          $ref: '#/components/schemas/SimulationDraftType'
+        currentAdditionalGroupId:
+          type: string
+          format: uuid
         rules:
           type: array
           minItems: 1
@@ -1535,10 +1682,95 @@ components:
             $ref: '#/components/schemas/TransactionDto'
         totalMatchCount:
           type: integer
+        uniqueExclusionCount:
+          type: integer
+        omittedAdditionalMatchCount:
+          type: integer
+        omittedAdditionalMatches:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdditionalGroupTransactionMatchDto'
+        otherAdditionalGroupMatches:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdditionalGroupTransactionMatchDto'
         overlappingPayments:
           type: array
           items:
             $ref: '#/components/schemas/OverlappingPaymentDto'
+
+    SimulationDraftType:
+      type: string
+      enum: [RECURRING_PAYMENT, ADDITIONAL_GROUP]
+
+    AdditionalRuleGroupRequest:
+      type: object
+      required: [name, rules]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        rules:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CreateRuleRequest'
+
+    AdditionalRuleGroupDto:
+      type: object
+      required: [id, name, normalizedName, rules, excludedTransactionCount, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        normalizedName:
+          type: string
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuleDto'
+        excludedTransactionCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AdditionalRuleGroupMutationResponse:
+      type: object
+      required: [group]
+      properties:
+        group:
+          $ref: '#/components/schemas/AdditionalRuleGroupDto'
+        recalculationSummary:
+          $ref: '#/components/schemas/RecalculationSummaryResponse'
+
+    AdditionalGroupReferenceDto:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    AdditionalGroupTransactionMatchDto:
+      type: object
+      required: [transactionId, groups]
+      properties:
+        transactionId:
+          type: string
+          format: uuid
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdditionalGroupReferenceDto'
 
     OverlappingPaymentDto:
       type: object

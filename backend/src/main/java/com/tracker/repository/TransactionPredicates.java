@@ -36,8 +36,12 @@ public final class TransactionPredicates {
         if (filter.account() != null && !filter.account().isBlank()) {
             predicates.add(cb.equal(root.get("account"), IbanNormalizationService.normalize(filter.account())));
         }
-        if (filter.transactionType() == TransactionTypeFilter.REGULAR || filter.transactionType() == TransactionTypeFilter.ADDITIONAL) {
+        if (filter.transactionType() == TransactionTypeFilter.NON_INTER_ACCOUNT
+                || filter.transactionType() == TransactionTypeFilter.REGULAR
+                || filter.transactionType() == TransactionTypeFilter.ADDITIONAL) {
             predicates.add(cb.isFalse(root.get("isInterAccount")));
+        }
+        if (filter.transactionType() == TransactionTypeFilter.REGULAR || filter.transactionType() == TransactionTypeFilter.ADDITIONAL) {
             if (query == null) {
                 throw new IllegalStateException("Transaction type filtering requires a criteria query");
             }

@@ -8,12 +8,17 @@
  * Do not edit the class manually.
  */
 import { TransactionDto } from './transactionDto';
+import { AdditionalGroupTransactionMatchDto } from './additionalGroupTransactionMatchDto';
 import { OverlappingPaymentDto } from './overlappingPaymentDto';
 
 
 export interface SimulateRulesResponse { 
     matchingTransactions: Array<TransactionDto>;
     totalMatchCount: number;
+    uniqueExclusionCount?: number;
+    omittedAdditionalMatchCount?: number;
+    omittedAdditionalMatches?: Array<AdditionalGroupTransactionMatchDto>;
+    otherAdditionalGroupMatches?: Array<AdditionalGroupTransactionMatchDto>;
     overlappingPayments: Array<OverlappingPaymentDto>;
 }
 

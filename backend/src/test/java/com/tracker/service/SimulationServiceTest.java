@@ -35,6 +35,8 @@ class SimulationServiceTest {
     private RuleEvaluationService ruleEvaluationService;
     @Mock
     private UserContextService userContextService;
+    @Mock
+    private AdditionalMatchingService additionalMatchingService;
 
     private SimulationService service;
     private UUID userId;
@@ -46,10 +48,13 @@ class SimulationServiceTest {
                 recurringPaymentRepository,
                 linkRepository,
                 ruleEvaluationService,
-                userContextService
+                userContextService,
+                additionalMatchingService
         );
         userId = UUID.randomUUID();
         when(userContextService.getCurrentUserId()).thenReturn(userId);
+        when(additionalMatchingService.matchGroups(anyList(), any())).thenReturn(java.util.Map.of());
+        when(additionalMatchingService.sortNewestFirst(any())).thenAnswer(invocation -> ((java.util.Collection<Transaction>) invocation.getArgument(0)).stream().toList());
     }
 
     @Test

@@ -89,17 +89,44 @@ public class RecurringPaymentController implements RecurringPaymentsApi {
     public ResponseEntity<SimulateRulesResponse> simulateRules(SimulateRulesRequest request) {
         var transientRules = recurringPaymentRuleRequestMapper.toSimulationRules(request.getRules());
 
-        SimulationService.SimulationResult result = simulationService.simulate(transientRules);
+        SimulationService.DraftType draftType = request.getDraftType() == com.tracker.api.model.SimulationDraftType.ADDITIONAL_GROUP
+                ? SimulationService.DraftType.ADDITIONAL_GROUP
+                : SimulationService.DraftType.RECURRING_PAYMENT;
+        SimulationService.SimulationResult result = simulationService.simulate(
+                transientRules, draftType, request.getCurrentAdditionalGroupId());
 
         SimulateRulesResponse response = new SimulateRulesResponse(
                 recurringPaymentMapper.toTransactionDtoList(result.matchingTransactions()),
-                result.matchingTransactions().size(),
+                result.totalMatchCount(),
                 result.overlappingPayments().stream()
                         .map(op -> new OverlappingPaymentDto(op.id(), op.name()))
                         .toList()
         );
+        response.setUniqueExclusionCount(result.uniqueExclusionCount());
+        response.setOmittedAdditionalMatchCount(result.omittedAdditionalMatchCount());
+        response.setOmittedAdditionalMatches(result.omittedAdditionalMatches().stream()
+                .map(this::toAdditionalGroupTransactionMatchDto)
+                .toList());
+        response.setOtherAdditionalGroupMatches(result.otherAdditionalGroupMatches().stream()
+                .map(this::toAdditionalGroupTransactionMatchDto)
+                .toList());
 
         return ResponseEntity.ok(response);
+    }
+
+    private AdditionalGroupTransactionMatchDto toAdditionalGroupTransactionMatchDto(
+            SimulationService.AdditionalTransactionMatch match) {
+        AdditionalGroupTransactionMatchDto dto = new AdditionalGroupTransactionMatchDto();
+        dto.setTransactionId(match.transactionId());
+        dto.setGroups(match.groups().stream()
+                .map(group -> {
+                    AdditionalGroupReferenceDto reference = new AdditionalGroupReferenceDto();
+                    reference.setId(group.id());
+                    reference.setName(group.name());
+                    return reference;
+                })
+                .toList());
+        return dto;
     }
 
     @Override

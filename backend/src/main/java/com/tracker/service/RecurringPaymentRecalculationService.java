@@ -33,6 +33,7 @@ public class RecurringPaymentRecalculationService {
     private final RecurringPaymentDetectionService detectionService;
     private final UserContextService userContextService;
     private final EntityManager entityManager;
+    private final AdditionalMatchingService additionalMatchingService;
 
     public RecurringPaymentRecalculationService(InterAccountService interAccountService,
                                                TransactionRepository transactionRepository,
@@ -42,7 +43,8 @@ public class RecurringPaymentRecalculationService {
                                                RuleEvaluationService ruleEvaluationService,
                                                RecurringPaymentDetectionService detectionService,
                                                UserContextService userContextService,
-                                               EntityManager entityManager) {
+                                               EntityManager entityManager,
+                                               AdditionalMatchingService additionalMatchingService) {
         this.interAccountService = interAccountService;
         this.transactionRepository = transactionRepository;
         this.linkRepository = linkRepository;
@@ -52,6 +54,7 @@ public class RecurringPaymentRecalculationService {
         this.detectionService = detectionService;
         this.userContextService = userContextService;
         this.entityManager = entityManager;
+        this.additionalMatchingService = additionalMatchingService;
     }
 
     @Transactional
@@ -69,6 +72,7 @@ public class RecurringPaymentRecalculationService {
         LocalDate cutoff = LocalDate.now().minusDays(RecurringPaymentDetectionService.LOOKBACK_DAYS);
         List<Transaction> remainingCandidates = new ArrayList<>(
                 transactionRepository.findByUserIdAndBookingDateGreaterThanEqualAndIsInterAccountFalse(currentUserId, cutoff));
+        remainingCandidates = new ArrayList<>(additionalMatchingService.filterExcluded(remainingCandidates));
 
         int recurringPaymentsDeleted = 0;
         for (RecurringPayment payment : sortPayments(existingPayments)) {

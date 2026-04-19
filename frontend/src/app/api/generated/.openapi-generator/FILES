@@ -3,6 +3,7 @@ README.md
 api.base.service.ts
 api.module.ts
 api/account.service.ts
+api/additionalRuleGroups.service.ts
 api/adminUsers.service.ts
 api/analytics.service.ts
 api/api.ts
@@ -17,6 +18,11 @@ configuration.ts
 encoder.ts
 git_push.sh
 index.ts
+model/additionalGroupReferenceDto.ts
+model/additionalGroupTransactionMatchDto.ts
+model/additionalRuleGroupDto.ts
+model/additionalRuleGroupMutationResponse.ts
+model/additionalRuleGroupRequest.ts
 model/adminUserDto.ts
 model/annualOverview.ts
 model/bankAccountDto.ts
@@ -51,6 +57,7 @@ model/setupRequest.ts
 model/setupStatusResponse.ts
 model/simulateRulesRequest.ts
 model/simulateRulesResponse.ts
+model/simulationDraftType.ts
 model/targetField.ts
 model/transactionCsvImportMapping.ts
 model/transactionDto.ts

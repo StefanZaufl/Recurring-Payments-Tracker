@@ -2,6 +2,7 @@ package com.tracker.repository;
 
 public enum TransactionTypeFilter {
     ALL,
+    NON_INTER_ACCOUNT,
     REGULAR,
     ADDITIONAL;
 

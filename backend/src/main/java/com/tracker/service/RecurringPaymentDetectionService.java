@@ -40,6 +40,7 @@ public class RecurringPaymentDetectionService {
     private final RuleEvaluationService ruleEvaluationService;
     private final UserContextService userContextService;
     private final PaymentPeriodHistoryService historyService;
+    private final AdditionalMatchingService additionalMatchingService;
 
     public RecurringPaymentDetectionService(TransactionRepository transactionRepository,
                                             RecurringPaymentRepository recurringPaymentRepository,
@@ -47,7 +48,8 @@ public class RecurringPaymentDetectionService {
                                             RuleRepository ruleRepository,
                                             RuleEvaluationService ruleEvaluationService,
                                             UserContextService userContextService,
-                                            PaymentPeriodHistoryService historyService) {
+                                            PaymentPeriodHistoryService historyService,
+                                            AdditionalMatchingService additionalMatchingService) {
         this.transactionRepository = transactionRepository;
         this.recurringPaymentRepository = recurringPaymentRepository;
         this.linkRepository = linkRepository;
@@ -55,6 +57,7 @@ public class RecurringPaymentDetectionService {
         this.ruleEvaluationService = ruleEvaluationService;
         this.userContextService = userContextService;
         this.historyService = historyService;
+        this.additionalMatchingService = additionalMatchingService;
     }
 
     /**
@@ -69,7 +72,8 @@ public class RecurringPaymentDetectionService {
         }
 
         List<RecurringPayment> result = new ArrayList<>();
-        List<Transaction> unmatched = new ArrayList<>(newTransactions);
+        List<Transaction> eligibleNewTransactions = additionalMatchingService.filterExcluded(newTransactions);
+        List<Transaction> unmatched = new ArrayList<>(eligibleNewTransactions);
 
         // Step 1a: Match against existing active RECURRING payments (higher priority)
         UUID currentUserId = userContextService.getCurrentUserId();
@@ -90,10 +94,13 @@ public class RecurringPaymentDetectionService {
         // Step 2: Try to form new RTs from unmatched transactions
         log.info("Step 2: {} unmatched transactions remain, attempting to form new RTs", unmatched.size());
         LocalDate cutoff = LocalDate.now().minusDays(LOOKBACK_DAYS);
-        Set<UUID> newTransactionIds = newTransactions.stream()
+        Set<UUID> newTransactionIds = eligibleNewTransactions.stream()
                 .map(Transaction::getId).collect(Collectors.toSet());
         List<Transaction> oldUnlinked = transactionRepository.findUnlinkedTransactionsAfterForUser(cutoff, currentUserId)
-                .stream().filter(tx -> !newTransactionIds.contains(tx.getId())).collect(Collectors.toCollection(ArrayList::new));
+                .stream()
+                .filter(tx -> !newTransactionIds.contains(tx.getId()))
+                .collect(Collectors.toCollection(ArrayList::new));
+        oldUnlinked = new ArrayList<>(additionalMatchingService.filterExcluded(oldUnlinked));
         log.debug("Found {} old unlinked transactions (cutoff={}, excluded {} new)", oldUnlinked.size(), cutoff, newTransactionIds.size());
 
         List<Transaction> toProcess = new ArrayList<>(unmatched);
@@ -215,7 +222,8 @@ public class RecurringPaymentDetectionService {
                 .stream().map(link -> link.getTransaction().getId()).collect(Collectors.toSet());
 
         LocalDate cutoff = LocalDate.now().minusDays(LOOKBACK_DAYS);
-        List<Transaction> candidates = transactionRepository.findUnlinkedTransactionsAfterForUser(cutoff, currentUserId);
+        List<Transaction> candidates = additionalMatchingService.filterExcluded(
+                transactionRepository.findUnlinkedTransactionsAfterForUser(cutoff, currentUserId));
 
         List<Transaction> newMatches = ruleEvaluationService.findMatchingTransactions(rules, candidates)
                 .stream().filter(tx -> !alreadyLinkedIds.contains(tx.getId())).toList();

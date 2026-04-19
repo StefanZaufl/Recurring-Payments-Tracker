@@ -2,9 +2,10 @@ import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDe
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Params, Router, RouterLink } from '@angular/router';
-import { RecurringPaymentsService, CategoriesService } from '../../api/generated';
+import { RecurringPaymentsService, CategoriesService, AdditionalRuleGroupsService } from '../../api/generated';
 import { RecurringPaymentDto } from '../../api/generated/model/recurringPaymentDto';
 import { CategoryDto } from '../../api/generated/model/categoryDto';
+import { AdditionalRuleGroupDto } from '../../api/generated/model/additionalRuleGroupDto';
 import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component';
 import { ErrorStateComponent } from '../../shared/error-state.component';
 import { FrequencyBadgeComponent } from '../../shared/frequency-badge.component';
@@ -16,7 +17,7 @@ import { parseBooleanParam, parseEnumParam } from '../../shared/query-param-util
 import { Subject, forkJoin, takeUntil } from 'rxjs';
 
 type RecurringSortBy = 'amount' | 'name';
-type RecurringTab = 'RECURRING' | 'GROUPED';
+type RecurringTab = 'RECURRING' | 'GROUPED' | 'ADDITIONAL';
 
 interface RecurringPaymentsUrlState {
   showInactive: boolean;
@@ -26,7 +27,7 @@ interface RecurringPaymentsUrlState {
 }
 
 const RECURRING_SORT_OPTIONS: readonly RecurringSortBy[] = ['amount', 'name'];
-const RECURRING_TAB_OPTIONS: readonly RecurringTab[] = ['RECURRING', 'GROUPED'];
+const RECURRING_TAB_OPTIONS: readonly RecurringTab[] = ['RECURRING', 'GROUPED', 'ADDITIONAL'];
 const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
 
 @Component({
@@ -109,10 +110,64 @@ const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
               <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-accent"></div>
             }
           </button>
+          <button
+            class="px-4 py-2 text-sm font-medium transition-colors relative"
+            [class.text-white]="selectedTab === 'ADDITIONAL'"
+            [class.text-muted]="selectedTab !== 'ADDITIONAL'"
+            (click)="onTabChange('ADDITIONAL')">
+            Additional
+            <span class="text-xs ml-1 text-muted">({{ additionalGroups.length }})</span>
+            @if (selectedTab === 'ADDITIONAL') {
+              <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-accent"></div>
+            }
+          </button>
         </div>
 
+        @if (selectedTab === 'ADDITIONAL') {
+          <div class="glass-card overflow-hidden animate-slide-up">
+            <div class="px-5 py-4 border-b border-card-border">
+              <h2 class="text-sm font-semibold text-white">Additional Rule Groups</h2>
+              <p class="text-[11px] text-muted mt-1">A transaction is excluded if it matches any group. Within a group, all rules must match. Counts use transactions from the last 2 years.</p>
+            </div>
+            <div class="divide-y divide-card-border">
+              @for (group of additionalGroups; track group.id) {
+                <div class="px-5 py-4 hover:bg-card-hover transition-colors cursor-pointer"
+                  role="button"
+                  tabindex="0"
+                  (click)="openAdditionalGroup(group.id)"
+                  (keydown.enter)="openAdditionalGroup(group.id)">
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="min-w-0">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <h3 class="text-sm font-medium text-white">{{ group.name }}</h3>
+                        <span class="badge bg-subtle text-muted text-[10px]">{{ group.rules.length }} rule{{ group.rules.length === 1 ? '' : 's' }}</span>
+                        <span class="badge bg-amber-dim text-amber text-[10px]">{{ group.excludedTransactionCount }} excluded</span>
+                      </div>
+                      <p class="text-[11px] text-muted mt-1">All rules must match</p>
+                      <div class="mt-2 flex flex-col gap-1.5">
+                        @for (rule of group.rules; track rule.id) {
+                          <div class="text-[11px] text-muted/80 bg-subtle rounded-lg px-2 py-1">{{ formatRuleType(rule.ruleType) }}: {{ formatRuleSummary(rule) }}</div>
+                        }
+                      </div>
+                    </div>
+                    <button (click)="confirmDeleteAdditionalGroup(group); $event.stopPropagation()"
+                      class="text-muted hover:text-coral transition-colors p-1"
+                      title="Delete group">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                </div>
+              }
+              <button (click)="createAdditionalGroup()"
+                class="w-full px-5 py-4 text-left text-sm text-accent hover:bg-card-hover transition-colors">
+                Add Additional Payments Rule Group
+              </button>
+            </div>
+          </div>
+        }
+
         <!-- Empty state -->
-        @if (filteredPayments.length === 0) {
+        @if (selectedTab !== 'ADDITIONAL' && filteredPayments.length === 0) {
           <div class="glass-card p-10 sm:p-16 text-center animate-slide-up">
             <div class="w-16 h-16 rounded-2xl bg-violet-dim flex items-center justify-center mx-auto mb-5">
               <svg class="w-7 h-7 text-violet" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -131,7 +186,7 @@ const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
         }
 
         <!-- Mobile card view -->
-        @if (filteredPayments.length > 0) {
+        @if (selectedTab !== 'ADDITIONAL' && filteredPayments.length > 0) {
           <div class="sm:hidden space-y-3 animate-slide-up">
             @for (payment of filteredPayments; track payment.id) {
               <div
@@ -203,7 +258,7 @@ const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
         }
 
         <!-- Desktop table view -->
-        @if (filteredPayments.length > 0) {
+        @if (selectedTab !== 'ADDITIONAL' && filteredPayments.length > 0) {
           <div class="hidden sm:block glass-card overflow-hidden animate-slide-up">
             <div class="overflow-x-auto">
               <table class="min-w-full">
@@ -342,6 +397,7 @@ const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
 export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
   private recurringPaymentsService = inject(RecurringPaymentsService);
   private categoriesService = inject(CategoriesService);
+  private additionalRuleGroupsService = inject(AdditionalRuleGroupsService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
@@ -350,6 +406,7 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
   private dataLoaded = false;
   payments: RecurringPaymentDto[] = [];
   filteredPayments: RecurringPaymentDto[] = [];
+  additionalGroups: AdditionalRuleGroupDto[] = [];
   categories: CategoryDto[] = [];
   loading = false;
   error: string | null = null;
@@ -365,6 +422,7 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
   transactionsPayment: RecurringPaymentDto | null = null;
   rulesPayment: RecurringPaymentDto | null = null;
   deletePayment: RecurringPaymentDto | null = null;
+  deleteAdditionalGroup: AdditionalRuleGroupDto | null = null;
 
   ngOnInit(): void {
     this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe(queryParamMap => {
@@ -395,7 +453,9 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
     this.recurringCount = activeFilter.filter(p => p.paymentType === 'RECURRING').length;
     this.groupedCount = activeFilter.filter(p => p.paymentType === 'GROUPED').length;
 
-    this.filteredPayments = activeFilter.filter(p => p.paymentType === this.selectedTab);
+    this.filteredPayments = this.selectedTab === 'ADDITIONAL'
+      ? []
+      : activeFilter.filter(p => p.paymentType === this.selectedTab);
 
     if (this.sortBy === 'amount') {
       this.filteredPayments.sort((a, b) => Math.abs(b.averageAmount) - Math.abs(a.averageAmount));
@@ -459,6 +519,27 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
           this.cdr.markForCheck();
         }
       });
+  }
+
+  confirmDeleteAdditionalGroup(group: AdditionalRuleGroupDto): void {
+    this.deleteAdditionalGroup = group;
+    if (confirm(`Delete Additional rule group "${group.name}"?`)) {
+      this.additionalRuleGroupsService.deleteAdditionalRuleGroup(group.id)
+        .pipe(takeUntil(this.destroy$)).subscribe({
+          next: () => {
+            this.deleteAdditionalGroup = null;
+            this.loadData();
+          }
+        });
+    }
+  }
+
+  openAdditionalGroup(id: string): void {
+    this.router.navigate(['/recurring-payments/additional'], { queryParams: { group: id } });
+  }
+
+  createAdditionalGroup(): void {
+    this.router.navigate(['/recurring-payments/additional'], { queryParams: { new: 'true' } });
   }
 
   // Category dialog
@@ -528,11 +609,13 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
     this.error = null;
     forkJoin({
       payments: this.recurringPaymentsService.getRecurringPayments(),
-      categories: this.categoriesService.getCategories()
+      categories: this.categoriesService.getCategories(),
+      additionalGroups: this.additionalRuleGroupsService.getAdditionalRuleGroups()
     }).pipe(takeUntil(this.destroy$)).subscribe({
-      next: ({ payments, categories }) => {
+      next: ({ payments, categories, additionalGroups }) => {
         this.payments = payments;
         this.categories = categories;
+        this.additionalGroups = additionalGroups;
         this.dataLoaded = true;
         this.applyFilter();
         this.loading = false;
@@ -576,5 +659,27 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
       sort: this.sortBy !== 'amount' ? this.sortBy : null,
       tab: this.selectedTab !== 'RECURRING' ? this.selectedTab : null,
     };
+  }
+
+  formatRuleType(type: string): string {
+    switch (type) {
+      case 'JARO_WINKLER': return 'Jaro-Winkler';
+      case 'REGEX': return 'Regex';
+      case 'AMOUNT': return 'Amount';
+      default: return type;
+    }
+  }
+
+  formatRuleSummary(rule: { ruleType: string; targetField?: string; text?: string; strict?: boolean; threshold?: number; amount?: number; fluctuationRange?: number }): string {
+    switch (rule.ruleType) {
+      case 'JARO_WINKLER':
+        return `${rule.targetField}: "${rule.text}" (threshold: ${rule.threshold})${rule.strict ? ' [strict]' : ''}`;
+      case 'REGEX':
+        return `${rule.targetField}: /${rule.text}/${rule.strict ? ' [strict]' : ''}`;
+      case 'AMOUNT':
+        return `${rule.amount} +/- ${rule.fluctuationRange}`;
+      default:
+        return '';
+    }
   }
 }

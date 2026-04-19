@@ -23,6 +23,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -48,6 +49,8 @@ class RecurringPaymentRecalculationServiceTest {
     private UserContextService userContextService;
     @Mock
     private EntityManager entityManager;
+    @Mock
+    private AdditionalMatchingService additionalMatchingService;
 
     private RecurringPaymentRecalculationService service;
     private UUID userId;
@@ -63,10 +66,12 @@ class RecurringPaymentRecalculationServiceTest {
                 ruleEvaluationService,
                 detectionService,
                 userContextService,
-                entityManager
+                entityManager,
+                additionalMatchingService
         );
         userId = UUID.randomUUID();
         when(userContextService.getCurrentUserId()).thenReturn(userId);
+        lenient().when(additionalMatchingService.filterExcluded(any())).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
     @Test
