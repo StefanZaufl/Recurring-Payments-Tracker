@@ -67,25 +67,30 @@ Verification:
 
 ## Phase 3: Empty And Loading State Reuse
 
+Status: Complete.
+
 Goal: use existing state components consistently and fix the unused empty-state component before adopting it.
 
-- Fix `EmptyStateComponent` imports so `[ngClass]` works.
-- Decide whether icons should remain projected content or become a simple variant input.
-- Replace hand-coded empty states in:
+- Fixed `EmptyStateComponent` imports so `[ngClass]` works.
+- Kept icons as projected content to preserve feature-specific icon choices.
+- Replaced hand-coded empty states in:
   - `transactions.component.ts`
   - `recurring-payments-list.component.ts`
-  - modal empty states where the layout matches
-- Replace local loading spinners where they match `LoadingSpinnerComponent`, especially:
+- Replaced local loading spinners where they match `LoadingSpinnerComponent`, especially:
   - `payment-rules-modal.component.ts`
   - `payment-transactions-modal.component.ts`
-  - `create-payment.component.ts`
-- Keep compact inline loading text only where the shared spinner would be visually too heavy.
+- Kept compact inline loading text where the shared spinner would be visually too heavy.
 
 Acceptance checks:
 
 - No visual regression for empty transaction/payment states.
 - `EmptyStateComponent` has focused specs.
 - Shared loading and empty states are used where layouts are equivalent.
+
+Verification:
+
+- `npm --workspace=frontend test -- --runTestsByPath src/app/shared/empty-state.component.spec.ts src/app/features/transactions/transactions.component.spec.ts src/app/features/recurring-payments/recurring-payments-list.component.spec.ts src/app/features/recurring-payments/payment-transactions-modal.component.spec.ts src/app/features/recurring-payments/payment-rules-modal.component.spec.ts --watch=false`
+- `npm --workspace=frontend run build`
 
 ## Phase 4: Transaction Match Preview Component
 

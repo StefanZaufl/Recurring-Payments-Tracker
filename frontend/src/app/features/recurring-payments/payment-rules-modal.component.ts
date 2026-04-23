@@ -7,13 +7,14 @@ import { RuleType } from '../../api/generated/model/ruleType';
 import { TargetField } from '../../api/generated/model/targetField';
 import { CreateRuleRequest } from '../../api/generated/model/createRuleRequest';
 import { ModalComponent } from '../../shared/modal.component';
+import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component';
 import { LocalRule, RuleEditorComponent } from './rule-editor.component';
 import { Subject, forkJoin, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-payment-rules-modal',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, ModalComponent, RuleEditorComponent],
+  imports: [CommonModule, ModalComponent, LoadingSpinnerComponent, RuleEditorComponent],
   template: `
     <app-modal
       title="Detection Rules"
@@ -22,10 +23,7 @@ import { Subject, forkJoin, takeUntil } from 'rxjs';
       (closeModal)="closed.emit()">
       <!-- Loading -->
       @if (loading) {
-        <div class="flex flex-col items-center justify-center py-12 gap-3">
-          <div class="w-6 h-6 border-2 border-accent/30 border-t-accent rounded-full animate-spin"></div>
-          <span class="text-xs text-muted">Loading rules...</span>
-        </div>
+        <app-loading-spinner message="Loading rules..." />
       }
       <!-- Error -->
       @if (!loading && error) {

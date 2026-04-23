@@ -8,6 +8,7 @@ import { CategoryDto } from '../../api/generated/model/categoryDto';
 import { AdditionalRuleGroupDto } from '../../api/generated/model/additionalRuleGroupDto';
 import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component';
 import { ErrorStateComponent } from '../../shared/error-state.component';
+import { EmptyStateComponent } from '../../shared/empty-state.component';
 import { FrequencyBadgeComponent } from '../../shared/frequency-badge.component';
 import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 import { PaymentCategoryDialogComponent } from './payment-category-dialog.component';
@@ -34,7 +35,7 @@ const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
 @Component({
   selector: 'app-recurring-payments-list',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RouterLink, LoadingSpinnerComponent, ErrorStateComponent, FrequencyBadgeComponent, CurrencyFormatPipe, ConfirmDialogComponent, PaymentCategoryDialogComponent, PaymentTransactionsModalComponent, PaymentRulesModalComponent],
+  imports: [CommonModule, FormsModule, RouterLink, LoadingSpinnerComponent, ErrorStateComponent, EmptyStateComponent, FrequencyBadgeComponent, CurrencyFormatPipe, ConfirmDialogComponent, PaymentCategoryDialogComponent, PaymentTransactionsModalComponent, PaymentRulesModalComponent],
   template: `
     <div class="animate-fade-in">
       <!-- Header -->
@@ -169,21 +170,17 @@ const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
 
         <!-- Empty state -->
         @if (selectedTab !== 'ADDITIONAL' && filteredPayments.length === 0) {
-          <div class="glass-card p-10 sm:p-16 text-center animate-slide-up">
-            <div class="w-16 h-16 rounded-2xl bg-violet-dim flex items-center justify-center mx-auto mb-5">
+          <app-empty-state
+            [heading]="selectedTab === 'RECURRING' ? 'No recurring payments found' : 'No grouped payments found'"
+            [description]="selectedTab === 'RECURRING' ? 'Upload bank transactions to detect patterns or create one manually.' : 'Create a grouped payment to track irregular related expenses like groceries.'"
+            ctaText="Create Payment"
+            ctaRoute="/recurring-payments/create">
+            <span icon>
               <svg class="w-7 h-7 text-violet" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
               </svg>
-            </div>
-            @if (selectedTab === 'RECURRING') {
-              <h3 class="text-base font-semibold text-white mb-1">No recurring payments found</h3>
-              <p class="text-sm text-muted mb-5">Upload bank transactions to detect patterns or create one manually.</p>
-            } @else {
-              <h3 class="text-base font-semibold text-white mb-1">No grouped payments found</h3>
-              <p class="text-sm text-muted mb-5">Create a grouped payment to track irregular related expenses like groceries.</p>
-            }
-            <a routerLink="/recurring-payments/create" class="btn-primary">Create Payment</a>
-          </div>
+            </span>
+          </app-empty-state>
         }
 
         <!-- Mobile card view -->

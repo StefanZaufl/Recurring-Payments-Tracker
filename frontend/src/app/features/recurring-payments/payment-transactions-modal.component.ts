@@ -5,13 +5,14 @@ import { RecurringPaymentDto } from '../../api/generated/model/recurringPaymentD
 import { TransactionDto } from '../../api/generated/model/transactionDto';
 import { DateRangePickerComponent, DateRange } from '../../shared/date-range-picker.component';
 import { ModalComponent } from '../../shared/modal.component';
+import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component';
 import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 import { Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-payment-transactions-modal',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, DateRangePickerComponent, ModalComponent, CurrencyFormatPipe],
+  imports: [CommonModule, DateRangePickerComponent, ModalComponent, LoadingSpinnerComponent, CurrencyFormatPipe],
   template: `
     <app-modal
       title="Transactions"
@@ -41,10 +42,7 @@ import { Subject, takeUntil } from 'rxjs';
       </div>
       <!-- Loading -->
       @if (loading) {
-        <div class="flex flex-col items-center justify-center py-12 gap-3">
-          <div class="w-6 h-6 border-2 border-accent/30 border-t-accent rounded-full animate-spin"></div>
-          <span class="text-xs text-muted">Loading transactions...</span>
-        </div>
+        <app-loading-spinner message="Loading transactions..." />
       }
       <!-- Error -->
       @if (!loading && error) {
