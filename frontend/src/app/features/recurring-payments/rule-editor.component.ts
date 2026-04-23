@@ -20,7 +20,9 @@ export interface LocalRule {
   host: { class: 'block' },
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="glass-card overflow-hidden">
+    <div
+      class="overflow-hidden"
+      [class.glass-card]="framed">
       <div class="px-5 py-4 border-b border-card-border flex items-center justify-between">
         <h2 class="text-sm font-semibold text-white">{{ title }}</h2>
         <span class="badge bg-subtle text-muted text-[10px]">{{ rules.length }} rule{{ rules.length === 1 ? '' : 's' }}</span>
@@ -166,6 +168,7 @@ export interface LocalRule {
 export class RuleEditorComponent {
   @Input() title = 'Detection Rules';
   @Input() rules: LocalRule[] = [];
+  @Input() framed = true;
   @Output() rulesChange = new EventEmitter<LocalRule[]>();
   @Output() firstRuleAdded = new EventEmitter<void>();
 
