@@ -106,42 +106,31 @@ describe('CreatePaymentComponent', () => {
     expect(component.displayedTransactions).toEqual([spotify]);
   });
 
-  it('should render omitted additional transactions below the summary', () => {
-    component.omittedAdditionalMatchCount = 1;
-    component.omittedAdditionalGroupNames = ['Ignore Amazon'];
-    component.omittedAdditionalMatches = [{
-      transactionId: 'tx-1',
-      transaction: {
-        id: 'tx-1',
-        bookingDate: '2026-04-01',
-        partnerName: 'Amazon Marketplace',
-        amount: -42,
-        details: 'Order 123',
-      },
-      groupNames: ['Ignore Amazon'],
+  it('should not render transactions before additional filters are loaded', () => {
+    component.allTransactions = [{
+      id: 'tx-amazon',
+      bookingDate: '2026-04-01',
+      partnerName: 'Amazon Marketplace',
+      amount: -42,
     }];
+    component.loadingTransactions = false;
+    component.additionalFiltersLoaded = false;
 
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent || '';
-    expect(text).toContain('1 matching transaction were excluded by Additional rule groups.');
-    expect(text).toContain('Amazon Marketplace');
-    expect(text).toContain('Ignore Amazon');
-    expect(text).toContain('Order 123');
+    expect(text).toContain('Loading transactions...');
+    expect(text).not.toContain('Amazon Marketplace');
   });
 
-  it('should not hide omitted matches when transaction details are absent', () => {
-    component.omittedAdditionalMatchCount = 1;
-    component.omittedAdditionalMatches = [{
-      transactionId: 'tx-without-details',
-      groupNames: ['Ignore Unknown'],
-    }];
+  it('should not render a message for omitted additional transactions', () => {
+    component.omittedAdditionalIds = new Set(['tx-1']);
 
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent || '';
-    expect(text).toContain('Transaction details unavailable');
-    expect(text).toContain('tx-without-details');
-    expect(text).toContain('Ignore Unknown');
+    expect(text).not.toContain('excluded by Additional rule groups');
+    expect(text).not.toContain('Groups in preview');
+    expect(text).not.toContain('Transaction details unavailable');
   });
 });

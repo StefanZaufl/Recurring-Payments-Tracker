@@ -16,12 +16,6 @@ import { formatLocalDate } from '../../shared/date-range-presets';
 import { Subject, takeUntil, debounceTime, switchMap } from 'rxjs';
 import { LocalRule, RuleEditorComponent } from './rule-editor.component';
 
-interface OmittedAdditionalMatch {
-  transactionId: string;
-  transaction?: TransactionDto;
-  groupNames: string[];
-}
-
 @Component({
   selector: 'app-create-payment',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -83,7 +77,7 @@ interface OmittedAdditionalMatch {
             </div>
 
             <!-- Transaction list -->
-            @if (loadingTransactions) {
+            @if (loadingTransactions || !additionalFiltersLoaded) {
               <div class="flex flex-col items-center justify-center py-16 gap-3">
                 <div class="w-6 h-6 border-2 border-accent/30 border-t-accent rounded-full animate-spin"></div>
                 <span class="text-xs text-muted">Loading transactions...</span>
@@ -144,49 +138,6 @@ interface OmittedAdditionalMatch {
               }
             }
           </div>
-          @if (omittedAdditionalMatchCount > 0) {
-            <div class="glass-card p-4 border border-amber/20 bg-amber/5">
-              <p class="text-sm text-amber font-medium">{{ omittedAdditionalMatchCount }} matching transaction{{ omittedAdditionalMatchCount === 1 ? '' : 's' }} were excluded by Additional rule groups.</p>
-              @if (omittedAdditionalGroupNames.length > 0) {
-                <p class="text-xs text-muted mt-1">Groups in preview: {{ omittedAdditionalGroupNames.join(', ') }}</p>
-              }
-              @if (omittedAdditionalMatches.length > 0) {
-                <div class="mt-3 divide-y divide-amber/10">
-                  @for (match of omittedAdditionalMatches; track match.transaction?.id || match.transactionId) {
-                    <div class="py-2 flex items-center gap-3">
-                      <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2 flex-wrap">
-                          <span class="text-xs font-medium text-white truncate">{{ match.transaction?.partnerName || 'Transaction details unavailable' }}</span>
-                          @for (groupName of match.groupNames; track groupName) {
-                            <span class="badge bg-amber-dim text-amber text-[10px]">{{ groupName }}</span>
-                          }
-                        </div>
-                        <div class="flex items-center gap-2 mt-0.5">
-                          @if (match.transaction) {
-                            <span class="text-[11px] text-muted">{{ match.transaction.bookingDate }}</span>
-                          } @else {
-                            <span class="text-[11px] text-muted">{{ match.transactionId }}</span>
-                          }
-                          @if (match.transaction?.details) {
-                            <span class="text-[11px] text-muted/60 truncate max-w-[220px]">{{ match.transaction?.details }}</span>
-                          }
-                        </div>
-                      </div>
-                      @if (match.transaction) {
-                        <span class="font-mono text-xs font-medium shrink-0"
-                          [class.text-accent]="match.transaction.amount >= 0"
-                          [class.text-coral]="match.transaction.amount < 0">
-                          {{ match.transaction.amount | appCurrency:true }}
-                        </span>
-                      }
-                    </div>
-                  }
-                </div>
-              } @else {
-                <p class="text-xs text-muted mt-3">No omitted transaction details were returned by the simulation.</p>
-              }
-            </div>
-          }
         </div>
 
         <!-- Right: Payment Form (2/5) -->
@@ -324,6 +275,7 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
   showOnlyMatches = false;
   simulating = false;
   simulationActive = false;
+  additionalFiltersLoaded = false;
 
   // Form state
   paymentName = '';
@@ -333,9 +285,6 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
 
   // Simulation results
   overlappingPayments: OverlappingPaymentDto[] = [];
-  omittedAdditionalMatchCount = 0;
-  omittedAdditionalGroupNames: string[] = [];
-  omittedAdditionalMatches: OmittedAdditionalMatch[] = [];
   omittedAdditionalIds = new Set<string>();
 
   // Submit
@@ -344,12 +293,9 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
 
   get displayedTransactions(): TransactionDto[] {
     if (this.showOnlyMatches && this.simulationActive && this.rules.length > 0) {
-      return this.matchingTransactionDtos;
+      return this.filterOmittedAdditional(this.matchingTransactionDtos);
     }
-    if (this.omittedAdditionalIds.size > 0) {
-      return this.allTransactions.filter(transaction => !this.omittedAdditionalIds.has(transaction.id));
-    }
-    return this.allTransactions;
+    return this.filterOmittedAdditional(this.allTransactions);
   }
 
   ngOnInit(): void {
@@ -383,20 +329,13 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
         this.matchingIds = new Set(result.matchingTransactions.map(t => t.id));
         this.matchingTransactionDtos = result.matchingTransactions;
         this.overlappingPayments = result.overlappingPayments;
-        this.omittedAdditionalMatchCount = result.omittedAdditionalMatchCount || 0;
-        this.omittedAdditionalGroupNames = Array.from(new Set((result.omittedAdditionalMatches || [])
-          .flatMap(match => match.groups.map(group => group.name)))).sort();
-        this.omittedAdditionalMatches = (result.omittedAdditionalMatches || [])
-          .map(match => ({
-            transactionId: match.transactionId,
-            transaction: match.transaction!,
-            groupNames: match.groups.map(group => group.name).sort((left, right) => left.localeCompare(right))
-          }));
-        this.omittedAdditionalIds = new Set(this.omittedAdditionalMatches.map(match => match.transactionId));
+        this.omittedAdditionalIds = new Set((result.omittedAdditionalMatches || []).map(match => match.transactionId));
+        this.additionalFiltersLoaded = true;
         this.cdr.markForCheck();
       },
       error: () => {
         this.simulating = false;
+        this.additionalFiltersLoaded = true;
         this.cdr.markForCheck();
       }
     });
@@ -432,6 +371,13 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
 
   isMatch(id: string): boolean {
     return this.matchingIds.has(id);
+  }
+
+  private filterOmittedAdditional(transactions: TransactionDto[]): TransactionDto[] {
+    if (this.omittedAdditionalIds.size === 0) {
+      return transactions;
+    }
+    return transactions.filter(transaction => !this.omittedAdditionalIds.has(transaction.id));
   }
 
   onRulesChange(rules: LocalRule[]): void {
