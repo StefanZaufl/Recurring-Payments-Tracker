@@ -1,14 +1,14 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { TransactionDto } from '../../api/generated/model/transactionDto';
 import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 import { TooltipComponent } from '../../shared/tooltip.component';
+import { ToggleSwitchComponent } from '../../shared/toggle-switch.component';
 
 @Component({
   selector: 'app-transaction-match-preview',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, CurrencyFormatPipe, TooltipComponent],
+  imports: [CommonModule, CurrencyFormatPipe, TooltipComponent, ToggleSwitchComponent],
   template: `
     <div class="glass-card overflow-hidden">
       <div class="px-5 py-4 border-b border-card-border flex items-center justify-between gap-4">
@@ -24,18 +24,11 @@ import { TooltipComponent } from '../../shared/tooltip.component';
             <div class="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin"></div>
           }
           @if (showMatchesToggle) {
-            <label class="flex items-center gap-2 text-[11px] text-muted cursor-pointer select-none">
-              <div class="relative">
-                <input
-                  type="checkbox"
-                  [ngModel]="showOnlyMatches"
-                  (ngModelChange)="showOnlyMatchesChange.emit($event)"
-                  class="sr-only peer">
-                <div class="w-7 h-[16px] bg-subtle rounded-full peer-checked:bg-accent/30 transition-colors"></div>
-                <div class="absolute top-[2px] left-[2px] w-3 h-3 bg-muted rounded-full peer-checked:translate-x-3 peer-checked:bg-accent transition-all"></div>
-              </div>
-              Matches only
-            </label>
+            <app-toggle-switch
+              label="Matches only"
+              size="sm"
+              [checked]="showOnlyMatches"
+              (checkedChange)="showOnlyMatchesChange.emit($event)" />
           }
         </div>
       </div>

@@ -15,6 +15,7 @@ import { PaymentCategoryDialogComponent } from './payment-category-dialog.compon
 import { PaymentTransactionsModalComponent } from './payment-transactions-modal.component';
 import { PaymentRulesModalComponent } from './payment-rules-modal.component';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
+import { ToggleSwitchComponent } from '../../shared/toggle-switch.component';
 import { parseBooleanParam, parseEnumParam } from '../../shared/query-param-utils';
 import { Subject, forkJoin, takeUntil } from 'rxjs';
 
@@ -35,7 +36,7 @@ const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
 @Component({
   selector: 'app-recurring-payments-list',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RouterLink, LoadingSpinnerComponent, ErrorStateComponent, EmptyStateComponent, FrequencyBadgeComponent, CurrencyFormatPipe, ConfirmDialogComponent, PaymentCategoryDialogComponent, PaymentTransactionsModalComponent, PaymentRulesModalComponent],
+  imports: [CommonModule, FormsModule, RouterLink, LoadingSpinnerComponent, ErrorStateComponent, EmptyStateComponent, FrequencyBadgeComponent, CurrencyFormatPipe, ConfirmDialogComponent, ToggleSwitchComponent, PaymentCategoryDialogComponent, PaymentTransactionsModalComponent, PaymentRulesModalComponent],
   template: `
     <div class="animate-fade-in">
       <!-- Header -->
@@ -52,16 +53,10 @@ const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
             </svg>
             Add Payment
           </a>
-          <label class="flex items-center gap-2 text-xs text-muted cursor-pointer select-none">
-            <div class="relative">
-              <input type="checkbox" [(ngModel)]="showInactive"
-                class="sr-only peer"
-                (ngModelChange)="onShowInactiveChange($event)">
-              <div class="w-8 h-[18px] bg-subtle rounded-full peer-checked:bg-accent/30 transition-colors"></div>
-              <div class="absolute top-[3px] left-[3px] w-3 h-3 bg-muted rounded-full peer-checked:translate-x-3.5 peer-checked:bg-accent transition-all"></div>
-            </div>
-            Show inactive
-          </label>
+          <app-toggle-switch
+            label="Show inactive"
+            [checked]="showInactive"
+            (checkedChange)="onShowInactiveChange($event)" />
           <select [(ngModel)]="filterFrequency" (ngModelChange)="onFrequencyChange($event)"
             class="text-xs bg-card border border-card-border rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-subtle">
             <option value="">All frequencies</option>

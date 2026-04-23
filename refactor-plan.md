@@ -164,22 +164,26 @@ Verification:
 
 ## Phase 6: Shared Form Controls And Badges
 
+Status: Complete.
+
 Goal: reduce repeated low-level Tailwind form/button/badge markup after the larger component splits are stable.
 
-- Introduce small shared components/directives only where repetition is proven:
+- Introduced small shared components/directives only where repetition is proven:
   - toggle switch
-  - select field wrapper
-  - text input wrapper
-  - icon button
-  - status badge variants
-- Replace repeated `sr-only peer` toggle markup in recurring payment filters and rule preview panels.
-- Keep global Tailwind classes such as `btn-primary`, `badge`, `table-header`, and `table-cell` where they remain sufficient.
+- Deferred select/input/icon/status-badge abstractions until more repeated usage remains after the main component splits.
+- Replaced repeated `sr-only peer` toggle markup in recurring payment filters and rule preview panels.
+- Kept global Tailwind classes such as `btn-primary`, `badge`, `table-header`, and `table-cell` where they remain sufficient.
 
 Acceptance checks:
 
 - New controls do not make simple templates harder to read.
 - Repeated toggle/select/input styling is reduced in high-traffic feature components.
 - Component APIs remain narrow and domain-neutral.
+
+Verification:
+
+- `npm --workspace=frontend test -- --runTestsByPath src/app/shared/toggle-switch.component.spec.ts src/app/features/recurring-payments/transaction-match-preview.component.spec.ts src/app/features/recurring-payments/recurring-payments-list.component.spec.ts --watch=false`
+- `npm --workspace=frontend run build`
 
 ## Phase 7: Sonar Cleanup Pass
 
