@@ -173,13 +173,13 @@ import { TransactionMatchPreviewComponent } from './transaction-match-preview.co
   `
 })
 export class CreatePaymentComponent implements OnInit, OnDestroy {
-  private recurringPaymentsService = inject(RecurringPaymentsService);
-  private transactionsService = inject(TransactionsService);
-  private router = inject(Router);
-  private cdr = inject(ChangeDetectorRef);
+  private readonly recurringPaymentsService = inject(RecurringPaymentsService);
+  private readonly transactionsService = inject(TransactionsService);
+  private readonly router = inject(Router);
+  private readonly cdr = inject(ChangeDetectorRef);
 
-  private destroy$ = new Subject<void>();
-  private rulesChanged$ = new Subject<void>();
+  private readonly destroy$ = new Subject<void>();
+  private readonly rulesChanged$ = new Subject<void>();
 
   // Transaction state
   allTransactions: TransactionDto[] = [];

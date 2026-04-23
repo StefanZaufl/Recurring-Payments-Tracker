@@ -122,8 +122,8 @@ import { ConfigureCategoriesSectionComponent } from './configure-categories-sect
   `
 })
 export class ConfigureComponent {
-  private recurringPaymentsService = inject(RecurringPaymentsService);
-  private cdr = inject(ChangeDetectorRef);
+  private readonly recurringPaymentsService = inject(RecurringPaymentsService);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   @ViewChild(ConfigureBankAccountsSectionComponent)
   private bankAccountsSection?: ConfigureBankAccountsSectionComponent;

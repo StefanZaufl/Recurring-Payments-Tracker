@@ -125,9 +125,9 @@ import { Subject, takeUntil } from 'rxjs';
   `
 })
 export class PaymentTransactionsModalComponent implements OnInit, OnDestroy {
-  private recurringPaymentsService = inject(RecurringPaymentsService);
-  private cdr = inject(ChangeDetectorRef);
-  private destroy$ = new Subject<void>();
+  private readonly recurringPaymentsService = inject(RecurringPaymentsService);
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly destroy$ = new Subject<void>();
 
   @Input({ required: true }) payment!: RecurringPaymentDto;
   @Output() closed = new EventEmitter<void>();

@@ -393,14 +393,14 @@ const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
     `
 })
 export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
-  private recurringPaymentsService = inject(RecurringPaymentsService);
-  private categoriesService = inject(CategoriesService);
+  private readonly recurringPaymentsService = inject(RecurringPaymentsService);
+  private readonly categoriesService = inject(CategoriesService);
   private readonly additionalRuleGroupsService = inject(AdditionalRuleGroupsService);
-  private route = inject(ActivatedRoute);
-  private router = inject(Router);
-  private cdr = inject(ChangeDetectorRef);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly cdr = inject(ChangeDetectorRef);
 
-  private destroy$ = new Subject<void>();
+  private readonly destroy$ = new Subject<void>();
   private dataLoaded = false;
   payments: RecurringPaymentDto[] = [];
   filteredPayments: RecurringPaymentDto[] = [];

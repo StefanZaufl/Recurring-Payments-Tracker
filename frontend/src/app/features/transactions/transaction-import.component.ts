@@ -213,9 +213,9 @@ interface FieldOption {
   `
 })
 export class TransactionImportComponent {
-  private transactionsService = inject(TransactionsService);
-  private parser = inject(TransactionImportParserService);
-  private cdr = inject(ChangeDetectorRef);
+  private readonly transactionsService = inject(TransactionsService);
+  private readonly parser = inject(TransactionImportParserService);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   readonly fieldOptions: FieldOption[] = [
     { value: 'ignore', label: 'Ignore column' },

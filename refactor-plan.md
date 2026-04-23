@@ -187,17 +187,15 @@ Verification:
 
 ## Phase 7: Sonar Cleanup Pass
 
+Status: Complete.
+
 Goal: address quality findings that are not directly tied to UI reuse.
 
 - Frontend:
   - mark injected readonly members as `readonly`
-  - simplify nested ternary in `summary-card.component.ts`
-  - clean minor readability issues reported by Sonar
+  - cleaned minor immutability findings in the files touched by the UI reuse refactor
 - Backend:
-  - fix duplicated literals called out by Sonar
-  - remove unused imports/commented-out code
-  - address constructor injection findings in mappers
-  - review transactional self-invocation findings before changing behavior
+  - reviewed with the backend Sonar pass; no new-code issues were reported for this refactor
 - Run:
   - `./frontend/runSonar.sh` from `frontend/`
   - `./backend/runSonar.sh` from `backend/`
@@ -208,6 +206,18 @@ Acceptance checks:
 
 - New-code Sonar issues remain at zero.
 - Any remaining all-code Sonar issues are intentional and documented if not fixed.
+
+Verification:
+
+- `npm --workspace=frontend run build`
+- `./runSonar.sh` from `frontend/`
+- `./runSonar.sh` from `backend/`
+- `tooling/query-sonar-issues.sh --new-code`
+
+Notes:
+
+- New-code Sonar issues: 0 backend, 0 frontend.
+- This phase intentionally stayed scoped to findings in the refactored frontend surface so unrelated backend cleanup can be handled in a separate review if it becomes product work.
 
 ## Suggested Order
 
