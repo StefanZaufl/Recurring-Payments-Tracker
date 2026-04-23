@@ -13,6 +13,7 @@ import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 import { PaymentCategoryDialogComponent } from './payment-category-dialog.component';
 import { PaymentTransactionsModalComponent } from './payment-transactions-modal.component';
 import { PaymentRulesModalComponent } from './payment-rules-modal.component';
+import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import { parseBooleanParam, parseEnumParam } from '../../shared/query-param-utils';
 import { Subject, forkJoin, takeUntil } from 'rxjs';
 
@@ -33,7 +34,7 @@ const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
 @Component({
   selector: 'app-recurring-payments-list',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RouterLink, LoadingSpinnerComponent, ErrorStateComponent, FrequencyBadgeComponent, CurrencyFormatPipe, PaymentCategoryDialogComponent, PaymentTransactionsModalComponent, PaymentRulesModalComponent],
+  imports: [CommonModule, FormsModule, RouterLink, LoadingSpinnerComponent, ErrorStateComponent, FrequencyBadgeComponent, CurrencyFormatPipe, ConfirmDialogComponent, PaymentCategoryDialogComponent, PaymentTransactionsModalComponent, PaymentRulesModalComponent],
   template: `
     <div class="animate-fade-in">
       <!-- Header -->
@@ -353,39 +354,23 @@ const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
 
       <!-- Delete confirmation dialog -->
       @if (deletePayment) {
-        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          role="button" tabindex="0" aria-label="Close dialog"
-          (click)="deletePayment = null" (keydown.enter)="deletePayment = null" (keydown.escape)="deletePayment = null">
-          <div class="glass-card p-6 max-w-sm w-full" role="dialog" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">
-            <h3 class="text-base font-semibold text-white mb-2">Delete Payment</h3>
-            <p class="text-sm text-muted mb-4">Are you sure you want to delete <strong class="text-white">{{ deletePayment.name }}</strong>? This will unlink all associated transactions.</p>
-            <div class="flex gap-3 justify-end">
-              <button (click)="deletePayment = null" class="text-sm text-muted hover:text-white transition-colors px-3 py-1.5">Cancel</button>
-              <button (click)="executeDelete()" class="text-sm bg-coral/20 text-coral hover:bg-coral/30 transition-colors px-3 py-1.5 rounded-lg">Delete</button>
-            </div>
-          </div>
-        </div>
+        <app-confirm-dialog
+          title="Delete Payment"
+          confirmLabel="Delete"
+          (confirmed)="executeDelete()"
+          (cancelled)="deletePayment = null">
+          Are you sure you want to delete <strong class="text-white">{{ deletePayment.name }}</strong>? This will unlink all associated transactions.
+        </app-confirm-dialog>
       }
 
       @if (deleteAdditionalGroup) {
-        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          role="button" tabindex="0" aria-label="Close additional rule group deletion"
-          (click)="deleteAdditionalGroup = null" (keydown.enter)="deleteAdditionalGroup = null" (keydown.escape)="deleteAdditionalGroup = null">
-          <div class="glass-card p-6 max-w-sm w-full" role="dialog" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">
-            <h3 class="text-base font-semibold text-white mb-2">Delete Additional Rule Group</h3>
-            <p class="text-sm text-muted mb-4">
-              This will delete <strong class="text-white">{{ deleteAdditionalGroup.name }}</strong> and recalculate recurring payments. Transactions excluded only by this group may become eligible again.
-            </p>
-            <div class="flex gap-3 justify-end">
-              <button type="button" (click)="deleteAdditionalGroup = null" class="text-sm text-muted hover:text-white transition-colors px-3 py-1.5">
-                Cancel
-              </button>
-              <button type="button" (click)="executeDeleteAdditionalGroup()" class="text-sm bg-coral/20 text-coral hover:bg-coral/30 transition-colors px-3 py-1.5 rounded-lg">
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
+        <app-confirm-dialog
+          title="Delete Additional Rule Group"
+          confirmLabel="Delete"
+          (confirmed)="executeDeleteAdditionalGroup()"
+          (cancelled)="deleteAdditionalGroup = null">
+          This will delete <strong class="text-white">{{ deleteAdditionalGroup.name }}</strong> and recalculate recurring payments. Transactions excluded only by this group may become eligible again.
+        </app-confirm-dialog>
       }
 
       <!-- Category dialog -->

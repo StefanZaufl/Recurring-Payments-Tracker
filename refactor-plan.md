@@ -37,26 +37,33 @@ Notes:
 
 ## Phase 2: Confirmation Dialog Reuse
 
+Status: Complete.
+
 Goal: stop hand-rolling modal overlays for destructive confirmations.
 
-- Add a shared `ConfirmDialogComponent` built on `ModalComponent`.
-- Support:
+- Added a shared `ConfirmDialogComponent` built on `ModalComponent`.
+- Supports:
   - title
   - body content via projection
   - confirm/cancel labels
   - destructive confirm styling
   - disabled/loading confirm state
-- Replace inline delete dialogs in:
+- Replaced inline delete dialogs in:
   - `recurring-payments-list.component.ts`
   - `additional-rule-group-editor.component.ts`
   - `configure.component.ts`
-- Ensure escape/overlay close behavior is consistent through `ModalComponent`.
+- Added escape close handling to `ModalComponent` so confirmation dialogs share the same shell behavior.
 
 Acceptance checks:
 
 - Delete payment, delete additional rule group, and configure confirmation flows still work.
 - Repeated overlay markup is removed from feature components.
 - Dialog behavior is covered by shared component tests plus one feature integration test per usage style.
+
+Verification:
+
+- `npm --workspace=frontend test -- --runTestsByPath src/app/shared/confirm-dialog.component.spec.ts src/app/features/configure/configure.component.spec.ts src/app/features/recurring-payments/recurring-payments-list.component.spec.ts --watch=false`
+- `npm --workspace=frontend run build`
 
 ## Phase 3: Empty And Loading State Reuse
 

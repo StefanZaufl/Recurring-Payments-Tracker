@@ -2,13 +2,14 @@ import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ViewChild, injec
 import { RecurringPaymentsService } from '../../api/generated';
 import { RecalculationSummaryResponse } from '../../api/generated/model/recalculationSummaryResponse';
 import { ConfigureBankAccountsSectionComponent } from './configure-bank-accounts-section.component';
+import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 
 import { ConfigureCategoriesSectionComponent } from './configure-categories-section.component';
 
 @Component({
   selector: 'app-configure',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ConfigureCategoriesSectionComponent, ConfigureBankAccountsSectionComponent],
+  imports: [ConfigureCategoriesSectionComponent, ConfigureBankAccountsSectionComponent, ConfirmDialogComponent],
   template: `
     <div class="animate-fade-in min-w-0 overflow-hidden">
       <div class="mb-6 sm:mb-8">
@@ -107,27 +108,15 @@ import { ConfigureCategoriesSectionComponent } from './configure-categories-sect
       </div>
 
       @if (showConfirmation) {
-        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          role="button" tabindex="0" aria-label="Close recalculation confirmation"
-          (click)="closeConfirmation()" (keydown.enter)="closeConfirmation()" (keydown.escape)="closeConfirmation()">
-          <div class="glass-card p-6 max-w-sm w-full" role="dialog" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">
-            <h3 class="text-base font-semibold text-white mb-2">Recalculate Recurring Payments</h3>
-            <p class="text-sm text-muted mb-4">
-              This will recalculate inter-account transfers and recurring payments for all your transactions. Recurring payments without matching transactions will be removed.
-            </p>
-            <div class="flex gap-3 justify-end">
-              <button type="button" (click)="closeConfirmation()" class="text-sm text-muted hover:text-white transition-colors px-3 py-1.5">
-                Cancel
-              </button>
-              <button type="button"
-                (click)="runRecalculation()"
-                [disabled]="recalculationBusy"
-                class="text-sm bg-coral/20 text-coral hover:bg-coral/30 transition-colors px-3 py-1.5 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed">
-                Confirm
-              </button>
-            </div>
-          </div>
-        </div>
+        <app-confirm-dialog
+          title="Recalculate Recurring Payments"
+          confirmLabel="Confirm"
+          busyLabel="Recalculating..."
+          [busy]="recalculationBusy"
+          (confirmed)="runRecalculation()"
+          (cancelled)="closeConfirmation()">
+          This will recalculate inter-account transfers and recurring payments for all your transactions. Recurring payments without matching transactions will be removed.
+        </app-confirm-dialog>
       }
     </div>
   `

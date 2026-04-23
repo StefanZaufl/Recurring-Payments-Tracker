@@ -10,7 +10,8 @@ import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from 
       tabindex="0"
       [attr.aria-label]="'Close ' + title"
       (click)="closeModal.emit()"
-      (keydown.enter)="closeModal.emit()">
+      (keydown.enter)="closeModal.emit()"
+      (keydown.escape)="closeModal.emit()">
       <div
         class="glass-card w-full p-0 animate-slide-up border-subtle flex flex-col"
         [class.max-w-sm]="size === 'sm'"

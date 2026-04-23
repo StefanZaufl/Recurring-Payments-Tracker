@@ -16,12 +16,13 @@ import { RecalculationSummaryResponse } from '../../api/generated/model/recalcul
 import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 import { formatLocalDate } from '../../shared/date-range-presets';
 import { TooltipComponent } from '../../shared/tooltip.component';
+import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import { LocalRule, RuleEditorComponent } from './rule-editor.component';
 
 @Component({
   selector: 'app-additional-rule-group-editor',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RouterLink, CurrencyFormatPipe, TooltipComponent, RuleEditorComponent],
+  imports: [CommonModule, FormsModule, RouterLink, CurrencyFormatPipe, TooltipComponent, ConfirmDialogComponent, RuleEditorComponent],
   template: `
     <div class="animate-fade-in">
       <div class="flex items-center gap-4 mb-6">
@@ -176,27 +177,15 @@ import { LocalRule, RuleEditorComponent } from './rule-editor.component';
       }
 
       @if (showDeleteConfirmation) {
-        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          role="button" tabindex="0" aria-label="Close additional rule group deletion"
-          (click)="closeDeleteConfirmation()" (keydown.enter)="closeDeleteConfirmation()" (keydown.escape)="closeDeleteConfirmation()">
-          <div class="glass-card p-6 max-w-sm w-full" role="dialog" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">
-            <h3 class="text-base font-semibold text-white mb-2">Delete Additional Rule Group</h3>
-            <p class="text-sm text-muted mb-4">
-              This will delete <strong class="text-white">{{ groupName }}</strong> and recalculate recurring payments. Transactions excluded only by this group may become eligible again.
-            </p>
-            <div class="flex gap-3 justify-end">
-              <button type="button" (click)="closeDeleteConfirmation()" class="text-sm text-muted hover:text-white transition-colors px-3 py-1.5">
-                Cancel
-              </button>
-              <button type="button"
-                (click)="executeDelete()"
-                [disabled]="deleting"
-                class="text-sm bg-coral/20 text-coral hover:bg-coral/30 transition-colors px-3 py-1.5 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed">
-                {{ deleting ? 'Deleting...' : 'Delete' }}
-              </button>
-            </div>
-          </div>
-        </div>
+        <app-confirm-dialog
+          title="Delete Additional Rule Group"
+          confirmLabel="Delete"
+          busyLabel="Deleting..."
+          [busy]="deleting"
+          (confirmed)="executeDelete()"
+          (cancelled)="closeDeleteConfirmation()">
+          This will delete <strong class="text-white">{{ groupName }}</strong> and recalculate recurring payments. Transactions excluded only by this group may become eligible again.
+        </app-confirm-dialog>
       }
     </div>
   `
