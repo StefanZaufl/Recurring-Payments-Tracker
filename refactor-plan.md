@@ -130,22 +130,25 @@ Verification:
 
 ## Phase 5: Transaction Import Decomposition
 
+Status: Complete.
+
 Goal: reduce `TransactionImportComponent` complexity and isolate CSV concerns from UI concerns.
 
-- Extract CSV parsing and charset detection into a service or pure utility module:
+- Extracted CSV parsing and charset detection into `TransactionImportParserService`:
   - byte decoding
   - charset scoring
   - CSV parsing
   - preview construction
   - header mapping suggestions
   - mapping deduplication
-- Replace the invalid UTF-8 / mojibake regex at `transaction-import.component.ts:472` with a UTF-8-safe expression.
-- Split UI into smaller components if still needed after service extraction:
+- Replaced the invalid UTF-8 / mojibake regex with a UTF-8-safe character class.
+- Kept the UI in `TransactionImportComponent` for now because service extraction removed the highest-risk complexity without changing the workflow template.
+- Split UI into smaller components if still needed after future review:
   - file selection/status panel
   - charset selector
   - column mapping preview table
   - import result/error panel
-- Keep upload orchestration in `TransactionImportComponent`.
+- Kept upload orchestration in `TransactionImportComponent`.
 
 Acceptance checks:
 
@@ -153,6 +156,11 @@ Acceptance checks:
 - Add focused unit coverage for parser and charset detection edge cases.
 - Sonar critical complexity finding for `parseCsv` is resolved or reduced below threshold.
 - Sonar no longer warns about invalid UTF-8 content.
+
+Verification:
+
+- `npm --workspace=frontend test -- --runTestsByPath src/app/features/transactions/transaction-import-parser.service.spec.ts src/app/features/transactions/transaction-import.component.spec.ts --watch=false`
+- `npm --workspace=frontend run build`
 
 ## Phase 6: Shared Form Controls And Badges
 
