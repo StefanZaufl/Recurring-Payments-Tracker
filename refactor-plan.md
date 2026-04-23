@@ -94,12 +94,14 @@ Verification:
 
 ## Phase 4: Transaction Match Preview Component
 
+Status: Complete.
+
 Goal: consolidate duplicated transaction preview/list behavior used by rule-building flows.
 
-- Create a reusable `TransactionMatchPreviewComponent` for the transaction list panel used by:
+- Created a reusable `TransactionMatchPreviewComponent` for the transaction list panel used by:
   - `CreatePaymentComponent`
   - `AdditionalRuleGroupEditorComponent`
-- Inputs should cover:
+- Inputs cover:
   - transactions to display
   - total transaction count
   - current page and total pages
@@ -109,17 +111,22 @@ Goal: consolidate duplicated transaction preview/list behavior used by rule-buil
   - match label text (`match`, `excluded`)
   - optional already-excluded group badges
   - optional linked-payment badges
-- Outputs should cover:
+- Outputs cover:
   - previous page
   - next page
   - matches-only toggle
-- Keep page-specific data loading and simulation orchestration in the current feature components.
+- Kept page-specific data loading and simulation orchestration in the current feature components.
 
 Acceptance checks:
 
 - Create-payment and additional-rule-group screens render the same transaction data as before.
 - Pagination and matches-only behavior stay unchanged.
 - Duplicate transaction row/pagination markup is removed from both parent components.
+
+Verification:
+
+- `npm --workspace=frontend test -- --runTestsByPath src/app/features/recurring-payments/transaction-match-preview.component.spec.ts src/app/features/recurring-payments/create-payment.component.spec.ts src/app/features/recurring-payments/recurring-payments-list.component.spec.ts --watch=false`
+- `npm --workspace=frontend run build`
 
 ## Phase 5: Transaction Import Decomposition
 

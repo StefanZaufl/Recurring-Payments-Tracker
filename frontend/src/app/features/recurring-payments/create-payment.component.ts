@@ -11,15 +11,15 @@ import { TargetField } from '../../api/generated/model/targetField';
 import { PaymentType } from '../../api/generated/model/paymentType';
 import { Frequency } from '../../api/generated/model/frequency';
 import { SimulationDraftType } from '../../api/generated/model/simulationDraftType';
-import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 import { formatLocalDate } from '../../shared/date-range-presets';
 import { Subject, takeUntil, debounceTime, switchMap } from 'rxjs';
 import { LocalRule, RuleEditorComponent } from './rule-editor.component';
+import { TransactionMatchPreviewComponent } from './transaction-match-preview.component';
 
 @Component({
   selector: 'app-create-payment',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RouterLink, CurrencyFormatPipe, RuleEditorComponent],
+  imports: [CommonModule, FormsModule, RouterLink, RuleEditorComponent, TransactionMatchPreviewComponent],
   template: `
     <div class="animate-fade-in">
       <!-- Header -->
@@ -41,103 +41,20 @@ import { LocalRule, RuleEditorComponent } from './rule-editor.component';
 
         <!-- Left: Transaction Preview (3/5) -->
         <div class="lg:col-span-3 space-y-4">
-          <div class="glass-card overflow-hidden">
-            <!-- Transaction header -->
-            <div class="px-5 py-4 border-b border-card-border flex items-center justify-between">
-              <div>
-                @if (simulationActive && rules.length > 0 && matchingIds.size > 0) {
-                  <h2 class="text-sm font-semibold text-white">
-                    Matching <span class="text-accent">{{ matchingIds.size }}</span> transaction{{ matchingIds.size === 1 ? '' : 's' }}
-                  </h2>
-                  <p class="text-[11px] text-muted mt-0.5">of {{ totalTransactions }} additional transactions from the last 2 years</p>
-                } @else if (simulationActive && rules.length > 0) {
-                  <h2 class="text-sm font-semibold text-white">No matches</h2>
-                  <p class="text-[11px] text-muted mt-0.5">Adjust your rules to match transactions</p>
-                } @else {
-                  <h2 class="text-sm font-semibold text-white">Additional Transactions</h2>
-                  <p class="text-[11px] text-muted mt-0.5">Showing transactions from the last 2 years</p>
-                }
-              </div>
-              <div class="flex items-center gap-2">
-                @if (simulating) {
-                  <div class="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin"></div>
-                }
-                @if (simulationActive && rules.length > 0) {
-                  <label class="flex items-center gap-2 text-[11px] text-muted cursor-pointer select-none">
-                    <div class="relative">
-                      <input type="checkbox" [(ngModel)]="showOnlyMatches"
-                        class="sr-only peer">
-                      <div class="w-7 h-[16px] bg-subtle rounded-full peer-checked:bg-accent/30 transition-colors"></div>
-                      <div class="absolute top-[2px] left-[2px] w-3 h-3 bg-muted rounded-full peer-checked:translate-x-3 peer-checked:bg-accent transition-all"></div>
-                    </div>
-                    Matches only
-                  </label>
-                }
-              </div>
-            </div>
-
-            <!-- Transaction list -->
-            @if (loadingTransactions || !additionalFiltersLoaded) {
-              <div class="flex flex-col items-center justify-center py-16 gap-3">
-                <div class="w-6 h-6 border-2 border-accent/30 border-t-accent rounded-full animate-spin"></div>
-                <span class="text-xs text-muted">Loading transactions...</span>
-              </div>
-            } @else {
-              <div class="divide-y divide-card-border">
-                @for (tx of displayedTransactions; track tx.id) {
-                  <div class="px-5 py-3 flex items-center gap-4 transition-colors"
-                    [class.border-l-2]="isMatch(tx.id)"
-                    [class.border-l-accent]="isMatch(tx.id)"
-                    [class.bg-accent/5]="isMatch(tx.id)">
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center gap-2">
-                        <span class="text-xs font-medium text-white truncate">{{ tx.partnerName || 'Unknown' }}</span>
-                        @if (isMatch(tx.id)) {
-                          <span class="badge bg-accent-dim text-accent text-[10px]">match</span>
-                        }
-                      </div>
-                      <div class="flex items-center gap-2 mt-0.5">
-                        <span class="text-[11px] text-muted">{{ tx.bookingDate }}</span>
-                        @if (tx.details) {
-                          <span class="text-[11px] text-muted/60 truncate max-w-[200px]">{{ tx.details }}</span>
-                        }
-                      </div>
-                    </div>
-                    <span class="font-mono text-xs font-medium shrink-0"
-                      [class.text-accent]="tx.amount >= 0"
-                      [class.text-coral]="tx.amount < 0">
-                      {{ tx.amount | appCurrency:true }}
-                    </span>
-                  </div>
-                } @empty {
-                  <div class="py-12 text-center">
-                    <p class="text-sm text-muted">No transactions to display.</p>
-                  </div>
-                }
-              </div>
-
-              <!-- Pagination -->
-              @if (totalPages > 1 && !(showOnlyMatches && simulationActive)) {
-                <div class="px-5 py-3 border-t border-card-border flex items-center justify-between">
-                  <span class="text-[11px] text-muted">Page {{ currentPage + 1 }} of {{ totalPages }}</span>
-                  <div class="flex items-center gap-1">
-                    <button (click)="goToPage(currentPage - 1)" [disabled]="currentPage === 0"
-                      class="w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-white hover:bg-subtle transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
-                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-                      </svg>
-                    </button>
-                    <button (click)="goToPage(currentPage + 1)" [disabled]="currentPage >= totalPages - 1"
-                      class="w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-white hover:bg-subtle transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
-                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              }
-            }
-          </div>
+          <app-transaction-match-preview
+            [title]="transactionPreviewTitle"
+            [subtitle]="transactionPreviewSubtitle"
+            [transactions]="displayedTransactions"
+            [matchingIds]="matchingIds"
+            [loading]="loadingTransactions || !additionalFiltersLoaded"
+            [simulating]="simulating"
+            [simulationActive]="simulationActive"
+            [(showOnlyMatches)]="showOnlyMatches"
+            [showMatchesToggle]="simulationActive && rules.length > 0"
+            matchLabel="match"
+            [currentPage]="currentPage"
+            [totalPages]="totalPages"
+            (pageChange)="goToPage($event)" />
         </div>
 
         <!-- Right: Payment Form (2/5) -->
@@ -298,6 +215,26 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
     return this.filterOmittedAdditional(this.allTransactions);
   }
 
+  get transactionPreviewTitle(): string {
+    if (this.simulationActive && this.rules.length > 0 && this.matchingIds.size > 0) {
+      return `Matching ${this.matchingIds.size} transaction${this.matchingIds.size === 1 ? '' : 's'}`;
+    }
+    if (this.simulationActive && this.rules.length > 0) {
+      return 'No matches';
+    }
+    return 'Additional Transactions';
+  }
+
+  get transactionPreviewSubtitle(): string {
+    if (this.simulationActive && this.rules.length > 0 && this.matchingIds.size > 0) {
+      return `of ${this.totalTransactions} additional transactions from the last 2 years`;
+    }
+    if (this.simulationActive && this.rules.length > 0) {
+      return 'Adjust your rules to match transactions';
+    }
+    return 'Showing transactions from the last 2 years';
+  }
+
   ngOnInit(): void {
     this.setupSimulationPipeline();
     this.loadTransactions(0);
@@ -367,10 +304,6 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
     if (page >= 0 && page < this.totalPages) {
       this.loadTransactions(page);
     }
-  }
-
-  isMatch(id: string): boolean {
-    return this.matchingIds.has(id);
   }
 
   private filterOmittedAdditional(transactions: TransactionDto[]): TransactionDto[] {

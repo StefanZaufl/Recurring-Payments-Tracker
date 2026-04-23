@@ -13,16 +13,15 @@ import { TargetField } from '../../api/generated/model/targetField';
 import { TransactionDto } from '../../api/generated/model/transactionDto';
 import { SimulationDraftType } from '../../api/generated/model/simulationDraftType';
 import { RecalculationSummaryResponse } from '../../api/generated/model/recalculationSummaryResponse';
-import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 import { formatLocalDate } from '../../shared/date-range-presets';
-import { TooltipComponent } from '../../shared/tooltip.component';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import { LocalRule, RuleEditorComponent } from './rule-editor.component';
+import { TransactionMatchPreviewComponent } from './transaction-match-preview.component';
 
 @Component({
   selector: 'app-additional-rule-group-editor',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RouterLink, CurrencyFormatPipe, TooltipComponent, ConfirmDialogComponent, RuleEditorComponent],
+  imports: [CommonModule, FormsModule, RouterLink, ConfirmDialogComponent, RuleEditorComponent, TransactionMatchPreviewComponent],
   template: `
     <div class="animate-fade-in">
       <div class="flex items-center gap-4 mb-6">
@@ -42,106 +41,23 @@ import { LocalRule, RuleEditorComponent } from './rule-editor.component';
         <div class="glass-card p-8 text-sm text-coral">{{ loadError }}</div>
       } @else {
         <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          <div class="lg:col-span-3 glass-card overflow-hidden">
-            <div class="px-5 py-4 border-b border-card-border flex items-center justify-between gap-4">
-              <div>
-                @if (simulationActive) {
-                  <h2 class="text-sm font-semibold text-white">
-                    <span class="text-accent">{{ totalMatchCount }}</span> total matches
-                  </h2>
-                  <p class="text-[11px] text-muted mt-0.5">{{ uniqueExclusionCount }} unique exclusions of {{ totalTransactions }} non-inter-account transactions</p>
-                } @else {
-                  <h2 class="text-sm font-semibold text-white">Transactions</h2>
-                  <p class="text-[11px] text-muted mt-0.5">Showing non-inter-account transactions from the last 2 years</p>
-                }
-                @if (simulationError) {
-                  <p class="text-[11px] text-coral mt-1">{{ simulationError }}</p>
-                }
-              </div>
-              <div class="flex items-center gap-3">
-                @if (simulating) {
-                  <div class="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin"></div>
-                }
-                @if (simulationActive) {
-                  <label class="flex items-center gap-2 text-[11px] text-muted cursor-pointer select-none">
-                    <div class="relative">
-                      <input type="checkbox" [(ngModel)]="showOnlyMatches" class="sr-only peer">
-                      <div class="w-7 h-[16px] bg-subtle rounded-full peer-checked:bg-accent/30 transition-colors"></div>
-                      <div class="absolute top-[2px] left-[2px] w-3 h-3 bg-muted rounded-full peer-checked:translate-x-3 peer-checked:bg-accent transition-all"></div>
-                    </div>
-                    Matches only
-                  </label>
-                }
-              </div>
-            </div>
-            @if (loadingTransactions) {
-              <div class="py-16 text-center text-xs text-muted">Loading transactions...</div>
-            } @else {
-              <div class="divide-y divide-card-border">
-                @for (tx of displayedTransactions; track tx.id) {
-                  <div class="px-5 py-3 flex items-center gap-4 transition-colors"
-                    [class.border-l-2]="isCurrentMatch(tx.id)"
-                    [class.border-l-accent]="isCurrentMatch(tx.id)"
-                    [class.bg-accent]="false"
-                    [class.bg-accent/5]="isCurrentMatch(tx.id)">
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center gap-2 flex-wrap">
-                        <span class="text-xs font-medium text-white truncate">{{ tx.partnerName || 'Unknown' }}</span>
-                        @if (isCurrentMatch(tx.id)) {
-                          <span class="badge bg-accent-dim text-accent text-[10px]">excluded</span>
-                        }
-                        @if (otherGroupNames(tx.id).length > 0) {
-                          <span class="badge bg-amber-dim text-amber text-[10px]">already excluded</span>
-                          @for (name of visibleNames(otherGroupNames(tx.id)); track name) {
-                            <span class="badge bg-subtle text-muted text-[10px]">{{ name }}</span>
-                          }
-                          @if (hiddenNames(otherGroupNames(tx.id)).length > 0) {
-                            <app-tooltip>
-                              <span tooltip-trigger class="badge bg-subtle text-muted text-[10px]">+{{ hiddenNames(otherGroupNames(tx.id)).length }} more</span>
-                              <div class="space-y-1">
-                                @for (name of hiddenNames(otherGroupNames(tx.id)); track name) {
-                                  <div>{{ name }}</div>
-                                }
-                              </div>
-                            </app-tooltip>
-                          }
-                        }
-                        @if ((tx.linkedPaymentCount || 0) > 0) {
-                          <app-tooltip>
-                            <span tooltip-trigger class="badge bg-sky-dim text-sky text-[10px]">{{ linkBadge(tx) }}</span>
-                            <div class="space-y-1">
-                              @for (name of tx.linkedPaymentNames || []; track name) {
-                                <div>{{ name }}</div>
-                              }
-                            </div>
-                          </app-tooltip>
-                        }
-                      </div>
-                      <div class="flex items-center gap-2 mt-0.5">
-                        <span class="text-[11px] text-muted">{{ tx.bookingDate }}</span>
-                        @if (tx.details) {
-                          <span class="text-[11px] text-muted/60 truncate max-w-[260px]">{{ tx.details }}</span>
-                        }
-                      </div>
-                    </div>
-                    <span class="font-mono text-xs font-medium shrink-0" [class.text-accent]="tx.amount >= 0" [class.text-coral]="tx.amount < 0">
-                      {{ tx.amount | appCurrency:true }}
-                    </span>
-                  </div>
-                } @empty {
-                  <div class="py-12 text-center text-sm text-muted">No transactions to display.</div>
-                }
-              </div>
-              @if (totalPages > 1 && !(showOnlyMatches && simulationActive)) {
-                <div class="px-5 py-3 border-t border-card-border flex items-center justify-between">
-                  <span class="text-[11px] text-muted">Page {{ currentPage + 1 }} of {{ totalPages }}</span>
-                  <div class="flex gap-2">
-                    <button (click)="goToPage(currentPage - 1)" [disabled]="currentPage === 0" class="text-xs text-muted hover:text-white disabled:opacity-30">Previous</button>
-                    <button (click)="goToPage(currentPage + 1)" [disabled]="currentPage >= totalPages - 1" class="text-xs text-muted hover:text-white disabled:opacity-30">Next</button>
-                  </div>
-                </div>
-              }
-            }
+          <div class="lg:col-span-3">
+            <app-transaction-match-preview
+              [title]="transactionPreviewTitle"
+              [subtitle]="transactionPreviewSubtitle"
+              [error]="simulationError"
+              [transactions]="displayedTransactions"
+              [matchingIds]="matchingIds"
+              [otherGroupMatches]="otherGroupMatches"
+              [loading]="loadingTransactions"
+              [simulating]="simulating"
+              [simulationActive]="simulationActive"
+              [(showOnlyMatches)]="showOnlyMatches"
+              [showMatchesToggle]="simulationActive"
+              matchLabel="excluded"
+              [currentPage]="currentPage"
+              [totalPages]="totalPages"
+              (pageChange)="goToPage($event)" />
           </div>
 
           <div class="lg:col-span-2 space-y-6">
@@ -233,6 +149,16 @@ export class AdditionalRuleGroupEditorComponent implements OnInit, OnDestroy {
 
   get displayedTransactions(): TransactionDto[] {
     return this.showOnlyMatches && this.simulationActive ? this.matchingTransactions : this.allTransactions;
+  }
+
+  get transactionPreviewTitle(): string {
+    return this.simulationActive ? `${this.totalMatchCount} total matches` : 'Transactions';
+  }
+
+  get transactionPreviewSubtitle(): string {
+    return this.simulationActive
+      ? `${this.uniqueExclusionCount} unique exclusions of ${this.totalTransactions} non-inter-account transactions`
+      : 'Showing non-inter-account transactions from the last 2 years';
   }
 
   ngOnInit(): void {
@@ -437,27 +363,6 @@ export class AdditionalRuleGroupEditorComponent implements OnInit, OnDestroy {
   onRulesChange(rules: LocalRule[]): void {
     this.rules = rules;
     this.rulesChanged$.next();
-  }
-
-  isCurrentMatch(id: string): boolean {
-    return this.matchingIds.has(id);
-  }
-
-  otherGroupNames(id: string): string[] {
-    return this.otherGroupMatches.get(id) || [];
-  }
-
-  visibleNames(names: string[]): string[] {
-    return names.slice(0, 3);
-  }
-
-  hiddenNames(names: string[]): string[] {
-    return names.slice(3);
-  }
-
-  linkBadge(tx: TransactionDto): string {
-    const count = tx.linkedPaymentCount || 0;
-    return count === 1 ? '1 Link' : `${count} Links`;
   }
 
   private fromRuleDto(rule: RuleDto): LocalRule {
