@@ -284,7 +284,7 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 730);
     this.transactionsService.getTransactions(
-      formatLocalDate(cutoff), undefined, undefined, undefined, 'ADDITIONAL', page, 20, 'bookingDate', 'desc'
+      formatLocalDate(cutoff), undefined, undefined, undefined, 'ADDITIONAL', undefined, page, 20, 'bookingDate', 'desc'
     ).pipe(takeUntil(this.destroy$)).subscribe({
       next: (result) => {
         this.allTransactions = result.content || [];

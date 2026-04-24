@@ -8,6 +8,7 @@ import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,24 +37,48 @@ public final class TransactionPredicates {
         if (filter.account() != null && !filter.account().isBlank()) {
             predicates.add(cb.equal(root.get("account"), IbanNormalizationService.normalize(filter.account())));
         }
-        if (filter.transactionType() == TransactionTypeFilter.NON_INTER_ACCOUNT
-                || filter.transactionType() == TransactionTypeFilter.REGULAR
-                || filter.transactionType() == TransactionTypeFilter.ADDITIONAL) {
-            predicates.add(cb.isFalse(root.get("isInterAccount")));
-        }
-        if (filter.transactionType() == TransactionTypeFilter.REGULAR || filter.transactionType() == TransactionTypeFilter.ADDITIONAL) {
-            if (query == null) {
-                throw new IllegalStateException("Transaction type filtering requires a criteria query");
-            }
-
-            var subquery = query.subquery(java.util.UUID.class);
-            var linkRoot = subquery.from(TransactionRecurringLink.class);
-            subquery.select(linkRoot.get("transaction").get("id"));
-            subquery.where(cb.equal(linkRoot.get("transaction").get("id"), root.get("id")));
-
-            predicates.add(filter.transactionType() == TransactionTypeFilter.REGULAR ? cb.exists(subquery) : cb.not(cb.exists(subquery)));
-        }
+        addTransactionTypePredicates(filter, root, query, cb, predicates);
+        addTransactionSignPredicate(filter, root, cb, predicates);
 
         return predicates;
+    }
+
+    private static void addTransactionTypePredicates(TransactionFilter filter, Root<Transaction> root, CriteriaQuery<?> query,
+                                                     CriteriaBuilder cb, List<Predicate> predicates) {
+        if (requiresNonInterAccount(filter.transactionType())) {
+            predicates.add(cb.isFalse(root.get("isInterAccount")));
+        }
+        if (!requiresLinkPredicate(filter.transactionType())) {
+            return;
+        }
+        if (query == null) {
+            throw new IllegalStateException("Transaction type filtering requires a criteria query");
+        }
+
+        var subquery = query.subquery(java.util.UUID.class);
+        var linkRoot = subquery.from(TransactionRecurringLink.class);
+        subquery.select(linkRoot.get("transaction").get("id"));
+        subquery.where(cb.equal(linkRoot.get("transaction").get("id"), root.get("id")));
+
+        predicates.add(filter.transactionType() == TransactionTypeFilter.REGULAR ? cb.exists(subquery) : cb.not(cb.exists(subquery)));
+    }
+
+    private static void addTransactionSignPredicate(TransactionFilter filter, Root<Transaction> root, CriteriaBuilder cb,
+                                                    List<Predicate> predicates) {
+        if (filter.transactionSign() == TransactionSignFilter.POSITIVE) {
+            predicates.add(cb.greaterThan(root.get("amount"), BigDecimal.ZERO));
+        } else if (filter.transactionSign() == TransactionSignFilter.NEGATIVE) {
+            predicates.add(cb.lessThan(root.get("amount"), BigDecimal.ZERO));
+        }
+    }
+
+    private static boolean requiresNonInterAccount(TransactionTypeFilter transactionType) {
+        return transactionType == TransactionTypeFilter.NON_INTER_ACCOUNT
+                || transactionType == TransactionTypeFilter.REGULAR
+                || transactionType == TransactionTypeFilter.ADDITIONAL;
+    }
+
+    private static boolean requiresLinkPredicate(TransactionTypeFilter transactionType) {
+        return transactionType == TransactionTypeFilter.REGULAR || transactionType == TransactionTypeFilter.ADDITIONAL;
     }
 }

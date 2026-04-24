@@ -10,6 +10,7 @@
 
 
 export interface CategoryBreakdown { 
+    categoryId?: string;
     category: string;
     total: number;
     percentage: number;

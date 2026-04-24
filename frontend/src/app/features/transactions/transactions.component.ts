@@ -19,6 +19,7 @@ import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 type SortField = 'bookingDate' | 'partnerName' | 'amount';
 type SortDir = 'asc' | 'desc';
 type TransactionType = 'ALL' | 'NON_INTER_ACCOUNT' | 'REGULAR' | 'ADDITIONAL';
+type TransactionSign = 'ALL' | 'POSITIVE' | 'NEGATIVE';
 
 interface TransactionsUrlState {
   from: string | null;
@@ -26,12 +27,14 @@ interface TransactionsUrlState {
   searchText: string;
   accountFilter: string;
   transactionType: TransactionType;
+  transactionSign: TransactionSign;
   sortField: SortField;
   sortDir: SortDir;
   page: number;
 }
 
 const TRANSACTION_TYPES: readonly TransactionType[] = ['ALL', 'NON_INTER_ACCOUNT', 'REGULAR', 'ADDITIONAL'];
+const TRANSACTION_SIGNS: readonly TransactionSign[] = ['ALL', 'POSITIVE', 'NEGATIVE'];
 const SORT_FIELDS: readonly SortField[] = ['bookingDate', 'partnerName', 'amount'];
 const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
 
@@ -114,6 +117,14 @@ const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
             <option value="NON_INTER_ACCOUNT">Non-inter-account transactions</option>
             <option value="REGULAR">Regular transactions</option>
             <option value="ADDITIONAL">Additional transactions</option>
+          </select>
+
+          <select [ngModel]="transactionSign"
+            (ngModelChange)="onTransactionSignChange($event)"
+            class="text-xs bg-card border border-card-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-subtle shrink-0 min-w-0 sm:min-w-[160px]">
+            <option value="ALL">All signs</option>
+            <option value="POSITIVE">Income only</option>
+            <option value="NEGATIVE">Expenses only</option>
           </select>
 
             <!-- Sort -->
@@ -314,6 +325,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   searchText = '';
   accountFilter = '';
   transactionType: TransactionType = 'ALL';
+  transactionSign: TransactionSign = 'ALL';
   sortField: SortField = 'bookingDate';
   sortDir: SortDir = 'desc';
 
@@ -382,6 +394,12 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     this.syncUrlWithState();
   }
 
+  onTransactionSignChange(transactionSign: TransactionSign): void {
+    this.transactionSign = transactionSign;
+    this.page = 0;
+    this.syncUrlWithState();
+  }
+
   toggleSortDirection(): void {
     this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
     this.page = 0;
@@ -405,6 +423,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
       this.searchText || undefined,
       this.accountFilter || undefined,
       this.transactionType,
+      this.transactionSign,
       this.page,
       this.pageSize,
       this.sortField,
@@ -467,6 +486,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
       searchText: queryParamMap.get('search') ?? '',
       accountFilter: queryParamMap.get('account') ?? '',
       transactionType: parseEnumParam(queryParamMap.get('type'), TRANSACTION_TYPES) ?? 'ALL',
+      transactionSign: parseEnumParam(queryParamMap.get('sign'), TRANSACTION_SIGNS) ?? 'ALL',
       sortField: parseEnumParam(queryParamMap.get('sort'), SORT_FIELDS) ?? 'bookingDate',
       sortDir: parseEnumParam(queryParamMap.get('dir'), SORT_DIRS) ?? 'desc',
       page: parseNonNegativeIntParam(queryParamMap.get('page')) ?? 0,
@@ -479,6 +499,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     this.searchText = state.searchText;
     this.accountFilter = state.accountFilter;
     this.transactionType = state.transactionType;
+    this.transactionSign = state.transactionSign;
     this.sortField = state.sortField;
     this.sortDir = state.sortDir;
     this.page = state.page;
@@ -501,6 +522,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
       search: this.searchText || null,
       account: this.accountFilter || null,
       type: this.transactionType !== 'ALL' ? this.transactionType : null,
+      sign: this.transactionSign === 'ALL' ? null : this.transactionSign,
       sort: this.sortField !== 'bookingDate' ? this.sortField : null,
       dir: this.sortDir !== 'desc' ? this.sortDir : null,
       page: this.page > 0 ? this.page : null,

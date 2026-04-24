@@ -144,6 +144,7 @@ class TransactionServiceTest {
                 "Gym",
                 "de11 1",
                 "ALL",
+                "ALL",
                 1,
                 10,
                 "partnerName",
@@ -158,7 +159,7 @@ class TransactionServiceTest {
                 .thenReturn(page);
 
         TransactionService.TransactionQueryResult result =
-                service.getTransactions(null, null, null, null, "ALL", 0, 5, "unknown", "sideways");
+                service.getTransactions(null, null, null, null, "ALL", "ALL", 0, 5, "unknown", "sideways");
 
         assertThat(result.page()).isSameAs(page);
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
@@ -172,7 +173,7 @@ class TransactionServiceTest {
         when(transactionRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class)))
                 .thenReturn(page);
 
-        assertThat(service.getTransactions(null, null, null, null, "REGULAR", 0, 20, null, null).page())
+        assertThat(service.getTransactions(null, null, null, null, "REGULAR", "ALL", 0, 20, null, null).page())
                 .isSameAs(page);
 
         verify(transactionRepository).findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class));
@@ -184,7 +185,7 @@ class TransactionServiceTest {
         when(transactionRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class)))
                 .thenReturn(page);
 
-        assertThat(service.getTransactions(null, null, null, null, "ADDITIONAL", 0, 20, null, null).page())
+        assertThat(service.getTransactions(null, null, null, null, "ADDITIONAL", "ALL", 0, 20, null, null).page())
                 .isSameAs(page);
 
         verify(transactionRepository).findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class));
@@ -192,7 +193,7 @@ class TransactionServiceTest {
 
     @Test
     void getTransactions_rejectsUnknownTransactionType() {
-        assertThatThrownBy(() -> service.getTransactions(null, null, null, null, "MYSTERY", 0, 20, null, null))
+        assertThatThrownBy(() -> service.getTransactions(null, null, null, null, "MYSTERY", "ALL", 0, 20, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
 
         verify(transactionRepository, never()).findAll(any(Specification.class), any(Pageable.class));
@@ -254,7 +255,7 @@ class TransactionServiceTest {
         when(transactionRepository.sumAmounts(any())).thenReturn(new BigDecimal("-22.99"));
 
         TransactionService.TransactionQueryResult result =
-                service.getTransactions(null, null, null, null, "ALL", 0, 20, null, null);
+                service.getTransactions(null, null, null, null, "ALL", "ALL", 0, 20, null, null);
 
         assertThat(result.page()).isSameAs(page);
         assertThat(result.filteredSum()).isEqualByComparingTo("-22.99");

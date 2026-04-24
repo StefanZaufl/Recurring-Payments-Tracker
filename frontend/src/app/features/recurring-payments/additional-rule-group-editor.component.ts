@@ -263,7 +263,7 @@ export class AdditionalRuleGroupEditorComponent implements OnInit, OnDestroy {
     this.currentPage = page;
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 730);
-    this.transactionsService.getTransactions(formatLocalDate(cutoff), undefined, undefined, undefined, 'NON_INTER_ACCOUNT', page, 20, 'bookingDate', 'desc')
+    this.transactionsService.getTransactions(formatLocalDate(cutoff), undefined, undefined, undefined, 'NON_INTER_ACCOUNT', undefined, page, 20, 'bookingDate', 'desc')
       .pipe(takeUntil(this.destroy$)).subscribe({
         next: result => {
           this.allTransactions = result.content || [];

@@ -25,6 +25,7 @@ type RecurringTab = 'RECURRING' | 'GROUPED' | 'ADDITIONAL';
 interface RecurringPaymentsUrlState {
   showInactive: boolean;
   filterFrequency: string;
+  filterCategory: string;
   sortBy: RecurringSortBy;
   selectedTab: RecurringTab;
 }
@@ -32,6 +33,7 @@ interface RecurringPaymentsUrlState {
 const RECURRING_SORT_OPTIONS: readonly RecurringSortBy[] = ['amount', 'name'];
 const RECURRING_TAB_OPTIONS: readonly RecurringTab[] = ['RECURRING', 'GROUPED', 'ADDITIONAL'];
 const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
+const UNCATEGORIZED_CATEGORY = 'UNCATEGORIZED';
 
 @Component({
   selector: 'app-recurring-payments-list',
@@ -63,6 +65,14 @@ const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
             <option value="MONTHLY">Monthly</option>
             <option value="QUARTERLY">Quarterly</option>
             <option value="YEARLY">Yearly</option>
+          </select>
+          <select [(ngModel)]="filterCategory" (ngModelChange)="onCategoryFilterChange($event)"
+            class="text-xs bg-card border border-card-border rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-subtle">
+            <option value="">All categories</option>
+            <option [value]="UNCATEGORIZED_CATEGORY">Uncategorized</option>
+            @for (category of categories; track category.id) {
+              <option [value]="category.id">{{ category.name }}</option>
+            }
           </select>
           <select [(ngModel)]="sortBy" (ngModelChange)="onSortByChange($event)"
             class="text-xs bg-card border border-card-border rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-subtle">
@@ -399,9 +409,11 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly cdr = inject(ChangeDetectorRef);
+  protected readonly UNCATEGORIZED_CATEGORY = UNCATEGORIZED_CATEGORY;
 
   private readonly destroy$ = new Subject<void>();
   private dataLoaded = false;
+  private loadedPaymentCategoryFilter = '';
   payments: RecurringPaymentDto[] = [];
   filteredPayments: RecurringPaymentDto[] = [];
   additionalGroups: AdditionalRuleGroupDto[] = [];
@@ -410,6 +422,7 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
   error: string | null = null;
   showInactive = false;
   filterFrequency = '';
+  filterCategory = '';
   sortBy: RecurringSortBy = 'amount';
   selectedTab: RecurringTab = 'RECURRING';
   recurringCount = 0;
@@ -431,6 +444,11 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
         return;
       }
 
+      if (this.loadedPaymentCategoryFilter !== this.filterCategory) {
+        this.loadData();
+        return;
+      }
+
       this.applyFilter();
       this.cdr.markForCheck();
     });
@@ -445,6 +463,8 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
     const activeFilter = this.payments.filter(p => {
       if (!this.showInactive && !p.isActive) return false;
       if (this.filterFrequency && p.frequency !== this.filterFrequency) return false;
+      if (this.filterCategory === UNCATEGORIZED_CATEGORY && p.categoryId) return false;
+      if (this.filterCategory && this.filterCategory !== UNCATEGORIZED_CATEGORY && p.categoryId !== this.filterCategory) return false;
       return true;
     });
 
@@ -469,6 +489,11 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
 
   onFrequencyChange(frequency: string): void {
     this.filterFrequency = frequency;
+    this.syncUrlWithState();
+  }
+
+  onCategoryFilterChange(category: string): void {
+    this.filterCategory = category;
     this.syncUrlWithState();
   }
 
@@ -609,7 +634,7 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
     this.loading = true;
     this.error = null;
     forkJoin({
-      payments: this.recurringPaymentsService.getRecurringPayments(),
+      payments: this.recurringPaymentsService.getRecurringPayments(this.filterCategory || undefined),
       categories: this.categoriesService.getCategories(),
       additionalGroups: this.additionalRuleGroupsService.getAdditionalRuleGroups()
     }).pipe(takeUntil(this.destroy$)).subscribe({
@@ -618,6 +643,7 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
         this.categories = categories;
         this.additionalGroups = additionalGroups;
         this.dataLoaded = true;
+        this.loadedPaymentCategoryFilter = this.filterCategory;
         this.applyFilter();
         this.loading = false;
         this.cdr.markForCheck();
@@ -634,6 +660,7 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
     return {
       showInactive: parseBooleanParam(queryParamMap.get('showInactive')) ?? false,
       filterFrequency: parseEnumParam(queryParamMap.get('frequency'), FREQUENCY_OPTIONS) ?? '',
+      filterCategory: queryParamMap.get('category') ?? '',
       sortBy: parseEnumParam(queryParamMap.get('sort'), RECURRING_SORT_OPTIONS) ?? 'amount',
       selectedTab: parseEnumParam(queryParamMap.get('tab'), RECURRING_TAB_OPTIONS) ?? 'RECURRING',
     };
@@ -642,6 +669,7 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
   private applyUrlState(state: RecurringPaymentsUrlState): void {
     this.showInactive = state.showInactive;
     this.filterFrequency = state.filterFrequency;
+    this.filterCategory = state.filterCategory;
     this.sortBy = state.sortBy;
     this.selectedTab = state.selectedTab;
   }
@@ -657,6 +685,7 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
     return {
       showInactive: this.showInactive ? 'true' : null,
       frequency: this.filterFrequency || null,
+      category: this.filterCategory || null,
       sort: this.sortBy !== 'amount' ? this.sortBy : null,
       tab: this.selectedTab !== 'RECURRING' ? this.selectedTab : null,
     };

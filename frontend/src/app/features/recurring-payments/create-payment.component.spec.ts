@@ -65,7 +65,7 @@ describe('CreatePaymentComponent', () => {
   it('should load additional transactions from the last 2 years on init', () => {
     expect(component).toBeTruthy();
     expect(transactionsService.getTransactions).toHaveBeenCalledWith(
-      '2024-04-14', undefined, undefined, undefined, 'ADDITIONAL', 0, 20, 'bookingDate', 'desc'
+      '2024-04-14', undefined, undefined, undefined, 'ADDITIONAL', undefined, 0, 20, 'bookingDate', 'desc'
     );
   });
 

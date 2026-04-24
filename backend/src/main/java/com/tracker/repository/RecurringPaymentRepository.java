@@ -27,6 +27,12 @@ public interface RecurringPaymentRepository extends JpaRepository<RecurringPayme
     List<RecurringPayment> findByUserId(UUID userId);
 
     @EntityGraph(attributePaths = {"rules", "category"})
+    List<RecurringPayment> findByUserIdAndCategoryId(UUID userId, UUID categoryId);
+
+    @EntityGraph(attributePaths = {"rules", "category"})
+    List<RecurringPayment> findByUserIdAndCategoryIsNull(UUID userId);
+
+    @EntityGraph(attributePaths = {"rules", "category"})
     Optional<RecurringPayment> findByIdAndUserId(UUID id, UUID userId);
 
     @EntityGraph(attributePaths = {"rules", "category"})

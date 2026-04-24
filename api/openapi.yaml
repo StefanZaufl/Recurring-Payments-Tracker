@@ -83,6 +83,13 @@ paths:
             type: string
             default: ALL
             enum: [ALL, NON_INTER_ACCOUNT, REGULAR, ADDITIONAL]
+        - name: transactionSign
+          in: query
+          description: Filter transactions by amount sign
+          schema:
+            type: string
+            default: ALL
+            enum: [ALL, POSITIVE, NEGATIVE]
         - name: page
           in: query
           schema:
@@ -164,6 +171,12 @@ paths:
       operationId: getRecurringPayments
       summary: List all detected recurring payments
       tags: [RecurringPayments]
+      parameters:
+        - name: category
+          in: query
+          description: Filter recurring payments by category UUID or UNCATEGORIZED
+          schema:
+            type: string
       responses:
         '200':
           description: List of recurring payments
@@ -1571,6 +1584,9 @@ components:
       type: object
       required: [category, total, percentage]
       properties:
+        categoryId:
+          type: string
+          format: uuid
         category:
           type: string
         total:

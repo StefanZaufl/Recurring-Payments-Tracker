@@ -122,6 +122,33 @@ class RecurringPaymentControllerTest {
         }
 
         @Test
+        void filtersByCategory() throws Exception {
+            Category subscriptions = seedCategory("Subscriptions");
+            Category utilities = seedCategory("Utilities");
+            RecurringPayment netflix = seedRecurringPayment("Netflix", Frequency.MONTHLY, "-12.99", false);
+            netflix.setCategory(subscriptions);
+            recurringPaymentRepository.save(netflix);
+            RecurringPayment power = seedRecurringPayment("Power", Frequency.MONTHLY, "-45.00", false);
+            power.setCategory(utilities);
+            recurringPaymentRepository.save(power);
+            seedRecurringPayment("Cash", Frequency.MONTHLY, "-20.00", false);
+
+            mockMvc.perform(get(RECURRING_URL)
+                            .param("category", subscriptions.getId().toString())
+                            .with(authenticatedUser(testUser)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$", hasSize(1)))
+                    .andExpect(jsonPath("$[0].name").value("Netflix"));
+
+            mockMvc.perform(get(RECURRING_URL)
+                            .param("category", "UNCATEGORIZED")
+                            .with(authenticatedUser(testUser)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$", hasSize(1)))
+                    .andExpect(jsonPath("$[0].name").value("Cash"));
+        }
+
+        @Test
         void recalculateRecurringPayments_returnsSummary() throws Exception {
             mockMvc.perform(post(RECURRING_URL + "/recalculate").with(authenticatedUser(testUser)))
                     .andExpect(status().isOk())
@@ -689,6 +716,14 @@ class RecurringPaymentControllerTest {
         payment.setIsActive(true);
         payment.setUser(testUser);
         return recurringPaymentRepository.save(payment);
+    }
+
+    private Category seedCategory(String name) {
+        Category category = new Category();
+        category.setName(name);
+        category.setColor("#38bdf8");
+        category.setUser(testUser);
+        return categoryRepository.save(category);
     }
 
     private AdditionalRuleGroup seedAdditionalRuleGroup(String name, String text) {

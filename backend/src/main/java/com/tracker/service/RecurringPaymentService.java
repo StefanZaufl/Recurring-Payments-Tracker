@@ -42,8 +42,15 @@ public class RecurringPaymentService {
     }
 
     @Transactional(readOnly = true)
-    public List<RecurringPayment> getAllRecurringPayments() {
-        return recurringPaymentRepository.findByUserId(userContextService.getCurrentUserId());
+    public List<RecurringPayment> getAllRecurringPayments(String categoryFilter) {
+        UUID currentUserId = userContextService.getCurrentUserId();
+        if ("UNCATEGORIZED".equals(categoryFilter)) {
+            return recurringPaymentRepository.findByUserIdAndCategoryIsNull(currentUserId);
+        }
+        if (categoryFilter != null && !categoryFilter.isBlank()) {
+            return recurringPaymentRepository.findByUserIdAndCategoryId(currentUserId, UUID.fromString(categoryFilter));
+        }
+        return recurringPaymentRepository.findByUserId(currentUserId);
     }
 
     @Transactional(readOnly = true)

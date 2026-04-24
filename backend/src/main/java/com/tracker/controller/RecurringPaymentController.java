@@ -41,9 +41,9 @@ public class RecurringPaymentController implements RecurringPaymentsApi {
     }
 
     @Override
-    public ResponseEntity<List<RecurringPaymentDto>> getRecurringPayments() {
+    public ResponseEntity<List<RecurringPaymentDto>> getRecurringPayments(String category) {
         return ResponseEntity.ok(
-                recurringPaymentMapper.toDtoList(recurringPaymentService.getAllRecurringPayments()));
+                recurringPaymentMapper.toDtoList(recurringPaymentService.getAllRecurringPayments(category)));
     }
 
     @Override

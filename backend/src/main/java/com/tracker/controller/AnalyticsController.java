@@ -43,6 +43,7 @@ public class AnalyticsController implements AnalyticsApi {
         List<CategoryBreakdown> byCategory = result.byCategory().stream()
                 .map(cb -> {
                     CategoryBreakdown dto = new CategoryBreakdown();
+                    dto.setCategoryId(cb.categoryId());
                     dto.setCategory(cb.category());
                     dto.setTotal(cb.total().doubleValue());
                     dto.setPercentage(cb.percentage());

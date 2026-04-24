@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, inject } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Params, Router, RouterLink } from '@angular/router';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration } from 'chart.js';
 import { Subject, takeUntil } from 'rxjs';
@@ -77,13 +77,19 @@ import { RecurringSummaryHistoryState, RecurringSummaryTableComponent } from './
               label="Income"
               [value]="overview.totalIncome"
               tone="income"
-              [subitems]="incomeSubitems">
+              [clickable]="true"
+              [subitems]="incomeSubitems"
+              (cardSelected)="openAnnualTransactions('income')"
+              (subitemSelected)="openIncomeSubitem($event.action)">
             </app-summary-card>
             <app-summary-card
               label="Expenses"
               [value]="overview.totalExpenses"
               tone="expense"
-              [subitems]="expenseSubitems">
+              [clickable]="true"
+              [subitems]="expenseSubitems"
+              (cardSelected)="openAnnualTransactions('expense')"
+              (subitemSelected)="openExpenseSubitem($event.action)">
             </app-summary-card>
             <app-summary-card
               label="Surplus"
@@ -103,6 +109,7 @@ import { RecurringSummaryHistoryState, RecurringSummaryTableComponent } from './
                   [datasets]="barChartData.datasets"
                   [labels]="barChartData.labels"
                   [options]="barChartOptions"
+                  (chartClick)="onMonthlyChartClick($event)"
                   type="bar">
                 </canvas>
               </div>
@@ -135,6 +142,7 @@ import { RecurringSummaryHistoryState, RecurringSummaryTableComponent } from './
                       [datasets]="pieChartData.datasets"
                       [labels]="pieChartData.labels"
                       [options]="pieChartOptions"
+                      (chartClick)="onCategoryChartClick($event)"
                       type="doughnut">
                     </canvas>
                   } @else {
@@ -144,6 +152,7 @@ import { RecurringSummaryHistoryState, RecurringSummaryTableComponent } from './
                       [datasets]="categoryBarChartData.datasets"
                       [labels]="categoryBarChartData.labels"
                       [options]="categoryBarChartOptions"
+                      (chartClick)="onCategoryChartClick($event)"
                       type="bar">
                     </canvas>
                   }
@@ -184,9 +193,10 @@ import { RecurringSummaryHistoryState, RecurringSummaryTableComponent } from './
   `
 })
 export class DashboardComponent implements OnInit, OnDestroy {
-  private analyticsService = inject(AnalyticsService);
-  private recurringPaymentsService = inject(RecurringPaymentsService);
-  private cdr = inject(ChangeDetectorRef);
+  private readonly analyticsService = inject(AnalyticsService);
+  private readonly recurringPaymentsService = inject(RecurringPaymentsService);
+  private readonly router = inject(Router);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   private destroy$ = new Subject<void>();
   private readonly emptyHistoryData: ChartConfiguration<'line'>['data'] = { labels: [], datasets: [] };
@@ -320,26 +330,72 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return this.overview.totalIncome - this.overview.totalExpenses;
   }
 
-  get incomeSubitems(): { label: string; value: number }[] {
+  get incomeSubitems(): { label: string; value: number; action: string }[] {
     if (!this.overview) {
       return [];
     }
 
     return [
-      { label: 'Recurring Income', value: this.overview.totalRecurringIncome },
-      { label: 'Additional Income', value: this.overview.totalIncome - this.overview.totalRecurringIncome },
+      { label: 'Recurring Income', value: this.overview.totalRecurringIncome, action: 'recurring' },
+      { label: 'Additional Income', value: this.overview.totalIncome - this.overview.totalRecurringIncome, action: 'additional' },
     ];
   }
 
-  get expenseSubitems(): { label: string; value: number }[] {
+  get expenseSubitems(): { label: string; value: number; action: string }[] {
     if (!this.overview) {
       return [];
     }
 
     return [
-      { label: 'Recurring Expenses', value: this.overview.totalRecurringExpenses },
-      { label: 'Additional Expenses', value: this.overview.totalExpenses - this.overview.totalRecurringExpenses },
+      { label: 'Recurring Expenses', value: this.overview.totalRecurringExpenses, action: 'recurring' },
+      { label: 'Additional Expenses', value: this.overview.totalExpenses - this.overview.totalRecurringExpenses, action: 'additional' },
     ];
+  }
+
+  openAnnualTransactions(kind: 'income' | 'expense'): void {
+    this.navigateToTransactions({
+      transactionType: 'NON_INTER_ACCOUNT',
+      transactionSign: kind === 'income' ? 'POSITIVE' : 'NEGATIVE',
+    });
+  }
+
+  openIncomeSubitem(action: string | undefined): void {
+    this.openSubitemTransactions(action, 'POSITIVE');
+  }
+
+  openExpenseSubitem(action: string | undefined): void {
+    this.openSubitemTransactions(action, 'NEGATIVE');
+  }
+
+  onMonthlyChartClick(event: { active?: { datasetIndex?: number; index?: number }[] }): void {
+    const active = event.active?.[0];
+    if (active?.datasetIndex === undefined || active.index === undefined) {
+      return;
+    }
+
+    const month = active.index + 1;
+    if (active.datasetIndex === 0) {
+      this.navigateToTransactions({ transactionType: 'NON_INTER_ACCOUNT', transactionSign: 'POSITIVE' }, month);
+    } else if (active.datasetIndex === 1) {
+      this.navigateToTransactions({ transactionType: 'REGULAR', transactionSign: 'NEGATIVE' }, month);
+    } else if (active.datasetIndex === 2) {
+      this.navigateToTransactions({ transactionType: 'ADDITIONAL', transactionSign: 'NEGATIVE' }, month);
+    }
+  }
+
+  onCategoryChartClick(event: { active?: { index?: number }[] }): void {
+    const index = event.active?.[0]?.index;
+    if (index === undefined || !this.overview?.byCategory[index]) {
+      return;
+    }
+
+    const category = this.overview.byCategory[index];
+    this.router.navigate(['/recurring-payments'], {
+      queryParams: {
+        tab: 'RECURRING',
+        category: category.categoryId || 'UNCATEGORIZED',
+      },
+    });
   }
 
   toggleCategoryChart(): void {
@@ -444,6 +500,40 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return `Q${quarter} ${start.getFullYear()}`;
     }
     return start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+  }
+
+  private openSubitemTransactions(action: string | undefined, transactionSign: 'POSITIVE' | 'NEGATIVE'): void {
+    if (action === 'recurring') {
+      this.navigateToTransactions({ transactionType: 'REGULAR', transactionSign });
+    } else if (action === 'additional') {
+      this.navigateToTransactions({ transactionType: 'ADDITIONAL', transactionSign });
+    }
+  }
+
+  private navigateToTransactions(filters: { transactionType: string; transactionSign: string }, month?: number): void {
+    this.router.navigate(['/transactions'], {
+      queryParams: {
+        ...this.dateRangeQueryParams(month),
+        type: filters.transactionType,
+        sign: filters.transactionSign,
+      },
+    });
+  }
+
+  private dateRangeQueryParams(month?: number): Params {
+    if (!month) {
+      return {
+        from: `${this.selectedYear}-01-01`,
+        to: `${this.selectedYear}-12-31`,
+      };
+    }
+
+    const from = new Date(Date.UTC(this.selectedYear, month - 1, 1));
+    const to = new Date(Date.UTC(this.selectedYear, month, 0));
+    return {
+      from: from.toISOString().slice(0, 10),
+      to: to.toISOString().slice(0, 10),
+    };
   }
 
   private buildBarChart(data: AnnualOverview): void {
