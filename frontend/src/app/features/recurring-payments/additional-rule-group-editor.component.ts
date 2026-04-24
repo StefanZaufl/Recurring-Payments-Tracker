@@ -227,6 +227,7 @@ export class AdditionalRuleGroupEditorComponent implements OnInit, OnDestroy {
       switchMap(() => {
         if (this.rules.length === 0) {
           this.clearSimulation();
+          this.cdr.markForCheck();
           return EMPTY;
         }
         this.simulating = true;
@@ -397,8 +398,8 @@ export class AdditionalRuleGroupEditorComponent implements OnInit, OnDestroy {
   private clearSimulation(): void {
     this.simulationActive = false;
     this.matchingTransactions = [];
-    this.matchingIds.clear();
-    this.otherGroupMatches.clear();
+    this.matchingIds = new Set<string>();
+    this.otherGroupMatches = new Map<string, string[]>();
     this.totalMatchCount = 0;
     this.uniqueExclusionCount = 0;
   }

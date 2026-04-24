@@ -39,5 +39,11 @@ public interface TransactionRecurringLinkRepository extends JpaRepository<Transa
     List<TransactionRecurringLink> findWithRecurringPaymentByTransactionIdAndUserId(@Param("transactionId") UUID transactionId,
                                                                                     @Param("userId") UUID userId);
 
+    @Query("SELECT link FROM TransactionRecurringLink link JOIN FETCH link.recurringPayment " +
+           "WHERE link.transaction.id IN :transactionIds AND link.user.id = :userId")
+    List<TransactionRecurringLink> findWithRecurringPaymentByTransactionIdInAndUserId(
+            @Param("transactionIds") List<UUID> transactionIds,
+            @Param("userId") UUID userId);
+
     void deleteByRecurringPaymentId(UUID recurringPaymentId);
 }

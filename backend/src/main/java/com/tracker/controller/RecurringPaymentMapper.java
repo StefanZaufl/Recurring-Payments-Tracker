@@ -7,13 +7,9 @@ import com.tracker.model.entity.Frequency;
 import com.tracker.model.entity.PaymentType;
 import com.tracker.model.entity.RecurringPayment;
 import com.tracker.model.entity.Transaction;
-import com.tracker.repository.TransactionRecurringLinkRepository;
 import com.tracker.service.BankAccountService;
-import com.tracker.service.UserContextService;
-import org.mapstruct.AfterMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.math.BigDecimal;
@@ -32,10 +28,7 @@ public abstract class RecurringPaymentMapper {
     protected BankAccountMapper bankAccountMapper;
 
     @Autowired
-    protected TransactionRecurringLinkRepository linkRepository;
-
-    @Autowired
-    protected UserContextService userContextService;
+    protected TransactionLinkMetadataEnricher linkMetadataEnricher;
 
     @Mapping(source = "category.id", target = "categoryId")
     @Mapping(source = "category.name", target = "categoryName")
@@ -49,9 +42,22 @@ public abstract class RecurringPaymentMapper {
     @Mapping(source = "upload.id", target = "uploadId")
     @Mapping(target = "linkedPaymentCount", ignore = true)
     @Mapping(target = "linkedPaymentNames", ignore = true)
-    public abstract TransactionDto toTransactionDto(Transaction transaction);
+    protected abstract TransactionDto toTransactionDtoBase(Transaction transaction);
 
-    public abstract List<TransactionDto> toTransactionDtoList(List<Transaction> transactions);
+    public TransactionDto toTransactionDto(Transaction transaction) {
+        if (transaction == null) {
+            return null;
+        }
+        return toTransactionDtoList(List.of(transaction)).getFirst();
+    }
+
+    public List<TransactionDto> toTransactionDtoList(List<Transaction> transactions) {
+        List<TransactionDto> dtos = transactions.stream()
+                .map(this::toTransactionDtoBase)
+                .toList();
+        linkMetadataEnricher.enrich(transactions, dtos);
+        return dtos;
+    }
 
     protected BankAccountDto map(String iban) {
         if (iban == null || iban.isBlank()) {
@@ -86,21 +92,5 @@ public abstract class RecurringPaymentMapper {
             return null;
         }
         return com.tracker.api.model.PaymentType.fromValue(paymentType.name());
-    }
-
-    @AfterMapping
-    protected void addLinkMetadata(Transaction transaction, @MappingTarget TransactionDto dto) {
-        if (transaction.getId() == null) {
-            dto.setLinkedPaymentCount(0);
-            dto.setLinkedPaymentNames(List.of());
-            return;
-        }
-        var links = linkRepository.findWithRecurringPaymentByTransactionIdAndUserId(
-                transaction.getId(), userContextService.getCurrentUserId());
-        dto.setLinkedPaymentCount(links.size());
-        dto.setLinkedPaymentNames(links.stream()
-                .map(link -> link.getRecurringPayment().getName())
-                .sorted()
-                .toList());
     }
 }
