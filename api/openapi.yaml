@@ -225,22 +225,22 @@ paths:
 
   /api/recurring-payments/simulate:
     post:
-      operationId: simulateRules
-      summary: Simulate rules against unlinked transactions
+      operationId: simulateRecurringPayment
+      summary: Simulate a draft recurring payment against unlinked transactions
       tags: [RecurringPayments]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SimulateRulesRequest'
+              $ref: '#/components/schemas/RecurringPaymentSimulationRequest'
       responses:
         '200':
-          description: Simulation results
+          description: Recurring payment simulation results
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SimulateRulesResponse'
+                $ref: '#/components/schemas/RecurringPaymentSimulationResponse'
 
   /api/additional-rule-groups:
     get:
@@ -285,6 +285,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /api/additional-rule-groups/simulate:
+    post:
+      operationId: simulateAdditionalRuleGroup
+      summary: Simulate a draft Additional rule group
+      tags: [AdditionalRuleGroups]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdditionalGroupSimulationRequest'
+      responses:
+        '200':
+          description: Additional rule group simulation results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdditionalGroupSimulationResponse'
 
   /api/additional-rule-groups/{id}:
     get:
@@ -1673,23 +1692,52 @@ components:
           items:
             $ref: '#/components/schemas/CreateRuleRequest'
 
-    SimulateRulesRequest:
+    RecurringPaymentSimulationRequest:
       type: object
       required: [rules]
       properties:
-        draftType:
-          $ref: '#/components/schemas/SimulationDraftType'
-        currentAdditionalGroupId:
-          type: string
-          format: uuid
         rules:
           type: array
           items:
             $ref: '#/components/schemas/CreateRuleRequest'
 
-    SimulateRulesResponse:
+    AdditionalGroupSimulationRequest:
       type: object
-      required: [matchingTransactions, totalMatchCount, overlappingPayments]
+      required: [rules]
+      properties:
+        currentAdditionalGroupId:
+          type: string
+          format: uuid
+        rules:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CreateRuleRequest'
+
+    RecurringPaymentSimulationResponse:
+      type: object
+      required: [matchingTransactions, totalMatchCount, omittedAdditionalMatchCount, omittedAdditionalMatches, overlappingPayments]
+      properties:
+        matchingTransactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionDto'
+        totalMatchCount:
+          type: integer
+        omittedAdditionalMatchCount:
+          type: integer
+        omittedAdditionalMatches:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdditionalGroupTransactionMatchDto'
+        overlappingPayments:
+          type: array
+          items:
+            $ref: '#/components/schemas/OverlappingPaymentDto'
+
+    AdditionalGroupSimulationResponse:
+      type: object
+      required: [matchingTransactions, totalMatchCount, uniqueExclusionCount, otherAdditionalGroupMatches]
       properties:
         matchingTransactions:
           type: array
@@ -1699,24 +1747,10 @@ components:
           type: integer
         uniqueExclusionCount:
           type: integer
-        omittedAdditionalMatchCount:
-          type: integer
-        omittedAdditionalMatches:
-          type: array
-          items:
-            $ref: '#/components/schemas/AdditionalGroupTransactionMatchDto'
         otherAdditionalGroupMatches:
           type: array
           items:
             $ref: '#/components/schemas/AdditionalGroupTransactionMatchDto'
-        overlappingPayments:
-          type: array
-          items:
-            $ref: '#/components/schemas/OverlappingPaymentDto'
-
-    SimulationDraftType:
-      type: string
-      enum: [RECURRING_PAYMENT, ADDITIONAL_GROUP]
 
     AdditionalRuleGroupRequest:
       type: object

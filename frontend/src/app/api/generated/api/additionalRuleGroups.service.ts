@@ -17,6 +17,10 @@ import { Observable }                                        from 'rxjs';
 import { OpenApiHttpParams, QueryParamStyle } from '../query.params';
 
 // @ts-ignore
+import { AdditionalGroupSimulationRequest } from '../model/additionalGroupSimulationRequest';
+// @ts-ignore
+import { AdditionalGroupSimulationResponse } from '../model/additionalGroupSimulationResponse';
+// @ts-ignore
 import { AdditionalRuleGroupDto } from '../model/additionalRuleGroupDto';
 // @ts-ignore
 import { AdditionalRuleGroupMutationResponse } from '../model/additionalRuleGroupMutationResponse';
@@ -263,6 +267,72 @@ export class AdditionalRuleGroupsService extends BaseService {
         return this.httpClient.request<Array<AdditionalRuleGroupDto>>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Simulate a draft Additional rule group
+     * @endpoint post /api/additional-rule-groups/simulate
+     * @param additionalGroupSimulationRequest
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public simulateAdditionalRuleGroup(additionalGroupSimulationRequest: AdditionalGroupSimulationRequest, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<AdditionalGroupSimulationResponse>;
+    public simulateAdditionalRuleGroup(additionalGroupSimulationRequest: AdditionalGroupSimulationRequest, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<AdditionalGroupSimulationResponse>>;
+    public simulateAdditionalRuleGroup(additionalGroupSimulationRequest: AdditionalGroupSimulationRequest, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<AdditionalGroupSimulationResponse>>;
+    public simulateAdditionalRuleGroup(additionalGroupSimulationRequest: AdditionalGroupSimulationRequest, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (additionalGroupSimulationRequest === null || additionalGroupSimulationRequest === undefined) {
+            throw new Error('Required parameter additionalGroupSimulationRequest was null or undefined when calling simulateAdditionalRuleGroup.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        // to determine the Content-Type header
+        const consumes: string[] = [
+            'application/json'
+        ];
+        const httpContentTypeSelected: string | undefined = this.configuration.selectHeaderContentType(consumes);
+        if (httpContentTypeSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Content-Type', httpContentTypeSelected);
+        }
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/additional-rule-groups/simulate`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<AdditionalGroupSimulationResponse>('post', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                body: additionalGroupSimulationRequest,
                 responseType: <any>responseType_,
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,

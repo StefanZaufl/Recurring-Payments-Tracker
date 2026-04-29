@@ -19,6 +19,8 @@ encoder.ts
 git_push.sh
 index.ts
 model/additionalGroupReferenceDto.ts
+model/additionalGroupSimulationRequest.ts
+model/additionalGroupSimulationResponse.ts
 model/additionalGroupTransactionMatchDto.ts
 model/additionalRuleGroupDto.ts
 model/additionalRuleGroupMutationResponse.ts
@@ -49,15 +51,14 @@ model/paymentType.ts
 model/predictionResponse.ts
 model/recalculationSummaryResponse.ts
 model/recurringPaymentDto.ts
+model/recurringPaymentSimulationRequest.ts
+model/recurringPaymentSimulationResponse.ts
 model/recurringPaymentSummary.ts
 model/recurringPaymentUpdateRequest.ts
 model/ruleDto.ts
 model/ruleType.ts
 model/setupRequest.ts
 model/setupStatusResponse.ts
-model/simulateRulesRequest.ts
-model/simulateRulesResponse.ts
-model/simulationDraftType.ts
 model/targetField.ts
 model/transactionCsvImportMapping.ts
 model/transactionDto.ts

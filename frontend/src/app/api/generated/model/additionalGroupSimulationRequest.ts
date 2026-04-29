@@ -7,15 +7,11 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
-import { SimulationDraftType } from './simulationDraftType';
 import { CreateRuleRequest } from './createRuleRequest';
 
 
-export interface SimulateRulesRequest { 
-    draftType?: SimulationDraftType;
+export interface AdditionalGroupSimulationRequest { 
     currentAdditionalGroupId?: string;
     rules: Array<CreateRuleRequest>;
 }
-
-
 

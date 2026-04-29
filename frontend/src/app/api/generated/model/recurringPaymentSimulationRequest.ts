@@ -7,12 +7,10 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
+import { CreateRuleRequest } from './createRuleRequest';
 
 
-export enum SimulationDraftType {
-
-    RecurringPayment = 'RECURRING_PAYMENT',
-
-    AdditionalGroup = 'ADDITIONAL_GROUP'
+export interface RecurringPaymentSimulationRequest { 
+    rules: Array<CreateRuleRequest>;
 }
 

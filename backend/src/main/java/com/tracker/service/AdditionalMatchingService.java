@@ -106,6 +106,24 @@ public class AdditionalMatchingService {
         return transactions.stream().collect(Collectors.toMap(Transaction::getId, Function.identity()));
     }
 
+    public List<TransactionGroupMatch> toTransactionGroupMatches(
+            Map<UUID, List<AdditionalGroupReference>> matches,
+            List<Transaction> transactions) {
+        Map<UUID, Transaction> byId = byId(transactions);
+        return matches.entrySet().stream()
+                .sorted(Comparator.comparing(entry -> {
+                    Transaction tx = byId.get(entry.getKey());
+                    return tx == null ? LocalDate.MIN : tx.getBookingDate();
+                }, Comparator.reverseOrder()))
+                .map(entry -> new TransactionGroupMatch(entry.getKey(), byId.get(entry.getKey()), entry.getValue()))
+                .toList();
+    }
+
     public record AdditionalGroupReference(UUID id, String name) {
+    }
+
+    public record TransactionGroupMatch(UUID transactionId,
+                                        Transaction transaction,
+                                        List<AdditionalGroupReference> groups) {
     }
 }

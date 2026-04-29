@@ -5,8 +5,7 @@ import { of } from 'rxjs';
 import { CreatePaymentComponent } from './create-payment.component';
 import { RecurringPaymentsService, TransactionsService } from '../../api/generated';
 import { TransactionPage } from '../../api/generated/model/transactionPage';
-import { SimulateRulesResponse } from '../../api/generated/model/simulateRulesResponse';
-import { SimulationDraftType } from '../../api/generated/model/simulationDraftType';
+import { RecurringPaymentSimulationResponse } from '../../api/generated/model/recurringPaymentSimulationResponse';
 import { TransactionDto } from '../../api/generated/model/transactionDto';
 
 const emptyPage: TransactionPage = {
@@ -16,7 +15,7 @@ const emptyPage: TransactionPage = {
   filteredSum: 0,
 };
 
-const emptySimulation: SimulateRulesResponse = {
+const emptySimulation: RecurringPaymentSimulationResponse = {
   matchingTransactions: [],
   totalMatchCount: 0,
   overlappingPayments: [],
@@ -38,7 +37,7 @@ describe('CreatePaymentComponent', () => {
       getTransactions: jest.fn().mockReturnValue(of(emptyPage)),
     };
     const recurringPaymentsServiceMock = {
-      simulateRules: jest.fn().mockReturnValue(of(emptySimulation)),
+      simulateRecurringPayment: jest.fn().mockReturnValue(of(emptySimulation)),
       createRecurringPayment: jest.fn(),
     };
 
@@ -80,8 +79,7 @@ describe('CreatePaymentComponent', () => {
   it('should simulate with empty rules on init so additional groups can be filtered', () => {
     jest.advanceTimersByTime(400);
 
-    expect(recurringPaymentsService.simulateRules).toHaveBeenCalledWith({
-      draftType: SimulationDraftType.RecurringPayment,
+    expect(recurringPaymentsService.simulateRecurringPayment).toHaveBeenCalledWith({
       rules: [],
     });
   });

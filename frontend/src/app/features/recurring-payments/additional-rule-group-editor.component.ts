@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnIni
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subject, debounceTime, switchMap, takeUntil, EMPTY } from 'rxjs';
-import { AdditionalRuleGroupsService, RecurringPaymentsService, TransactionsService } from '../../api/generated';
+import { AdditionalRuleGroupsService, TransactionsService } from '../../api/generated';
 import { AdditionalRuleGroupDto } from '../../api/generated/model/additionalRuleGroupDto';
 import { AdditionalGroupTransactionMatchDto } from '../../api/generated/model/additionalGroupTransactionMatchDto';
 import { CreateRuleRequest } from '../../api/generated/model/createRuleRequest';
@@ -11,7 +11,6 @@ import { RuleDto } from '../../api/generated/model/ruleDto';
 import { RuleType } from '../../api/generated/model/ruleType';
 import { TargetField } from '../../api/generated/model/targetField';
 import { TransactionDto } from '../../api/generated/model/transactionDto';
-import { SimulationDraftType } from '../../api/generated/model/simulationDraftType';
 import { RecalculationSummaryResponse } from '../../api/generated/model/recalculationSummaryResponse';
 import { formatLocalDate } from '../../shared/date-range-presets';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
@@ -111,7 +110,6 @@ export class AdditionalRuleGroupEditorComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly groupsService = inject(AdditionalRuleGroupsService);
   private readonly transactionsService = inject(TransactionsService);
-  private readonly recurringPaymentsService = inject(RecurringPaymentsService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroy$ = new Subject<void>();
   private readonly rulesChanged$ = new Subject<void>();
@@ -233,8 +231,7 @@ export class AdditionalRuleGroupEditorComponent implements OnInit, OnDestroy {
         this.simulating = true;
         this.simulationError = null;
         this.cdr.markForCheck();
-        return this.recurringPaymentsService.simulateRules({
-          draftType: SimulationDraftType.AdditionalGroup,
+        return this.groupsService.simulateAdditionalRuleGroup({
           currentAdditionalGroupId: this.groupId || undefined,
           rules: this.toRuleRequests()
         });

@@ -547,6 +547,47 @@ class RecurringPaymentControllerTest {
     }
 
     // ────────────────────────────────────────────────────────────────────
+    // POST /api/additional-rule-groups/simulate
+    // ────────────────────────────────────────────────────────────────────
+
+    @Nested
+    class SimulateAdditionalRuleGroup {
+
+        @Test
+        void returnsAdditionalGroupSimulationFields() throws Exception {
+            AdditionalRuleGroup existingGroup = seedAdditionalRuleGroup("Ignore Amazon", "amazon");
+            seedTransaction("Amazon Marketplace", LocalDate.now().minusDays(10), "-42.00");
+            seedTransaction("Spotify", LocalDate.now().minusDays(10), "-9.99");
+
+            mockMvc.perform(post("/api/additional-rule-groups/simulate")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                {
+                                  "currentAdditionalGroupId": "%s",
+                                  "rules": [
+                                    {
+                                      "ruleType": "JARO_WINKLER",
+                                      "targetField": "PARTNER_NAME",
+                                      "text": "spotify",
+                                      "threshold": 0.85,
+                                      "strict": true
+                                    }
+                                  ]
+                                }
+                                """.formatted(existingGroup.getId()))
+                            .with(authenticatedUser(testUser)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.totalMatchCount").value(1))
+                    .andExpect(jsonPath("$.uniqueExclusionCount").value(1))
+                    .andExpect(jsonPath("$.matchingTransactions", hasSize(1)))
+                    .andExpect(jsonPath("$.matchingTransactions[0].partnerName").value("Spotify"))
+                    .andExpect(jsonPath("$.otherAdditionalGroupMatches").isArray())
+                    .andExpect(jsonPath("$.overlappingPayments").doesNotExist())
+                    .andExpect(jsonPath("$.omittedAdditionalMatches").doesNotExist());
+        }
+    }
+
+    // ────────────────────────────────────────────────────────────────────
     // PaymentType in DTO
     // ────────────────────────────────────────────────────────────────────
 

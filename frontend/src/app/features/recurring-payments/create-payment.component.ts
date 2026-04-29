@@ -10,7 +10,6 @@ import { RuleType } from '../../api/generated/model/ruleType';
 import { TargetField } from '../../api/generated/model/targetField';
 import { PaymentType } from '../../api/generated/model/paymentType';
 import { Frequency } from '../../api/generated/model/frequency';
-import { SimulationDraftType } from '../../api/generated/model/simulationDraftType';
 import { formatLocalDate } from '../../shared/date-range-presets';
 import { Subject, takeUntil, debounceTime, switchMap } from 'rxjs';
 import { LocalRule, RuleEditorComponent } from './rule-editor.component';
@@ -253,8 +252,7 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
         this.simulating = true;
         this.cdr.markForCheck();
 
-        return this.recurringPaymentsService.simulateRules({
-          draftType: SimulationDraftType.RecurringPayment,
+        return this.recurringPaymentsService.simulateRecurringPayment({
           rules: this.toRuleRequests()
         });
       }),
