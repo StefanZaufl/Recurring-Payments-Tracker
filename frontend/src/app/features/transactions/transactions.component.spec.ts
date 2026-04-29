@@ -144,6 +144,20 @@ describe('TransactionsComponent', () => {
     }));
   });
 
+  it('should represent all-time date filtering explicitly and load without date bounds', () => {
+    service.getTransactions.mockReturnValue(of(emptyPage));
+
+    component.onDateRangeChanged({ from: null, to: null, label: 'All time' });
+    component.loadTransactions();
+
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: expect.objectContaining({ from: 'all', to: 'all' }),
+    }));
+    expect(service.getTransactions).toHaveBeenLastCalledWith(
+      undefined, undefined, undefined, undefined, 'ALL', 'ALL', 0, 25, 'bookingDate', 'desc'
+    );
+  });
+
   it('should filter by search text with debounce', fakeAsync(() => {
     component.onSearchChange('netflix');
 
@@ -202,6 +216,25 @@ describe('TransactionsComponent', () => {
     expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
       queryParams: expect.objectContaining({ account: 'DE111' }),
     }));
+  });
+
+  it('should keep advanced filters collapsed by default', () => {
+    fixture.detectChanges();
+
+    expect(component.advancedFiltersExpanded).toBe(false);
+    expect(component.activeAdvancedFilterCount).toBe(0);
+    expect(fixture.nativeElement.querySelector('[aria-label="Account filter"]')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('More filters');
+  });
+
+  it('should expand advanced filters when toggled', () => {
+    component.toggleAdvancedFilters();
+    fixture.detectChanges();
+
+    expect(component.advancedFiltersExpanded).toBe(true);
+    expect(fixture.nativeElement.querySelector('[aria-label="Account filter"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[aria-label="Transaction type filter"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[aria-label="Transaction sign filter"]')).not.toBeNull();
   });
 
   it('should filter by transaction type and reset page', () => {
@@ -287,6 +320,7 @@ describe('TransactionsComponent', () => {
               search: 'netflix',
               account: 'DE111',
               type: 'ADDITIONAL',
+              sign: 'NEGATIVE',
               sort: 'partnerName',
               dir: 'asc',
               page: '2',
@@ -308,11 +342,56 @@ describe('TransactionsComponent', () => {
     expect(newComponent.searchText).toBe('netflix');
     expect(newComponent.accountFilter).toBe('DE111');
     expect(newComponent.transactionType).toBe('ADDITIONAL');
+    expect(newComponent.transactionSign).toBe('NEGATIVE');
+    expect(newComponent.advancedFiltersExpanded).toBe(true);
+    expect(newComponent.activeAdvancedFilterCount).toBe(3);
     expect(newComponent.sortField).toBe('partnerName');
     expect(newComponent.sortDir).toBe('asc');
     expect(newComponent.page).toBe(2);
     expect(serviceMock.getTransactions).toHaveBeenCalledWith(
-      '2026-01-01', '2026-01-31', 'netflix', 'DE111', 'ADDITIONAL', 'ALL', 2, 25, 'partnerName', 'asc'
+      '2026-01-01', '2026-01-31', 'netflix', 'DE111', 'ADDITIONAL', 'NEGATIVE', 2, 25, 'partnerName', 'asc'
+    );
+  });
+
+  it('should preserve all-time date filtering from query params', async () => {
+    TestBed.resetTestingModule();
+    jest.useFakeTimers();
+    jest.setSystemTime(Date.parse('2026-04-14T12:00:00Z'));
+
+    const serviceMock = {
+      getTransactions: jest.fn().mockReturnValue(of(mockPage)),
+    };
+    const bankAccountsServiceMock = {
+      getBankAccounts: jest.fn().mockReturnValue(of(mockBankAccounts)),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [TransactionsComponent],
+      providers: [
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            queryParamMap: of(convertToParamMap({
+              from: 'all',
+              to: 'all',
+            })),
+          },
+        },
+        { provide: TransactionsService, useValue: serviceMock },
+        { provide: BankAccountsService, useValue: bankAccountsServiceMock },
+      ],
+      schemas: [NO_ERRORS_SCHEMA],
+    }).compileComponents();
+
+    const newFixture = TestBed.createComponent(TransactionsComponent);
+    const newComponent = newFixture.componentInstance;
+    newFixture.detectChanges();
+
+    expect(newComponent.from).toBeNull();
+    expect(newComponent.to).toBeNull();
+    expect(serviceMock.getTransactions).toHaveBeenCalledWith(
+      undefined, undefined, undefined, undefined, 'ALL', 'ALL', 0, 25, 'bookingDate', 'desc'
     );
   });
 

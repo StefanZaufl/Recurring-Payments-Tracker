@@ -37,6 +37,7 @@ const TRANSACTION_TYPES: readonly TransactionType[] = ['ALL', 'NON_INTER_ACCOUNT
 const TRANSACTION_SIGNS: readonly TransactionSign[] = ['ALL', 'POSITIVE', 'NEGATIVE'];
 const SORT_FIELDS: readonly SortField[] = ['bookingDate', 'partnerName', 'amount'];
 const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
+const ALL_TIME_DATE_PARAM = 'all';
 
 @Component({
   selector: 'app-transactions',
@@ -80,7 +81,7 @@ const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
     
       <!-- Filter bar -->
       <div class="bg-card border border-card-border rounded-2xl p-3 sm:p-4 mb-4 sm:mb-6">
-        <div class="flex flex-col sm:flex-row gap-3">
+        <div class="flex flex-col lg:flex-row gap-3">
           <!-- Date range picker -->
           <app-date-range-picker
             [from]="from"
@@ -101,33 +102,7 @@ const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
               class="w-full bg-subtle border border-card-border rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder-muted/50 focus:outline-none focus:border-accent transition-colors">
             </div>
 
-          <select [ngModel]="accountFilter"
-            (ngModelChange)="onAccountChange($event)"
-            class="text-xs bg-card border border-card-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-subtle shrink-0 min-w-0 sm:min-w-[220px]">
-            <option value="">All accounts</option>
-            @for (account of bankAccounts; track account.id) {
-              <option [value]="account.iban">{{ account.name || account.iban }}</option>
-            }
-          </select>
-
-          <select [ngModel]="transactionType"
-            (ngModelChange)="onTransactionTypeChange($event)"
-            class="text-xs bg-card border border-card-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-subtle shrink-0 min-w-0 sm:min-w-[220px]">
-            <option value="ALL">All transactions</option>
-            <option value="NON_INTER_ACCOUNT">Non-inter-account transactions</option>
-            <option value="REGULAR">Regular transactions</option>
-            <option value="ADDITIONAL">Additional transactions</option>
-          </select>
-
-          <select [ngModel]="transactionSign"
-            (ngModelChange)="onTransactionSignChange($event)"
-            class="text-xs bg-card border border-card-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-subtle shrink-0 min-w-0 sm:min-w-[160px]">
-            <option value="ALL">All signs</option>
-            <option value="POSITIVE">Income only</option>
-            <option value="NEGATIVE">Expenses only</option>
-          </select>
-
-            <!-- Sort -->
+          <!-- Sort -->
           <div class="flex gap-3 shrink-0">
             <select [ngModel]="sortField"
               (ngModelChange)="onSortChange($event)"
@@ -154,6 +129,58 @@ const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
             }
           </button>
           </div>
+        </div>
+
+        <div class="mt-3 pt-3 border-t border-card-border/70">
+          <button type="button"
+            (click)="toggleAdvancedFilters()"
+            class="flex items-center gap-2 text-xs text-muted hover:text-white transition-colors"
+            [attr.aria-expanded]="advancedFiltersExpanded">
+            <svg class="w-3.5 h-3.5 transition-transform"
+              [class.rotate-90]="advancedFiltersExpanded"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+            </svg>
+            <span>More filters</span>
+            @if (activeAdvancedFilterCount > 0) {
+              <span class="rounded-full bg-accent text-surface px-1.5 py-0.5 text-[10px] font-semibold leading-none">
+                {{ activeAdvancedFilterCount }}
+              </span>
+            }
+          </button>
+
+          @if (advancedFiltersExpanded) {
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+              <select [ngModel]="accountFilter"
+                (ngModelChange)="onAccountChange($event)"
+                aria-label="Account filter"
+                class="text-xs bg-card border border-card-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-subtle min-w-0">
+                <option value="">All accounts</option>
+                @for (account of bankAccounts; track account.id) {
+                  <option [value]="account.iban">{{ account.name || account.iban }}</option>
+                }
+              </select>
+
+              <select [ngModel]="transactionType"
+                (ngModelChange)="onTransactionTypeChange($event)"
+                aria-label="Transaction type filter"
+                class="text-xs bg-card border border-card-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-subtle min-w-0">
+                <option value="ALL">All transactions</option>
+                <option value="NON_INTER_ACCOUNT">Non-inter-account transactions</option>
+                <option value="REGULAR">Regular transactions</option>
+                <option value="ADDITIONAL">Additional transactions</option>
+              </select>
+
+              <select [ngModel]="transactionSign"
+                (ngModelChange)="onTransactionSignChange($event)"
+                aria-label="Transaction sign filter"
+                class="text-xs bg-card border border-card-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-subtle min-w-0">
+                <option value="ALL">All signs</option>
+                <option value="POSITIVE">Income only</option>
+                <option value="NEGATIVE">Expenses only</option>
+              </select>
+            </div>
+          }
         </div>
       </div>
     
@@ -326,6 +353,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   accountFilter = '';
   transactionType: TransactionType = 'ALL';
   transactionSign: TransactionSign = 'ALL';
+  advancedFiltersExpanded = false;
   sortField: SortField = 'bookingDate';
   sortDir: SortDir = 'desc';
 
@@ -398,6 +426,18 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     this.transactionSign = transactionSign;
     this.page = 0;
     this.syncUrlWithState();
+  }
+
+  toggleAdvancedFilters(): void {
+    this.advancedFiltersExpanded = !this.advancedFiltersExpanded;
+  }
+
+  get activeAdvancedFilterCount(): number {
+    return [
+      this.accountFilter,
+      this.transactionType !== 'ALL',
+      this.transactionSign !== 'ALL',
+    ].filter(Boolean).length;
   }
 
   toggleSortDirection(): void {
@@ -479,10 +519,13 @@ export class TransactionsComponent implements OnInit, OnDestroy {
 
   private parseUrlState(queryParamMap: { get(name: string): string | null }): TransactionsUrlState {
     const defaultRange = getThisMonthDateRange();
+    const fromParam = queryParamMap.get('from');
+    const toParam = queryParamMap.get('to');
+    const allTime = fromParam === ALL_TIME_DATE_PARAM && toParam === ALL_TIME_DATE_PARAM;
 
     return {
-      from: parseDateParam(queryParamMap.get('from')) ?? defaultRange.from,
-      to: parseDateParam(queryParamMap.get('to')) ?? defaultRange.to,
+      from: allTime ? null : parseDateParam(fromParam) ?? defaultRange.from,
+      to: allTime ? null : parseDateParam(toParam) ?? defaultRange.to,
       searchText: queryParamMap.get('search') ?? '',
       accountFilter: queryParamMap.get('account') ?? '',
       transactionType: parseEnumParam(queryParamMap.get('type'), TRANSACTION_TYPES) ?? 'ALL',
@@ -500,6 +543,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     this.accountFilter = state.accountFilter;
     this.transactionType = state.transactionType;
     this.transactionSign = state.transactionSign;
+    this.advancedFiltersExpanded = this.activeAdvancedFilterCount > 0;
     this.sortField = state.sortField;
     this.sortDir = state.sortDir;
     this.page = state.page;
@@ -515,10 +559,11 @@ export class TransactionsComponent implements OnInit, OnDestroy {
 
   private buildQueryParams(): Params {
     const defaultRange = getThisMonthDateRange();
+    const allTime = !this.from && !this.to;
 
     return {
-      from: this.from !== defaultRange.from ? this.from : null,
-      to: this.to !== defaultRange.to ? this.to : null,
+      from: allTime ? ALL_TIME_DATE_PARAM : this.from !== defaultRange.from ? this.from : null,
+      to: allTime ? ALL_TIME_DATE_PARAM : this.to !== defaultRange.to ? this.to : null,
       search: this.searchText || null,
       account: this.accountFilter || null,
       type: this.transactionType !== 'ALL' ? this.transactionType : null,
