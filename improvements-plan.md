@@ -91,7 +91,17 @@ Planned change:
   - selected year partially overlaps the user's imported transaction range,
   - no overlap produces no summary entry.
 
-## Phase 3: Rule Mutation Recalculation Semantics
+## Phase 3: Rule Mutation Recalculation Semantics - Complete
+
+Completed:
+- Added targeted recurring-payment link recalculation after standalone rule create, update, and delete operations.
+- The targeted recalculation evaluates current rules against existing linked transactions plus eligible unlinked lookback transactions.
+- It removes stale links, adds newly matching links, recomputes frequency, average amount, income flag, rolling history, and persists the payment.
+- If no transactions match after a user-driven rule edit, the payment is retained, marked inactive, assigned a zero average, and its history is recomputed instead of deleting it.
+- Grouped payment rule mutations continue to use the broader user recalculation path.
+- Recurring payment creation with inline rules now attaches rules without per-rule recalculation, then keeps the existing create-time re-evaluation flow after all rules exist.
+- Added unit/controller coverage for targeted stale-link removal, newly matching links, no-match retention, rule mutation recalculation, grouped broad recalculation, and inline-rule payment creation.
+- Verified with `mvn -Dmaven.repo.local=/tmp/.m2 test -Dtest=RecurringPaymentControllerTest,RuleServiceTest,RecurringPaymentRecalculationServiceTest`, `backend/runSonar.sh`, `frontend/runSonar.sh`, and `tooling/query-sonar-issues.sh` reporting zero new-code issues.
 
 ### 5. Full recalculation after recurring payment rule changes
 

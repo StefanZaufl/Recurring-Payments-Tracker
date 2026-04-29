@@ -19,13 +19,16 @@ public class RuleService {
     private final RecurringPaymentRepository recurringPaymentRepository;
     private final UserContextService userContextService;
     private final RuleValidationService ruleValidationService;
+    private final RecurringPaymentRecalculationService recalculationService;
 
     public RuleService(RuleRepository ruleRepository, RecurringPaymentRepository recurringPaymentRepository,
-                       UserContextService userContextService, RuleValidationService ruleValidationService) {
+                       UserContextService userContextService, RuleValidationService ruleValidationService,
+                       RecurringPaymentRecalculationService recalculationService) {
         this.ruleRepository = ruleRepository;
         this.recurringPaymentRepository = recurringPaymentRepository;
         this.userContextService = userContextService;
         this.ruleValidationService = ruleValidationService;
+        this.recalculationService = recalculationService;
     }
 
     @Transactional(readOnly = true)
@@ -38,10 +41,26 @@ public class RuleService {
     public Rule createRule(UUID recurringPaymentId, RuleType ruleType, TargetField targetField,
                            String text, Boolean strict, Double threshold,
                            BigDecimal amount, BigDecimal fluctuationRange) {
+        return createRule(recurringPaymentId,
+                new RuleMutation(ruleType, targetField, text, strict, threshold, amount, fluctuationRange),
+                true);
+    }
+
+    Rule createRuleWithoutRecalculation(UUID recurringPaymentId, RuleMutation mutation) {
+        return createRule(recurringPaymentId, mutation, false);
+    }
+
+    private Rule createRule(UUID recurringPaymentId, RuleMutation mutation, boolean recalculate) {
         RecurringPayment payment = requirePaymentExists(recurringPaymentId);
 
         RuleValidationService.NormalizedRule normalized = ruleValidationService.normalizeAndValidate(
-                ruleType, targetField, text, strict, threshold, amount, fluctuationRange);
+                mutation.ruleType(),
+                mutation.targetField(),
+                mutation.text(),
+                mutation.strict(),
+                mutation.threshold(),
+                mutation.amount(),
+                mutation.fluctuationRange());
         List<RuleValidationService.NormalizedRule> existing = ruleRepository
                 .findByRecurringPaymentIdAndUserId(recurringPaymentId, userContextService.getCurrentUserId())
                 .stream()
@@ -54,14 +73,23 @@ public class RuleService {
         rule.setRecurringPayment(payment);
         ruleValidationService.apply(rule, normalized);
         rule.setUser(userContextService.getCurrentUser());
-        return ruleRepository.save(rule);
+        Rule saved = ruleRepository.save(rule);
+        ruleRepository.flush();
+        if (recalculate) {
+            recalculateAfterRuleMutation(payment);
+        }
+        return saved;
+    }
+
+    record RuleMutation(RuleType ruleType, TargetField targetField, String text, Boolean strict, Double threshold,
+                        BigDecimal amount, BigDecimal fluctuationRange) {
     }
 
     @Transactional
     public Optional<Rule> updateRule(UUID recurringPaymentId, UUID ruleId, TargetField targetField,
                                      String text, Boolean strict, Double threshold,
                                      BigDecimal amount, BigDecimal fluctuationRange) {
-        requirePaymentExists(recurringPaymentId);
+        RecurringPayment payment = requirePaymentExists(recurringPaymentId);
         UUID currentUserId = userContextService.getCurrentUserId();
         return ruleRepository.findByIdAndRecurringPaymentIdAndUserId(ruleId, recurringPaymentId, currentUserId)
                 .map(rule -> {
@@ -84,7 +112,10 @@ public class RuleService {
                             java.util.stream.Stream.concat(siblings.stream(), java.util.stream.Stream.of(normalized)).toList());
                     ruleValidationService.apply(rule, normalized);
 
-                    return ruleRepository.save(rule);
+                    Rule saved = ruleRepository.save(rule);
+                    ruleRepository.flush();
+                    recalculateAfterRuleMutation(payment);
+                    return saved;
                 });
     }
 
@@ -98,6 +129,7 @@ public class RuleService {
                     rule.setRecurringPayment(null);
                     ruleRepository.delete(rule);
                     ruleRepository.flush();
+                    recalculateAfterRuleMutation(payment);
                     return true;
                 })
                 .orElse(false);
@@ -106,6 +138,14 @@ public class RuleService {
     private RecurringPayment requirePaymentExists(UUID recurringPaymentId) {
         return recurringPaymentRepository.findByIdAndUserId(recurringPaymentId, userContextService.getCurrentUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Recurring payment not found: " + recurringPaymentId));
+    }
+
+    private void recalculateAfterRuleMutation(RecurringPayment payment) {
+        if (payment.getPaymentType() == PaymentType.GROUPED) {
+            recalculationService.recalculateCurrentUserRecurringPayments();
+            return;
+        }
+        recalculationService.recalculateRecurringPaymentLinks(payment.getId());
     }
 
 }

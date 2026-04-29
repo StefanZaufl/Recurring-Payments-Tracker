@@ -92,8 +92,14 @@ public class RecurringPaymentService {
         UUID paymentId = savedPayment.getId();
 
         for (RuleCreateParams rp : ruleParams) {
-            ruleService.createRule(paymentId, rp.ruleType(), rp.targetField(),
-                    rp.text(), rp.strict(), rp.threshold(), rp.amount(), rp.fluctuationRange());
+            ruleService.createRuleWithoutRecalculation(paymentId, new RuleService.RuleMutation(
+                    rp.ruleType(),
+                    rp.targetField(),
+                    rp.text(),
+                    rp.strict(),
+                    rp.threshold(),
+                    rp.amount(),
+                    rp.fluctuationRange()));
         }
 
         detectionService.reEvaluateRecurringPayment(paymentId);
