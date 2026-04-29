@@ -68,17 +68,13 @@ class AnalyticsServiceTest {
                 .thenReturn(transactions);
         when(recurringPaymentRepository.findByUserIdAndIsActiveTrue(userId))
                 .thenReturn(List.of(rent, gym, salary, orphan));
-        when(linkRepository.findWithTransactionByRecurringPaymentIdAndTransactionBookingDateBetween(
-                rent.getId(), LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31)))
+        when(linkRepository.findWithTransactionByRecurringPaymentId(rent.getId()))
                 .thenReturn(List.of(link(transaction(LocalDate.of(2025, 2, 1), "Rent", "-1200.00"))));
-        when(linkRepository.findWithTransactionByRecurringPaymentIdAndTransactionBookingDateBetween(
-                gym.getId(), LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31)))
+        when(linkRepository.findWithTransactionByRecurringPaymentId(gym.getId()))
                 .thenReturn(List.of(link(transaction(LocalDate.of(2025, 2, 10), "Gym", "-50.00"))));
-        when(linkRepository.findWithTransactionByRecurringPaymentIdAndTransactionBookingDateBetween(
-                salary.getId(), LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31)))
+        when(linkRepository.findWithTransactionByRecurringPaymentId(salary.getId()))
                 .thenReturn(List.of(link(transaction(LocalDate.of(2025, 1, 3), "Salary", "3000.00"))));
-        when(linkRepository.findWithTransactionByRecurringPaymentIdAndTransactionBookingDateBetween(
-                orphan.getId(), LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31)))
+        when(linkRepository.findWithTransactionByRecurringPaymentId(orphan.getId()))
                 .thenReturn(List.of());
 
         AnalyticsService.AnnualOverviewResult result = analyticsService.getAnnualOverview(2025);
@@ -101,10 +97,74 @@ class AnalyticsServiceTest {
                 .extracting(AnalyticsService.RecurringPaymentSummaryResult::name)
                 .containsExactly("Rent", "Gym");
         assertThat(result.recurringExpenses().get(0).annualAmount()).isEqualByComparingTo("1200.00");
-        assertThat(result.recurringExpenses().get(0).monthlyAmount()).isEqualByComparingTo("100.00");
+        assertThat(result.recurringExpenses().get(0).monthlyAmount()).isEqualByComparingTo("1200.00");
         assertThat(result.recurringIncome())
                 .extracting(AnalyticsService.RecurringPaymentSummaryResult::name)
                 .containsExactly("Salary");
+    }
+
+    @Test
+    void getAnnualOverview_averagesMonthlySummaryAcrossObservedSelectedYearCoverage() {
+        RecurringPayment payment = payment("Gym", Frequency.MONTHLY, false, "-50.00", null);
+        List<TransactionRecurringLink> links = List.of(
+                link(transaction(LocalDate.of(2025, 7, 1), "Gym", "-50.00")),
+                link(transaction(LocalDate.of(2025, 8, 1), "Gym", "-50.00")),
+                link(transaction(LocalDate.of(2025, 9, 1), "Gym", "-50.00"))
+        );
+
+        when(transactionRepository.findByUserIdAndBookingDateBetweenAndIsInterAccountFalse(
+                userId, LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31)))
+                .thenReturn(List.of());
+        when(recurringPaymentRepository.findByUserIdAndIsActiveTrue(userId)).thenReturn(List.of(payment));
+        when(linkRepository.findWithTransactionByRecurringPaymentId(payment.getId())).thenReturn(links);
+
+        AnalyticsService.AnnualOverviewResult result = analyticsService.getAnnualOverview(2025);
+
+        assertThat(result.recurringExpenses().getFirst().annualAmount()).isEqualByComparingTo("150.00");
+        assertThat(result.recurringExpenses().getFirst().monthlyAmount()).isEqualByComparingTo("50.00");
+    }
+
+    @Test
+    void getAnnualOverview_usesSelectedYearOverlapWhenPaymentHasTransactionsOutsideYear() {
+        RecurringPayment payment = payment("Internet", Frequency.MONTHLY, false, "-40.00", null);
+        List<TransactionRecurringLink> links = List.of(
+                link(transaction(LocalDate.of(2024, 12, 1), "Internet", "-40.00")),
+                link(transaction(LocalDate.of(2025, 1, 1), "Internet", "-40.00")),
+                link(transaction(LocalDate.of(2025, 2, 1), "Internet", "-40.00")),
+                link(transaction(LocalDate.of(2025, 3, 1), "Internet", "-40.00")),
+                link(transaction(LocalDate.of(2026, 1, 1), "Internet", "-40.00"))
+        );
+
+        when(transactionRepository.findByUserIdAndBookingDateBetweenAndIsInterAccountFalse(
+                userId, LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31)))
+                .thenReturn(List.of());
+        when(recurringPaymentRepository.findByUserIdAndIsActiveTrue(userId)).thenReturn(List.of(payment));
+        when(linkRepository.findWithTransactionByRecurringPaymentId(payment.getId())).thenReturn(links);
+
+        AnalyticsService.AnnualOverviewResult result = analyticsService.getAnnualOverview(2025);
+
+        assertThat(result.recurringExpenses().getFirst().annualAmount()).isEqualByComparingTo("120.00");
+        assertThat(result.recurringExpenses().getFirst().monthlyAmount()).isEqualByComparingTo("10.00");
+    }
+
+    @Test
+    void getAnnualOverview_usesFrequencyPeriodCoverageForQuarterlySummaries() {
+        RecurringPayment payment = payment("Insurance", Frequency.QUARTERLY, false, "-300.00", null);
+        List<TransactionRecurringLink> links = List.of(
+                link(transaction(LocalDate.of(2025, 2, 1), "Insurance", "-300.00")),
+                link(transaction(LocalDate.of(2025, 5, 1), "Insurance", "-300.00"))
+        );
+
+        when(transactionRepository.findByUserIdAndBookingDateBetweenAndIsInterAccountFalse(
+                userId, LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31)))
+                .thenReturn(List.of());
+        when(recurringPaymentRepository.findByUserIdAndIsActiveTrue(userId)).thenReturn(List.of(payment));
+        when(linkRepository.findWithTransactionByRecurringPaymentId(payment.getId())).thenReturn(links);
+
+        AnalyticsService.AnnualOverviewResult result = analyticsService.getAnnualOverview(2025);
+
+        assertThat(result.recurringExpenses().getFirst().annualAmount()).isEqualByComparingTo("600.00");
+        assertThat(result.recurringExpenses().getFirst().monthlyAmount()).isEqualByComparingTo("100.00");
     }
 
     @Test

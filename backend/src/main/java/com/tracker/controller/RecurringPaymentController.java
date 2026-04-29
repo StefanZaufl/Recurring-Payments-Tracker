@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -110,8 +111,8 @@ public class RecurringPaymentController implements RecurringPaymentsApi {
     }
 
     @Override
-    public ResponseEntity<List<PaymentPeriodHistoryEntry>> getRecurringPaymentHistory(UUID id) {
-        List<PaymentPeriodHistory> history = historyService.getHistory(id);
+    public ResponseEntity<List<PaymentPeriodHistoryEntry>> getRecurringPaymentHistory(UUID id, LocalDate from, LocalDate to) {
+        List<PaymentPeriodHistory> history = historyService.getHistory(id, from, to);
         List<PaymentPeriodHistoryEntry> entries = history.stream()
                 .map(h -> {
                     PaymentPeriodHistoryEntry entry = new PaymentPeriodHistoryEntry();

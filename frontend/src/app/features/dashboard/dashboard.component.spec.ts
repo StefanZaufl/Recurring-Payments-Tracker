@@ -201,7 +201,7 @@ describe('DashboardComponent', () => {
     fixture.detectChanges();
     component.loadHistory('expense', 'aaa-111');
 
-    expect(recurringPaymentsService.getRecurringPaymentHistory).toHaveBeenCalledWith('aaa-111');
+    expect(recurringPaymentsService.getRecurringPaymentHistory).toHaveBeenCalledWith('aaa-111', `${component.selectedYear}-01-01`, `${component.selectedYear}-12-31`);
     expect(component.expenseHistoryState.paymentId).toBe('aaa-111');
     expect(component.expenseHistoryState.loading).toBe(false);
     expect(component.expenseHistoryState.data.labels).toEqual(['Jan 2025', 'Feb 2025', 'Mar 2025']);
@@ -211,7 +211,7 @@ describe('DashboardComponent', () => {
     fixture.detectChanges();
     component.loadHistory('income', 'ccc-333');
 
-    expect(recurringPaymentsService.getRecurringPaymentHistory).toHaveBeenCalledWith('ccc-333');
+    expect(recurringPaymentsService.getRecurringPaymentHistory).toHaveBeenCalledWith('ccc-333', `${component.selectedYear}-01-01`, `${component.selectedYear}-12-31`);
     expect(component.incomeHistoryState.paymentId).toBe('ccc-333');
     expect(component.expenseHistoryState.paymentId).toBeNull();
   });

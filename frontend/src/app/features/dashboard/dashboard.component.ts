@@ -411,7 +411,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   loadHistory(table: 'expense' | 'income', paymentId: string): void {
     this.setHistoryState(table, { paymentId, loading: true, data: this.emptyHistoryData });
 
-    this.recurringPaymentsService.getRecurringPaymentHistory(paymentId)
+    this.recurringPaymentsService.getRecurringPaymentHistory(
+      paymentId,
+      `${this.selectedYear}-01-01`,
+      `${this.selectedYear}-12-31`
+    )
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (entries) => {

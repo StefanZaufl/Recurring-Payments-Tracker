@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -137,36 +138,37 @@ public class AnalyticsService {
     }
 
     private RecurringTotals summarizeRecurring(List<RecurringPayment> activePayments, LocalDate startOfYear, LocalDate endOfYear) {
-        BigDecimal[] monthlyExpenses = new BigDecimal[12];
-        Arrays.fill(monthlyExpenses, BigDecimal.ZERO);
+        List<BigDecimal> monthlyExpenses = new ArrayList<>(Collections.nCopies(12, BigDecimal.ZERO));
 
-        Map<UUID, BigDecimal> totalsByPayment = new HashMap<>();
+        Map<UUID, PaymentYearTotal> totalsByPayment = new HashMap<>();
         for (RecurringPayment payment : activePayments) {
             BigDecimal paymentTotal = BigDecimal.ZERO;
-            List<TransactionRecurringLink> links = linkRepository
-                    .findWithTransactionByRecurringPaymentIdAndTransactionBookingDateBetween(
-                            payment.getId(),
-                            startOfYear,
-                            endOfYear
-                    );
+            List<TransactionRecurringLink> allLinks = linkRepository.findWithTransactionByRecurringPaymentId(payment.getId());
+            List<TransactionRecurringLink> links = allLinks.stream()
+                    .filter(link -> isWithin(link.getTransaction().getBookingDate(), startOfYear, endOfYear))
+                    .toList();
             for (TransactionRecurringLink link : links) {
                 LocalDate bookingDate = link.getTransaction().getBookingDate();
                 BigDecimal amount = link.getTransaction().getAmount().abs();
                 paymentTotal = paymentTotal.add(amount);
                 if (!Boolean.TRUE.equals(payment.getIsIncome())) {
                     int monthIndex = bookingDate.getMonthValue() - 1;
-                    monthlyExpenses[monthIndex] = monthlyExpenses[monthIndex].add(amount);
+                    monthlyExpenses.set(monthIndex, monthlyExpenses.get(monthIndex).add(amount));
                 }
             }
             if (paymentTotal.compareTo(BigDecimal.ZERO) > 0) {
-                totalsByPayment.put(payment.getId(), paymentTotal);
+                totalsByPayment.put(payment.getId(), new PaymentYearTotal(paymentTotal, allLinks, startOfYear, endOfYear));
             }
         }
 
         return new RecurringTotals(totalsByPayment, monthlyExpenses);
     }
 
-    private List<MonthlyBreakdownResult> buildMonthlyBreakdown(List<List<Transaction>> transactionsByMonth, BigDecimal[] monthlyRecurringExpenses) {
+    private boolean isWithin(LocalDate date, LocalDate from, LocalDate to) {
+        return !date.isBefore(from) && !date.isAfter(to);
+    }
+
+    private List<MonthlyBreakdownResult> buildMonthlyBreakdown(List<List<Transaction>> transactionsByMonth, List<BigDecimal> monthlyRecurringExpenses) {
         List<MonthlyBreakdownResult> monthlyBreakdown = new ArrayList<>();
         for (int month = 1; month <= 12; month++) {
             BigDecimal income = BigDecimal.ZERO;
@@ -186,7 +188,7 @@ public class AnalyticsService {
                     income,
                     expenses,
                     income.subtract(expenses),
-                    monthlyRecurringExpenses[month - 1]
+                    monthlyRecurringExpenses.get(month - 1)
             ));
         }
         return monthlyBreakdown;
@@ -204,26 +206,29 @@ public class AnalyticsService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    private BigDecimal sumRecurringIncome(List<RecurringPayment> activePayments, Map<UUID, BigDecimal> totalsByPayment) {
+    private BigDecimal sumRecurringIncome(List<RecurringPayment> activePayments, Map<UUID, PaymentYearTotal> totalsByPayment) {
         return sumRecurringByType(activePayments, totalsByPayment, true);
     }
 
-    private BigDecimal sumRecurringExpenses(List<RecurringPayment> activePayments, Map<UUID, BigDecimal> totalsByPayment) {
+    private BigDecimal sumRecurringExpenses(List<RecurringPayment> activePayments, Map<UUID, PaymentYearTotal> totalsByPayment) {
         return sumRecurringByType(activePayments, totalsByPayment, false);
     }
 
-    private BigDecimal sumRecurringByType(List<RecurringPayment> activePayments, Map<UUID, BigDecimal> totalsByPayment, boolean income) {
+    private BigDecimal sumRecurringByType(List<RecurringPayment> activePayments, Map<UUID, PaymentYearTotal> totalsByPayment, boolean income) {
         BigDecimal total = BigDecimal.ZERO;
         for (RecurringPayment payment : activePayments) {
             if (Boolean.TRUE.equals(payment.getIsIncome()) != income) {
                 continue;
             }
-            total = total.add(totalsByPayment.getOrDefault(payment.getId(), BigDecimal.ZERO));
+            PaymentYearTotal yearTotal = totalsByPayment.get(payment.getId());
+            if (yearTotal != null) {
+                total = total.add(yearTotal.amount());
+            }
         }
         return total;
     }
 
-    private List<CategoryBreakdownResult> buildCategoryBreakdown(List<RecurringPayment> activePayments, Map<UUID, BigDecimal> totalsByPayment) {
+    private List<CategoryBreakdownResult> buildCategoryBreakdown(List<RecurringPayment> activePayments, Map<UUID, PaymentYearTotal> totalsByPayment) {
         Map<CategoryKey, BigDecimal> categoryTotals = new LinkedHashMap<>();
         Map<CategoryKey, String> categoryNames = new LinkedHashMap<>();
         Map<CategoryKey, String> categoryColors = new LinkedHashMap<>();
@@ -233,7 +238,8 @@ public class AnalyticsService {
                 continue;
             }
 
-            BigDecimal amount = totalsByPayment.getOrDefault(payment.getId(), BigDecimal.ZERO);
+            PaymentYearTotal yearTotal = totalsByPayment.get(payment.getId());
+            BigDecimal amount = yearTotal != null ? yearTotal.amount() : BigDecimal.ZERO;
             if (amount.compareTo(BigDecimal.ZERO) == 0) {
                 continue;
             }
@@ -262,15 +268,15 @@ public class AnalyticsService {
                 .toList();
     }
 
-    private List<RecurringPaymentSummaryResult> buildRecurringExpenseSummaries(List<RecurringPayment> activePayments, Map<UUID, BigDecimal> totalsByPayment) {
+    private List<RecurringPaymentSummaryResult> buildRecurringExpenseSummaries(List<RecurringPayment> activePayments, Map<UUID, PaymentYearTotal> totalsByPayment) {
         return buildRecurringSummariesByType(activePayments, totalsByPayment, false);
     }
 
-    private List<RecurringPaymentSummaryResult> buildRecurringIncomeSummaries(List<RecurringPayment> activePayments, Map<UUID, BigDecimal> totalsByPayment) {
+    private List<RecurringPaymentSummaryResult> buildRecurringIncomeSummaries(List<RecurringPayment> activePayments, Map<UUID, PaymentYearTotal> totalsByPayment) {
         return buildRecurringSummariesByType(activePayments, totalsByPayment, true);
     }
 
-    private List<RecurringPaymentSummaryResult> buildRecurringSummariesByType(List<RecurringPayment> activePayments, Map<UUID, BigDecimal> totalsByPayment, boolean income) {
+    private List<RecurringPaymentSummaryResult> buildRecurringSummariesByType(List<RecurringPayment> activePayments, Map<UUID, PaymentYearTotal> totalsByPayment, boolean income) {
         return activePayments.stream()
                 .filter(payment -> Boolean.TRUE.equals(payment.getIsIncome()) == income)
                 .filter(payment -> totalsByPayment.containsKey(payment.getId()))
@@ -279,8 +285,12 @@ public class AnalyticsService {
                 .toList();
     }
 
-    private RecurringPaymentSummaryResult toRecurringSummary(RecurringPayment payment, BigDecimal annualAmount) {
-        BigDecimal monthlyAmount = annualAmount.divide(BigDecimal.valueOf(12), 2, RoundingMode.HALF_UP);
+    private RecurringPaymentSummaryResult toRecurringSummary(RecurringPayment payment, PaymentYearTotal yearTotal) {
+        BigDecimal annualAmount = yearTotal.amount();
+        BigDecimal coveredMonthEquivalent = coveredMonthEquivalent(payment, yearTotal);
+        BigDecimal monthlyAmount = coveredMonthEquivalent.compareTo(BigDecimal.ZERO) > 0
+                ? annualAmount.divide(coveredMonthEquivalent, 2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
         return new RecurringPaymentSummaryResult(
                 payment.getId(),
                 payment.getName(),
@@ -288,6 +298,56 @@ public class AnalyticsService {
                 annualAmount,
                 categoryName(payment)
         );
+    }
+
+    private BigDecimal coveredMonthEquivalent(RecurringPayment payment, PaymentYearTotal yearTotal) {
+        List<LocalDate> dates = yearTotal.allLinks().stream()
+                .map(TransactionRecurringLink::getTransaction)
+                .map(Transaction::getBookingDate)
+                .sorted()
+                .toList();
+        if (dates.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        LocalDate observedStart = dates.getFirst();
+        LocalDate observedEnd = dates.getLast();
+        LocalDate yearStart = yearTotal.startOfYear();
+        LocalDate yearEnd = yearTotal.endOfYear();
+        LocalDate overlapStart = observedStart.isAfter(yearStart) ? observedStart : yearStart;
+        LocalDate overlapEnd = observedEnd.isBefore(yearEnd) ? observedEnd : yearEnd;
+        if (overlapStart.isAfter(overlapEnd)) {
+            return BigDecimal.ZERO;
+        }
+
+        Frequency frequency = payment.getFrequency() != null ? payment.getFrequency() : Frequency.MONTHLY;
+        if (frequency == Frequency.MONTHLY) {
+            long months = ChronoUnit.MONTHS.between(YearMonth.from(overlapStart), YearMonth.from(overlapEnd)) + 1;
+            return BigDecimal.valueOf(months);
+        }
+
+        long distinctPeriods = dates.stream()
+                .map(date -> PaymentPeriodHistoryService.computePeriodStart(date, frequency))
+                .filter(periodStart -> periodsOverlap(
+                        periodStart,
+                        PaymentPeriodHistoryService.computePeriodEnd(periodStart, frequency),
+                        overlapStart,
+                        overlapEnd))
+                .distinct()
+                .count();
+        return BigDecimal.valueOf(distinctPeriods * monthsPerPeriod(frequency));
+    }
+
+    private boolean periodsOverlap(LocalDate periodStart, LocalDate periodEnd, LocalDate from, LocalDate to) {
+        return !periodStart.isAfter(to) && !periodEnd.isBefore(from);
+    }
+
+    private int monthsPerPeriod(Frequency frequency) {
+        return switch (frequency) {
+            case MONTHLY -> 1;
+            case QUARTERLY -> 3;
+            case YEARLY -> 12;
+        };
     }
 
     private String categoryName(RecurringPayment payment) {
@@ -354,7 +414,10 @@ public class AnalyticsService {
     public record RecurringPaymentSummaryResult(UUID id, String name, BigDecimal monthlyAmount,
                                                  BigDecimal annualAmount, String category) {}
 
-    private record RecurringTotals(Map<UUID, BigDecimal> totalsByPayment, BigDecimal[] monthlyExpenses) {}
+    private record RecurringTotals(Map<UUID, PaymentYearTotal> totalsByPayment, List<BigDecimal> monthlyExpenses) {}
+
+    private record PaymentYearTotal(BigDecimal amount, List<TransactionRecurringLink> allLinks,
+                                    LocalDate startOfYear, LocalDate endOfYear) {}
 
     private record CategoryKey(UUID id, String fallbackName) {}
 

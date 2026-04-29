@@ -41,7 +41,17 @@ Planned change:
 - Add a small active-filter indicator/count on the "More filters" toggle.
 - Update responsive layout and tests for the collapsed default state and active-filter expanded state.
 
-## Phase 2: Dashboard Year-Scoped Data Consistency
+## Phase 2: Dashboard Year-Scoped Data Consistency - Complete
+
+Completed:
+- Extended the recurring payment history endpoint with optional `from` and `to` query parameters.
+- Filtered payment period history by period overlap, so periods crossing a selected year boundary are included.
+- Updated the dashboard to request history for the selected year and regenerated the Angular API client.
+- Reworked recurring summary monthly amounts to use observed selected-year coverage instead of always dividing selected-year totals by 12.
+- Kept `annualAmount` as the actual selected-year linked-transaction total and made `monthlyAmount` the observed monthly average for that coverage.
+- Added backend controller/service tests for year-filtered history and analytics tests for mid-year starts, partial selected-year coverage, quarterly period coverage, and no-link/no-year exclusions.
+- Added frontend dashboard test expectations for selected-year history parameters.
+- Verified with focused backend tests, full backend tests, dashboard frontend tests, frontend build, backend Sonar, frontend Sonar, and `tooling/query-sonar-issues.sh` reporting zero new-code issues.
 
 ### 3. Filter recurring payment amount history by selected year
 

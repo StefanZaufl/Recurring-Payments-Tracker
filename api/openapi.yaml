@@ -483,6 +483,18 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
       responses:
         '200':
           description: List of period history entries sorted by periodStart ascending
