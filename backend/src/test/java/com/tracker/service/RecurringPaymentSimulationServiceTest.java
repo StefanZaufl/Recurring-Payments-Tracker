@@ -14,16 +14,17 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class SimulationServiceTest {
+class RecurringPaymentSimulationServiceTest {
 
     @Mock
     private TransactionRepository transactionRepository;
@@ -35,21 +36,31 @@ class SimulationServiceTest {
     private RuleEvaluationService ruleEvaluationService;
     @Mock
     private UserContextService userContextService;
+    @Mock
+    private AdditionalMatchingService additionalMatchingService;
 
-    private SimulationService service;
+    private RecurringPaymentSimulationService service;
     private UUID userId;
 
     @BeforeEach
     void setUp() {
-        service = new SimulationService(
+        service = new RecurringPaymentSimulationService(
                 transactionRepository,
                 recurringPaymentRepository,
                 linkRepository,
                 ruleEvaluationService,
-                userContextService
+                userContextService,
+                additionalMatchingService
         );
         userId = UUID.randomUUID();
         when(userContextService.getCurrentUserId()).thenReturn(userId);
+        when(additionalMatchingService.matchGroups(anyList(), any())).thenReturn(java.util.Map.of());
+        when(additionalMatchingService.toTransactionGroupMatches(any(), anyList())).thenReturn(List.of());
+        when(additionalMatchingService.sortNewestFirst(org.mockito.ArgumentMatchers.<Collection<Transaction>>any()))
+                .thenAnswer(invocation -> {
+                    Collection<Transaction> transactions = invocation.getArgument(0);
+                    return transactions.stream().toList();
+                });
     }
 
     @Test
@@ -80,11 +91,11 @@ class SimulationServiceTest {
             return List.of();
         });
 
-        SimulationService.SimulationResult result = service.simulate(List.of(simulatedRule));
+        RecurringPaymentSimulationService.SimulationResult result = service.simulate(List.of(simulatedRule));
 
         assertThat(result.matchingTransactions()).containsExactly(unlinked);
         assertThat(result.overlappingPayments())
-                .extracting(SimulationService.OverlappingPayment::name)
+                .extracting(RecurringPaymentSimulationService.OverlappingPayment::name)
                 .containsExactlyInAnyOrder("Gym Membership", "Spotify");
     }
 
@@ -105,7 +116,7 @@ class SimulationServiceTest {
                 .thenReturn(List.of(link(linked)));
         when(ruleEvaluationService.findMatchingTransactions(anyList(), anyList())).thenReturn(List.of());
 
-        SimulationService.SimulationResult result = service.simulate(List.of(simulatedRule));
+        RecurringPaymentSimulationService.SimulationResult result = service.simulate(List.of(simulatedRule));
 
         assertThat(result.matchingTransactions()).isEmpty();
         assertThat(result.overlappingPayments()).isEmpty();

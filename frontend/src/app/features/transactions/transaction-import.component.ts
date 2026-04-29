@@ -3,34 +3,19 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { TransactionsService, UploadResponse } from '../../api/generated';
 import { TransactionCsvImportMapping } from '../../api/generated/model/transactionCsvImportMapping';
+import {
+  CHARSET_OPTIONS,
+  CsvPreview,
+  ExpectedField,
+  SupportedCharset,
+  TransactionImportParserService
+} from './transaction-import-parser.service';
 
-type ExpectedField = 'ignore' | 'bookingDate' | 'amount' | 'account' | 'partnerName' | 'partnerIban' | 'details' | 'detailsFallback';
 type RequiredField = 'bookingDate' | 'amount';
-type SupportedCharset = 'utf-8' | 'utf-16le' | 'utf-16be' | 'windows-1252' | 'iso-8859-1' | 'iso-8859-15';
-
-interface CsvPreview {
-  headers: string[];
-  rows: string[][];
-}
 
 interface FieldOption {
   value: ExpectedField;
   label: string;
-}
-
-interface CharsetOption {
-  value: SupportedCharset;
-  label: string;
-}
-
-interface CharsetDetectionResult {
-  charset: SupportedCharset;
-  confidence: 'high' | 'low';
-}
-
-interface DecodedCsvCandidate {
-  preview: CsvPreview;
-  score: number;
 }
 
 @Component({
@@ -228,8 +213,9 @@ interface DecodedCsvCandidate {
   `
 })
 export class TransactionImportComponent {
-  private transactionsService = inject(TransactionsService);
-  private cdr = inject(ChangeDetectorRef);
+  private readonly transactionsService = inject(TransactionsService);
+  private readonly parser = inject(TransactionImportParserService);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   readonly fieldOptions: FieldOption[] = [
     { value: 'ignore', label: 'Ignore column' },
@@ -242,14 +228,7 @@ export class TransactionImportComponent {
     { value: 'detailsFallback', label: 'Details Fallback' }
   ];
 
-  readonly charsetOptions: CharsetOption[] = [
-    { value: 'utf-8', label: 'UTF-8' },
-    { value: 'utf-16le', label: 'UTF-16 LE' },
-    { value: 'utf-16be', label: 'UTF-16 BE' },
-    { value: 'windows-1252', label: 'Windows-1252' },
-    { value: 'iso-8859-1', label: 'ISO-8859-1' },
-    { value: 'iso-8859-15', label: 'ISO-8859-15' }
-  ];
+  readonly charsetOptions = CHARSET_OPTIONS;
 
   selectedFile: File | null = null;
   selectedFileName: string | null = null;
@@ -277,10 +256,10 @@ export class TransactionImportComponent {
     this.uploadError = null;
 
     try {
-      const bytes = await this.readFileBytes(file);
+      const bytes = await this.parser.readFileBytes(file);
       this.selectedFileBytes = bytes;
 
-      const detection = this.detectCharset(bytes);
+      const detection = this.parser.detectCharset(bytes);
       this.detectedCharset = detection.charset;
       this.selectedCharset = detection.charset;
 
@@ -371,12 +350,12 @@ export class TransactionImportComponent {
     }
 
     try {
-      const text = this.decodeFileBytes(this.selectedFileBytes, this.selectedCharset);
-      const preview = this.buildPreview(text);
+      const text = this.parser.decodeFileBytes(this.selectedFileBytes, this.selectedCharset);
+      const preview = this.parser.buildPreview(text);
       const previousMappings = preserveMappings ? this.columnMappings : [];
 
       this.preview = preview;
-      this.columnMappings = this.buildColumnMappings(preview.headers, previousMappings);
+      this.columnMappings = this.parser.buildColumnMappings(preview.headers, previousMappings);
       this.parseError = null;
       this.updateMappingError();
     } catch (error) {
@@ -385,225 +364,6 @@ export class TransactionImportComponent {
       this.parseError = error instanceof Error ? error.message : 'Failed to decode CSV file.';
       this.mappingError = null;
     }
-  }
-
-  private buildPreview(text: string): CsvPreview {
-    const parsedRows = this.parseCsv(text);
-    if (parsedRows.length < 2) {
-      throw new Error('The CSV must include a header row and at least one data row.');
-    }
-
-    const [rawHeaders, ...rows] = parsedRows;
-    const headers = rawHeaders.map((header) => this.stripBom(header));
-    if (headers.every((header) => !header.trim())) {
-      throw new Error('The CSV header row is empty.');
-    }
-
-    return {
-      headers,
-      rows: rows.slice(0, 5).map((row) => this.padRow(row, headers.length))
-    };
-  }
-
-  private stripBom(value: string): string {
-    return value.replace(/^\uFEFF/, '');
-  }
-
-  private async readFileBytes(file: File): Promise<ArrayBuffer> {
-    if (typeof file.arrayBuffer === 'function') {
-      return file.arrayBuffer();
-    }
-
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (reader.result instanceof ArrayBuffer) {
-          resolve(reader.result);
-          return;
-        }
-        reject(new Error('Failed to read CSV file.'));
-      };
-      reader.onerror = () => reject(new Error('Failed to read CSV file.'));
-      reader.readAsArrayBuffer(file);
-    });
-  }
-
-  private decodeFileBytes(bytes: ArrayBuffer, charset: SupportedCharset): string {
-    try {
-      return new TextDecoder(charset, { fatal: false }).decode(bytes);
-    } catch {
-      throw new Error(`The browser could not decode this file as ${charset}.`);
-    }
-  }
-
-  private detectCharset(bytes: ArrayBuffer): CharsetDetectionResult {
-    const byteView = new Uint8Array(bytes);
-
-    if (byteView.length >= 3 && byteView[0] === 0xEF && byteView[1] === 0xBB && byteView[2] === 0xBF) {
-      return { charset: 'utf-8', confidence: 'high' };
-    }
-    if (byteView.length >= 2 && byteView[0] === 0xFF && byteView[1] === 0xFE) {
-      return { charset: 'utf-16le', confidence: 'high' };
-    }
-    if (byteView.length >= 2 && byteView[0] === 0xFE && byteView[1] === 0xFF) {
-      return { charset: 'utf-16be', confidence: 'high' };
-    }
-
-    const candidates = this.charsetOptions
-      .map((option) => ({ charset: option.value, candidate: this.scoreDecodedCandidate(bytes, option.value) }))
-      .filter((entry): entry is { charset: SupportedCharset; candidate: DecodedCsvCandidate } => entry.candidate !== null)
-      .sort((left, right) => right.candidate.score - left.candidate.score);
-
-    const best = candidates[0];
-    if (!best || best.candidate.score < 45) {
-      return { charset: 'utf-8', confidence: 'low' };
-    }
-
-    return { charset: best.charset, confidence: 'high' };
-  }
-
-  private scoreDecodedCandidate(bytes: ArrayBuffer, charset: SupportedCharset): DecodedCsvCandidate | null {
-    try {
-      const text = this.decodeFileBytes(bytes, charset);
-      const preview = this.buildPreview(text);
-      const headers = preview.headers.join(';');
-      const replacementCount = (text.match(/\uFFFD/g) ?? []).length;
-      const nullCount = text.split('\u0000').length - 1;
-      const mojibakeCount = (text.match(/Ã|Â|¤|�/g) ?? []).length;
-      const recognizedHeaders = preview.headers.filter((header) => this.suggestField(header) !== 'ignore').length;
-      const semicolonCount = (text.match(/;/g) ?? []).length;
-
-      let score = 50;
-      score += Math.min(recognizedHeaders * 15, 45);
-      score += Math.min(semicolonCount, 20);
-      score -= replacementCount * 30;
-      score -= nullCount * 2;
-      score -= mojibakeCount * 8;
-      if (headers.length === 0) {
-        score -= 20;
-      }
-
-      return { preview, score };
-    } catch {
-      return null;
-    }
-  }
-
-  private buildColumnMappings(headers: string[], previousMappings: ExpectedField[]): ExpectedField[] {
-    const suggestedMappings = headers.map((header, index) => previousMappings[index] ?? this.suggestField(header));
-    return this.deduplicateMappings(suggestedMappings);
-  }
-
-  private parseCsv(text: string): string[][] {
-    const rows: string[][] = [];
-    let currentRow: string[] = [];
-    let currentCell = '';
-    let inQuotes = false;
-
-    for (let i = 0; i < text.length; i += 1) {
-      const char = text[i];
-      const nextChar = text[i + 1];
-
-      if (char === '"') {
-        if (inQuotes && nextChar === '"') {
-          currentCell += '"';
-          i += 1;
-        } else {
-          inQuotes = !inQuotes;
-        }
-        continue;
-      }
-
-      if (char === ';' && !inQuotes) {
-        currentRow.push(currentCell.trim());
-        currentCell = '';
-        continue;
-      }
-
-      if ((char === '\n' || char === '\r') && !inQuotes) {
-        if (char === '\r' && nextChar === '\n') {
-          i += 1;
-        }
-        currentRow.push(currentCell.trim());
-        if (currentRow.some((cell) => cell !== '')) {
-          rows.push(currentRow);
-        }
-        currentRow = [];
-        currentCell = '';
-        continue;
-      }
-
-      currentCell += char;
-    }
-
-    if (inQuotes) {
-      throw new Error('The CSV contains an unclosed quoted value.');
-    }
-
-    if (currentCell.length > 0 || currentRow.length > 0) {
-      currentRow.push(currentCell.trim());
-      if (currentRow.some((cell) => cell !== '')) {
-        rows.push(currentRow);
-      }
-    }
-
-    return rows;
-  }
-
-  private padRow(row: string[], length: number): string[] {
-    return Array.from({ length }, (_, index) => row[index] ?? '');
-  }
-
-  private suggestField(header: string): ExpectedField {
-    const normalized = this.normalizeHeader(header);
-    if (this.matchesAny(normalized, ['buchungsdatum', 'bookingdate', 'date', 'valuedate'])) {
-      return 'bookingDate';
-    }
-    if (this.matchesAny(normalized, ['betrag', 'amount', 'value', 'sum', 'umsatz'])) {
-      return 'amount';
-    }
-    if (this.matchesAny(normalized, ['kontoiban', 'accountiban', 'ibanfrom', 'sourceiban', 'auftragskonto', 'kontonummer', 'account'])) {
-      return 'account';
-    }
-    if (this.matchesAny(normalized, ['partneriban', 'counterpartyiban', 'empfaengeriban', 'recipientiban', 'iban'])) {
-      return 'partnerIban';
-    }
-    if (this.matchesAny(normalized, ['partnername', 'payee', 'partner', 'name', 'empfaenger'])) {
-      return 'partnerName';
-    }
-    if (this.matchesAny(normalized, ['verwendungszweck', 'purpose', 'remittanceinfo', 'reference', 'memo'])) {
-      return 'detailsFallback';
-    }
-    if (this.matchesAny(normalized, ['buchungsdetails', 'details', 'description', 'verwendungszweck', 'memo', 'reference'])) {
-      return 'details';
-    }
-    return 'ignore';
-  }
-
-  private deduplicateMappings(mappings: ExpectedField[]): ExpectedField[] {
-    const assigned = new Set<Exclude<ExpectedField, 'ignore'>>();
-    return mappings.map((mapping) => {
-      if (mapping === 'ignore') {
-        return mapping;
-      }
-      if (assigned.has(mapping)) {
-        return 'ignore';
-      }
-      assigned.add(mapping);
-      return mapping;
-    });
-  }
-
-  private normalizeHeader(value: string): string {
-    return value
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]/g, '');
-  }
-
-  private matchesAny(value: string, candidates: string[]): boolean {
-    return candidates.some((candidate) => value.includes(candidate));
   }
 
   private updateMappingError(): void {

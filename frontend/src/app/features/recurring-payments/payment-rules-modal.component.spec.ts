@@ -77,10 +77,10 @@ describe('PaymentRulesModalComponent', () => {
   it('should create a new rule and trigger re-evaluation', () => {
     fixture.detectChanges();
 
-    component.ruleFormType = 'AMOUNT';
-    component.ruleFormAmount = -12.99;
-    component.ruleFormFluctuationRange = 1.30;
-    component.saveRule();
+    component.onRulesChange([
+      ...mockRules,
+      { id: 'new-rule', ruleType: RuleType.Amount, amount: -12.99, fluctuationRange: 1.30 },
+    ]);
 
     expect(rulesService.createRule).toHaveBeenCalledWith('1', expect.objectContaining({
       ruleType: 'AMOUNT',
@@ -93,9 +93,10 @@ describe('PaymentRulesModalComponent', () => {
   it('should update an existing rule and trigger re-evaluation', () => {
     fixture.detectChanges();
 
-    component.startEditRule(mockRules[0]);
-    component.ruleFormText = 'netflix inc';
-    component.saveRule();
+    component.onRulesChange([
+      { ...mockRules[0], text: 'netflix inc' },
+      mockRules[1],
+    ]);
 
     expect(rulesService.updateRule).toHaveBeenCalledWith('1', 'r1', expect.objectContaining({
       text: 'netflix inc',
@@ -106,53 +107,10 @@ describe('PaymentRulesModalComponent', () => {
   it('should delete a rule and trigger re-evaluation', () => {
     fixture.detectChanges();
 
-    component.deleteRule(mockRules[0]);
+    component.onRulesChange([mockRules[1]]);
 
     expect(rulesService.deleteRule).toHaveBeenCalledWith('1', 'r1');
     expect(rulesService.reEvaluateRecurringPayment).toHaveBeenCalledWith('1');
-  });
-
-  it('should populate form fields when editing a rule', () => {
-    fixture.detectChanges();
-
-    component.startEditRule(mockRules[0]);
-
-    expect(component.editingRule).toBe(mockRules[0]);
-    expect(component.ruleFormType).toBe('JARO_WINKLER');
-    expect(component.ruleFormTargetField).toBe('PARTNER_NAME');
-    expect(component.ruleFormText).toBe('netflix');
-    expect(component.ruleFormThreshold).toBe(0.85);
-    expect(component.ruleFormStrict).toBe(true);
-  });
-
-  it('should cancel editing and reset form', () => {
-    fixture.detectChanges();
-    component.startEditRule(mockRules[0]);
-
-    component.cancelEditRule();
-
-    expect(component.editingRule).toBeNull();
-    expect(component.ruleFormType).toBe('JARO_WINKLER');
-    expect(component.ruleFormText).toBe('');
-  });
-
-  it('should format rule summaries correctly', () => {
-    expect(component.formatRuleSummary(mockRules[0])).toContain('netflix');
-    expect(component.formatRuleSummary(mockRules[0])).toContain('0.85');
-    expect(component.formatRuleSummary(mockRules[1])).toContain('12');
-  });
-
-  it('should format rule types correctly', () => {
-    expect(component.formatRuleType('JARO_WINKLER')).toBe('Jaro-Winkler');
-    expect(component.formatRuleType('REGEX')).toBe('Regex');
-    expect(component.formatRuleType('AMOUNT')).toBe('Amount');
-  });
-
-  it('should format target fields correctly', () => {
-    expect(component.formatTargetField('ACCOUNT')).toBe('Account');
-    expect(component.formatTargetField('PARTNER_NAME')).toBe('Partner Name');
-    expect(component.formatTargetField('PARTNER_IBAN')).toBe('Partner IBAN');
-    expect(component.formatTargetField('DETAILS')).toBe('Details');
   });
 
   it('should emit paymentUpdated after rule save', () => {
@@ -160,10 +118,10 @@ describe('PaymentRulesModalComponent', () => {
     const spy = jest.fn();
     component.paymentUpdated.subscribe(spy);
 
-    component.ruleFormType = 'AMOUNT';
-    component.ruleFormAmount = -12.99;
-    component.ruleFormFluctuationRange = 1.30;
-    component.saveRule();
+    component.onRulesChange([
+      ...mockRules,
+      { id: 'new-rule', ruleType: RuleType.Amount, amount: -12.99, fluctuationRange: 1.30 },
+    ]);
 
     expect(spy).toHaveBeenCalledWith(expect.objectContaining({
       payment: mockPayment,

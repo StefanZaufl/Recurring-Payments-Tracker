@@ -44,6 +44,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/recurring-payments/create-payment.component').then(m => m.CreatePaymentComponent)
   },
   {
+    path: 'recurring-payments/additional',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/recurring-payments/additional-rule-group-editor.component').then(m => m.AdditionalRuleGroupEditorComponent)
+  },
+  {
     path: 'recurring-payments',
     canActivate: [authGuard],
     loadComponent: () => import('./features/recurring-payments/recurring-payments-list.component').then(m => m.RecurringPaymentsListComponent)

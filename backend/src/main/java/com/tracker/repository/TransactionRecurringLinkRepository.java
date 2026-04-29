@@ -3,6 +3,8 @@ package com.tracker.repository;
 import com.tracker.model.entity.TransactionRecurringLink;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
@@ -31,6 +33,17 @@ public interface TransactionRecurringLinkRepository extends JpaRepository<Transa
 
     @EntityGraph(attributePaths = {"transaction", "recurringPayment"})
     List<TransactionRecurringLink> findByUserId(UUID userId);
+
+    @Query("SELECT link FROM TransactionRecurringLink link JOIN FETCH link.recurringPayment " +
+           "WHERE link.transaction.id = :transactionId AND link.user.id = :userId")
+    List<TransactionRecurringLink> findWithRecurringPaymentByTransactionIdAndUserId(@Param("transactionId") UUID transactionId,
+                                                                                    @Param("userId") UUID userId);
+
+    @Query("SELECT link FROM TransactionRecurringLink link JOIN FETCH link.recurringPayment " +
+           "WHERE link.transaction.id IN :transactionIds AND link.user.id = :userId")
+    List<TransactionRecurringLink> findWithRecurringPaymentByTransactionIdInAndUserId(
+            @Param("transactionIds") List<UUID> transactionIds,
+            @Param("userId") UUID userId);
 
     void deleteByRecurringPaymentId(UUID recurringPaymentId);
 }

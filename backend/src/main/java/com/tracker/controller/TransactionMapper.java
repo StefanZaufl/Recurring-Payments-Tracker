@@ -23,11 +23,29 @@ public abstract class TransactionMapper {
     @Autowired
     protected BankAccountMapper bankAccountMapper;
 
+    @Autowired
+    protected TransactionLinkMetadataEnricher linkMetadataEnricher;
+
     @Mapping(source = "upload.id", target = "uploadId")
     @Mapping(source = "amount", target = "amount")
-    public abstract TransactionDto toDto(Transaction transaction);
+    @Mapping(target = "linkedPaymentCount", ignore = true)
+    @Mapping(target = "linkedPaymentNames", ignore = true)
+    protected abstract TransactionDto toDtoBase(Transaction transaction);
 
-    public abstract List<TransactionDto> toDtoList(List<Transaction> transactions);
+    public TransactionDto toDto(Transaction transaction) {
+        if (transaction == null) {
+            return null;
+        }
+        return toDtoList(List.of(transaction)).getFirst();
+    }
+
+    public List<TransactionDto> toDtoList(List<Transaction> transactions) {
+        List<TransactionDto> dtos = transactions.stream()
+                .map(this::toDtoBase)
+                .toList();
+        linkMetadataEnricher.enrich(transactions, dtos);
+        return dtos;
+    }
 
     protected BankAccountDto map(String iban) {
         if (iban == null || iban.isBlank()) {

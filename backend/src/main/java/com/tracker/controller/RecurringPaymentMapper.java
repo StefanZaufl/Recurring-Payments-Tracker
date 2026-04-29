@@ -27,6 +27,9 @@ public abstract class RecurringPaymentMapper {
     @Autowired
     protected BankAccountMapper bankAccountMapper;
 
+    @Autowired
+    protected TransactionLinkMetadataEnricher linkMetadataEnricher;
+
     @Mapping(source = "category.id", target = "categoryId")
     @Mapping(source = "category.name", target = "categoryName")
     @Mapping(source = "category.color", target = "categoryColor")
@@ -37,9 +40,24 @@ public abstract class RecurringPaymentMapper {
     public abstract List<RecurringPaymentDto> toDtoList(List<RecurringPayment> entities);
 
     @Mapping(source = "upload.id", target = "uploadId")
-    public abstract TransactionDto toTransactionDto(Transaction transaction);
+    @Mapping(target = "linkedPaymentCount", ignore = true)
+    @Mapping(target = "linkedPaymentNames", ignore = true)
+    protected abstract TransactionDto toTransactionDtoBase(Transaction transaction);
 
-    public abstract List<TransactionDto> toTransactionDtoList(List<Transaction> transactions);
+    public TransactionDto toTransactionDto(Transaction transaction) {
+        if (transaction == null) {
+            return null;
+        }
+        return toTransactionDtoList(List.of(transaction)).getFirst();
+    }
+
+    public List<TransactionDto> toTransactionDtoList(List<Transaction> transactions) {
+        List<TransactionDto> dtos = transactions.stream()
+                .map(this::toTransactionDtoBase)
+                .toList();
+        linkMetadataEnricher.enrich(transactions, dtos);
+        return dtos;
+    }
 
     protected BankAccountDto map(String iban) {
         if (iban == null || iban.isBlank()) {

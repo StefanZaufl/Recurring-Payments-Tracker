@@ -6,9 +6,9 @@ import com.tracker.model.entity.Frequency;
 import com.tracker.model.entity.PaymentPeriodHistory;
 import com.tracker.model.entity.PaymentType;
 import com.tracker.service.PaymentPeriodHistoryService;
+import com.tracker.service.RecurringPaymentSimulationService;
 import com.tracker.service.RecurringPaymentService;
 import com.tracker.service.RuleCreateParams;
-import com.tracker.service.SimulationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -22,28 +22,31 @@ public class RecurringPaymentController implements RecurringPaymentsApi {
     private final RecurringPaymentService recurringPaymentService;
     private final RecurringPaymentMapper recurringPaymentMapper;
     private final RecurringPaymentRuleRequestMapper recurringPaymentRuleRequestMapper;
-    private final SimulationService simulationService;
+    private final RecurringPaymentSimulationService simulationService;
+    private final AdditionalGroupTransactionMatchMapper additionalGroupTransactionMatchMapper;
     private final PaymentPeriodHistoryService historyService;
     private final com.tracker.service.RecurringPaymentRecalculationService recalculationService;
 
     public RecurringPaymentController(RecurringPaymentService recurringPaymentService,
                                       RecurringPaymentMapper recurringPaymentMapper,
                                       RecurringPaymentRuleRequestMapper recurringPaymentRuleRequestMapper,
-                                      SimulationService simulationService,
+                                      RecurringPaymentSimulationService simulationService,
+                                      AdditionalGroupTransactionMatchMapper additionalGroupTransactionMatchMapper,
                                       PaymentPeriodHistoryService historyService,
                                       com.tracker.service.RecurringPaymentRecalculationService recalculationService) {
         this.recurringPaymentService = recurringPaymentService;
         this.recurringPaymentMapper = recurringPaymentMapper;
         this.recurringPaymentRuleRequestMapper = recurringPaymentRuleRequestMapper;
         this.simulationService = simulationService;
+        this.additionalGroupTransactionMatchMapper = additionalGroupTransactionMatchMapper;
         this.historyService = historyService;
         this.recalculationService = recalculationService;
     }
 
     @Override
-    public ResponseEntity<List<RecurringPaymentDto>> getRecurringPayments() {
+    public ResponseEntity<List<RecurringPaymentDto>> getRecurringPayments(String category) {
         return ResponseEntity.ok(
-                recurringPaymentMapper.toDtoList(recurringPaymentService.getAllRecurringPayments()));
+                recurringPaymentMapper.toDtoList(recurringPaymentService.getAllRecurringPayments(category)));
     }
 
     @Override
@@ -86,16 +89,20 @@ public class RecurringPaymentController implements RecurringPaymentsApi {
     }
 
     @Override
-    public ResponseEntity<SimulateRulesResponse> simulateRules(SimulateRulesRequest request) {
+    public ResponseEntity<RecurringPaymentSimulationResponse> simulateRecurringPayment(RecurringPaymentSimulationRequest request) {
         var transientRules = recurringPaymentRuleRequestMapper.toSimulationRules(request.getRules());
 
-        SimulationService.SimulationResult result = simulationService.simulate(transientRules);
+        RecurringPaymentSimulationService.SimulationResult result = simulationService.simulate(transientRules);
 
-        SimulateRulesResponse response = new SimulateRulesResponse(
+        RecurringPaymentSimulationResponse response = new RecurringPaymentSimulationResponse(
                 recurringPaymentMapper.toTransactionDtoList(result.matchingTransactions()),
-                result.matchingTransactions().size(),
+                result.totalMatchCount(),
+                result.omittedAdditionalMatchCount(),
+                result.omittedAdditionalMatches().stream()
+                        .map(additionalGroupTransactionMatchMapper::toDto)
+                        .toList(),
                 result.overlappingPayments().stream()
-                        .map(op -> new OverlappingPaymentDto(op.id(), op.name()))
+                        .map(overlap -> new OverlappingPaymentDto(overlap.id(), overlap.name()))
                         .toList()
         );
 

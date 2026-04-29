@@ -9,6 +9,7 @@ public record TransactionFilter(
         LocalDate to,
         String text,
         String account,
-        TransactionTypeFilter transactionType
+        TransactionTypeFilter transactionType,
+        TransactionSignFilter transactionSign
 ) {
 }

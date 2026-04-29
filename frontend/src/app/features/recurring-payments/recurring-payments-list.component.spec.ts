@@ -3,7 +3,7 @@ import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angul
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { RecurringPaymentsListComponent } from './recurring-payments-list.component';
-import { RecurringPaymentsService, CategoriesService, RecurringPaymentRulesService } from '../../api/generated';
+import { RecurringPaymentsService, CategoriesService, RecurringPaymentRulesService, AdditionalRuleGroupsService } from '../../api/generated';
 import { RecurringPaymentDto } from '../../api/generated/model/recurringPaymentDto';
 import { CategoryDto } from '../../api/generated/model/categoryDto';
 import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
@@ -59,6 +59,15 @@ describe('RecurringPaymentsListComponent', () => {
       deleteRule: jest.fn(),
       reEvaluateRecurringPayment: jest.fn(),
     };
+    const additionalRuleGroupsServiceMock = {
+      getAdditionalRuleGroups: jest.fn().mockReturnValue(of([])),
+      deleteAdditionalRuleGroup: jest.fn().mockReturnValue(of({
+        transactionsMarkedInterAccount: 0,
+        transactionLinksRemoved: 0,
+        recurringPaymentsDeleted: 0,
+        recurringPaymentsDetected: 0,
+      })),
+    };
 
     await TestBed.configureTestingModule({
       imports: [RecurringPaymentsListComponent],
@@ -68,6 +77,7 @@ describe('RecurringPaymentsListComponent', () => {
         { provide: RecurringPaymentsService, useValue: recurringServiceMock },
         { provide: CategoriesService, useValue: categoriesServiceMock },
         { provide: RecurringPaymentRulesService, useValue: rulesServiceMock },
+        { provide: AdditionalRuleGroupsService, useValue: additionalRuleGroupsServiceMock },
       ],
     })
     .overrideComponent(RecurringPaymentsListComponent, {
@@ -320,6 +330,15 @@ describe('RecurringPaymentsListComponent', () => {
       deleteRule: jest.fn(),
       reEvaluateRecurringPayment: jest.fn(),
     };
+    const additionalRuleGroupsServiceMock = {
+      getAdditionalRuleGroups: jest.fn().mockReturnValue(of([])),
+      deleteAdditionalRuleGroup: jest.fn().mockReturnValue(of({
+        transactionsMarkedInterAccount: 0,
+        transactionLinksRemoved: 0,
+        recurringPaymentsDeleted: 0,
+        recurringPaymentsDetected: 0,
+      })),
+    };
 
     await TestBed.configureTestingModule({
       imports: [RecurringPaymentsListComponent],
@@ -332,6 +351,7 @@ describe('RecurringPaymentsListComponent', () => {
         { provide: RecurringPaymentsService, useValue: recurringServiceMock },
         { provide: CategoriesService, useValue: categoriesServiceMock },
         { provide: RecurringPaymentRulesService, useValue: rulesServiceMock },
+        { provide: AdditionalRuleGroupsService, useValue: additionalRuleGroupsServiceMock },
       ],
     })
     .overrideComponent(RecurringPaymentsListComponent, {
@@ -369,6 +389,15 @@ describe('RecurringPaymentsListComponent', () => {
       deleteRule: jest.fn(),
       reEvaluateRecurringPayment: jest.fn(),
     };
+    const additionalRuleGroupsServiceMock = {
+      getAdditionalRuleGroups: jest.fn().mockReturnValue(of([])),
+      deleteAdditionalRuleGroup: jest.fn().mockReturnValue(of({
+        transactionsMarkedInterAccount: 0,
+        transactionLinksRemoved: 0,
+        recurringPaymentsDeleted: 0,
+        recurringPaymentsDetected: 0,
+      })),
+    };
 
     await TestBed.configureTestingModule({
       imports: [RecurringPaymentsListComponent],
@@ -381,6 +410,7 @@ describe('RecurringPaymentsListComponent', () => {
         { provide: RecurringPaymentsService, useValue: recurringServiceMock },
         { provide: CategoriesService, useValue: categoriesServiceMock },
         { provide: RecurringPaymentRulesService, useValue: rulesServiceMock },
+        { provide: AdditionalRuleGroupsService, useValue: additionalRuleGroupsServiceMock },
       ],
     })
     .overrideComponent(RecurringPaymentsListComponent, {

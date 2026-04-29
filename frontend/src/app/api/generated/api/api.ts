@@ -1,5 +1,7 @@
 export * from './account.service';
 import { AccountService } from './account.service';
+export * from './additionalRuleGroups.service';
+import { AdditionalRuleGroupsService } from './additionalRuleGroups.service';
 export * from './adminUsers.service';
 import { AdminUsersService } from './adminUsers.service';
 export * from './analytics.service';
@@ -18,4 +20,4 @@ export * from './setup.service';
 import { SetupService } from './setup.service';
 export * from './transactions.service';
 import { TransactionsService } from './transactions.service';
-export const APIS = [AccountService, AdminUsersService, AnalyticsService, AuthService, BankAccountsService, CategoriesService, RecurringPaymentRulesService, RecurringPaymentsService, SetupService, TransactionsService];
+export const APIS = [AccountService, AdditionalRuleGroupsService, AdminUsersService, AnalyticsService, AuthService, BankAccountsService, CategoriesService, RecurringPaymentRulesService, RecurringPaymentsService, SetupService, TransactionsService];

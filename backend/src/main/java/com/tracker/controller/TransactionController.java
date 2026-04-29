@@ -64,8 +64,8 @@ public class TransactionController implements TransactionsApi {
     }
 
     @Override
-    public ResponseEntity<TransactionPage> getTransactions(LocalDate from, LocalDate to, String text, String account, String transactionType, Integer page, Integer size, String sort, String sortDirection) {
-        TransactionService.TransactionQueryResult result = transactionService.getTransactions(from, to, text, account, transactionType, page, size, sort, sortDirection);
+    public ResponseEntity<TransactionPage> getTransactions(LocalDate from, LocalDate to, String text, String account, String transactionType, String transactionSign, Integer page, Integer size, String sort, String sortDirection) {
+        TransactionService.TransactionQueryResult result = transactionService.getTransactions(from, to, text, account, transactionType, transactionSign, page, size, sort, sortDirection);
         Page<Transaction> transactionPageResult = result.page();
         TransactionPage transactionPage = new TransactionPage(
                 transactionMapper.toDtoList(transactionPageResult.getContent()),

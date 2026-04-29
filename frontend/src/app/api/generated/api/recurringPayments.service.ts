@@ -27,11 +27,11 @@ import { RecalculationSummaryResponse } from '../model/recalculationSummaryRespo
 // @ts-ignore
 import { RecurringPaymentDto } from '../model/recurringPaymentDto';
 // @ts-ignore
+import { RecurringPaymentSimulationRequest } from '../model/recurringPaymentSimulationRequest';
+// @ts-ignore
+import { RecurringPaymentSimulationResponse } from '../model/recurringPaymentSimulationResponse';
+// @ts-ignore
 import { RecurringPaymentUpdateRequest } from '../model/recurringPaymentUpdateRequest';
-// @ts-ignore
-import { SimulateRulesRequest } from '../model/simulateRulesRequest';
-// @ts-ignore
-import { SimulateRulesResponse } from '../model/simulateRulesResponse';
 // @ts-ignore
 import { TransactionDto } from '../model/transactionDto';
 
@@ -288,14 +288,26 @@ export class RecurringPaymentsService extends BaseService {
     /**
      * List all detected recurring payments
      * @endpoint get /api/recurring-payments
+     * @param category Filter recurring payments by category UUID or UNCATEGORIZED
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public getRecurringPayments(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<Array<RecurringPaymentDto>>;
-    public getRecurringPayments(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<Array<RecurringPaymentDto>>>;
-    public getRecurringPayments(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<Array<RecurringPaymentDto>>>;
-    public getRecurringPayments(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public getRecurringPayments(category?: string, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<Array<RecurringPaymentDto>>;
+    public getRecurringPayments(category?: string, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<Array<RecurringPaymentDto>>>;
+    public getRecurringPayments(category?: string, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<Array<RecurringPaymentDto>>>;
+    public getRecurringPayments(category?: string, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+
+        let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'category',
+            <any>category,
+            QueryParamStyle.Form,
+            true,
+        );
+
 
         let localVarHeaders = this.defaultHeaders;
 
@@ -327,6 +339,7 @@ export class RecurringPaymentsService extends BaseService {
         return this.httpClient.request<Array<RecurringPaymentDto>>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
+                params: localVarQueryParameters.toHttpParams(),
                 responseType: <any>responseType_,
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,
@@ -390,19 +403,19 @@ export class RecurringPaymentsService extends BaseService {
     }
 
     /**
-     * Simulate rules against unlinked transactions
+     * Simulate a draft recurring payment against unlinked transactions
      * @endpoint post /api/recurring-payments/simulate
-     * @param simulateRulesRequest 
+     * @param recurringPaymentSimulationRequest
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public simulateRules(simulateRulesRequest: SimulateRulesRequest, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<SimulateRulesResponse>;
-    public simulateRules(simulateRulesRequest: SimulateRulesRequest, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<SimulateRulesResponse>>;
-    public simulateRules(simulateRulesRequest: SimulateRulesRequest, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<SimulateRulesResponse>>;
-    public simulateRules(simulateRulesRequest: SimulateRulesRequest, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
-        if (simulateRulesRequest === null || simulateRulesRequest === undefined) {
-            throw new Error('Required parameter simulateRulesRequest was null or undefined when calling simulateRules.');
+    public simulateRecurringPayment(recurringPaymentSimulationRequest: RecurringPaymentSimulationRequest, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<RecurringPaymentSimulationResponse>;
+    public simulateRecurringPayment(recurringPaymentSimulationRequest: RecurringPaymentSimulationRequest, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<RecurringPaymentSimulationResponse>>;
+    public simulateRecurringPayment(recurringPaymentSimulationRequest: RecurringPaymentSimulationRequest, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<RecurringPaymentSimulationResponse>>;
+    public simulateRecurringPayment(recurringPaymentSimulationRequest: RecurringPaymentSimulationRequest, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (recurringPaymentSimulationRequest === null || recurringPaymentSimulationRequest === undefined) {
+            throw new Error('Required parameter recurringPaymentSimulationRequest was null or undefined when calling simulateRecurringPayment.');
         }
 
         let localVarHeaders = this.defaultHeaders;
@@ -441,10 +454,10 @@ export class RecurringPaymentsService extends BaseService {
 
         let localVarPath = `/api/recurring-payments/simulate`;
         const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<SimulateRulesResponse>('post', `${basePath}${localVarPath}`,
+        return this.httpClient.request<RecurringPaymentSimulationResponse>('post', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
-                body: simulateRulesRequest,
+                body: recurringPaymentSimulationRequest,
                 responseType: <any>responseType_,
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,

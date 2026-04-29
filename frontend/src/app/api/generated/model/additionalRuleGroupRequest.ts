@@ -10,7 +10,8 @@
 import { CreateRuleRequest } from './createRuleRequest';
 
 
-export interface SimulateRulesRequest { 
+export interface AdditionalRuleGroupRequest { 
+    name: string;
     rules: Array<CreateRuleRequest>;
 }
 

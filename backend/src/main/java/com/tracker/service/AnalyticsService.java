@@ -224,8 +224,9 @@ public class AnalyticsService {
     }
 
     private List<CategoryBreakdownResult> buildCategoryBreakdown(List<RecurringPayment> activePayments, Map<UUID, BigDecimal> totalsByPayment) {
-        Map<String, BigDecimal> categoryTotals = new LinkedHashMap<>();
-        Map<String, String> categoryColors = new LinkedHashMap<>();
+        Map<CategoryKey, BigDecimal> categoryTotals = new LinkedHashMap<>();
+        Map<CategoryKey, String> categoryNames = new LinkedHashMap<>();
+        Map<CategoryKey, String> categoryColors = new LinkedHashMap<>();
 
         for (RecurringPayment payment : activePayments) {
             if (Boolean.TRUE.equals(payment.getIsIncome())) {
@@ -238,9 +239,11 @@ public class AnalyticsService {
             }
 
             String category = categoryName(payment);
-            categoryTotals.merge(category, amount, BigDecimal::add);
-            if (!categoryColors.containsKey(category) && payment.getCategory() != null) {
-                categoryColors.put(category, payment.getCategory().getColor());
+            CategoryKey categoryKey = categoryKey(payment);
+            categoryTotals.merge(categoryKey, amount, BigDecimal::add);
+            categoryNames.putIfAbsent(categoryKey, category);
+            if (!categoryColors.containsKey(categoryKey) && payment.getCategory() != null) {
+                categoryColors.put(categoryKey, payment.getCategory().getColor());
             }
         }
 
@@ -249,7 +252,8 @@ public class AnalyticsService {
 
         return categoryTotals.entrySet().stream()
                 .map(entry -> new CategoryBreakdownResult(
-                        entry.getKey(),
+                        entry.getKey().id(),
+                        categoryNames.get(entry.getKey()),
                         entry.getValue(),
                         toPercentage(entry.getValue(), categoryTotal),
                         categoryColors.get(entry.getKey())
@@ -288,6 +292,13 @@ public class AnalyticsService {
 
     private String categoryName(RecurringPayment payment) {
         return payment.getCategory() != null ? payment.getCategory().getName() : "Uncategorized";
+    }
+
+    private CategoryKey categoryKey(RecurringPayment payment) {
+        if (payment.getCategory() == null) {
+            return new CategoryKey(null, "Uncategorized");
+        }
+        return new CategoryKey(payment.getCategory().getId(), payment.getCategory().getName());
     }
 
     private double toPercentage(BigDecimal amount, BigDecimal total) {
@@ -338,12 +349,14 @@ public class AnalyticsService {
 
     public record MonthlyBreakdownResult(int month, BigDecimal income, BigDecimal expenses, BigDecimal surplus, BigDecimal recurringExpenses) {}
 
-    public record CategoryBreakdownResult(String category, BigDecimal total, double percentage, String color) {}
+    public record CategoryBreakdownResult(UUID categoryId, String category, BigDecimal total, double percentage, String color) {}
 
     public record RecurringPaymentSummaryResult(UUID id, String name, BigDecimal monthlyAmount,
                                                  BigDecimal annualAmount, String category) {}
 
     private record RecurringTotals(Map<UUID, BigDecimal> totalsByPayment, BigDecimal[] monthlyExpenses) {}
+
+    private record CategoryKey(UUID id, String fallbackName) {}
 
     public record PredictionResult(List<MonthlyPredictionResult> predictions,
                                     List<UpcomingPaymentResult> upcomingPayments) {}

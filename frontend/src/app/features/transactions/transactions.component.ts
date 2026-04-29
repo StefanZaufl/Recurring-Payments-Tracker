@@ -9,14 +9,17 @@ import { DateRangePickerComponent, DateRange } from '../../shared/date-range-pic
 import { getThisMonthDateRange } from '../../shared/date-range-presets';
 import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component';
 import { ErrorStateComponent } from '../../shared/error-state.component';
+import { EmptyStateComponent } from '../../shared/empty-state.component';
 import { DEFAULT_PAGE_SIZE } from '../../shared/constants';
 import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
+import { TooltipComponent } from '../../shared/tooltip.component';
 import { parseDateParam, parseEnumParam, parseNonNegativeIntParam } from '../../shared/query-param-utils';
 import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 
 type SortField = 'bookingDate' | 'partnerName' | 'amount';
 type SortDir = 'asc' | 'desc';
-type TransactionType = 'ALL' | 'REGULAR' | 'ADDITIONAL';
+type TransactionType = 'ALL' | 'NON_INTER_ACCOUNT' | 'REGULAR' | 'ADDITIONAL';
+type TransactionSign = 'ALL' | 'POSITIVE' | 'NEGATIVE';
 
 interface TransactionsUrlState {
   from: string | null;
@@ -24,19 +27,21 @@ interface TransactionsUrlState {
   searchText: string;
   accountFilter: string;
   transactionType: TransactionType;
+  transactionSign: TransactionSign;
   sortField: SortField;
   sortDir: SortDir;
   page: number;
 }
 
-const TRANSACTION_TYPES: readonly TransactionType[] = ['ALL', 'REGULAR', 'ADDITIONAL'];
+const TRANSACTION_TYPES: readonly TransactionType[] = ['ALL', 'NON_INTER_ACCOUNT', 'REGULAR', 'ADDITIONAL'];
+const TRANSACTION_SIGNS: readonly TransactionSign[] = ['ALL', 'POSITIVE', 'NEGATIVE'];
 const SORT_FIELDS: readonly SortField[] = ['bookingDate', 'partnerName', 'amount'];
 const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
 
 @Component({
   selector: 'app-transactions',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RouterLink, DateRangePickerComponent, LoadingSpinnerComponent, ErrorStateComponent, CurrencyFormatPipe],
+  imports: [CommonModule, FormsModule, RouterLink, DateRangePickerComponent, LoadingSpinnerComponent, ErrorStateComponent, EmptyStateComponent, CurrencyFormatPipe, TooltipComponent],
   template: `
     <div class="animate-fade-in">
       <!-- Header -->
@@ -109,8 +114,17 @@ const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
             (ngModelChange)="onTransactionTypeChange($event)"
             class="text-xs bg-card border border-card-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-subtle shrink-0 min-w-0 sm:min-w-[220px]">
             <option value="ALL">All transactions</option>
+            <option value="NON_INTER_ACCOUNT">Non-inter-account transactions</option>
             <option value="REGULAR">Regular transactions</option>
             <option value="ADDITIONAL">Additional transactions</option>
+          </select>
+
+          <select [ngModel]="transactionSign"
+            (ngModelChange)="onTransactionSignChange($event)"
+            class="text-xs bg-card border border-card-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-subtle shrink-0 min-w-0 sm:min-w-[160px]">
+            <option value="ALL">All signs</option>
+            <option value="POSITIVE">Income only</option>
+            <option value="NEGATIVE">Expenses only</option>
           </select>
 
             <!-- Sort -->
@@ -155,15 +169,15 @@ const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
     
       <!-- Empty state -->
       @if (!loading && !error && transactions.length === 0) {
-        <div class="glass-card p-10 sm:p-16 text-center animate-slide-up">
-          <div class="w-16 h-16 rounded-2xl bg-violet-dim flex items-center justify-center mx-auto mb-5">
+        <app-empty-state
+          heading="No transactions found"
+          [description]="searchText || from || to ? 'Try adjusting your filters.' : 'Upload a CSV file to get started.'">
+          <span icon>
             <svg class="w-7 h-7 text-violet" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
             </svg>
-          </div>
-          <h3 class="text-base font-semibold text-white mb-1">No transactions found</h3>
-          <p class="text-sm text-muted">{{ searchText || from || to ? 'Try adjusting your filters.' : 'Upload a CSV file to get started.' }}</p>
-        </div>
+          </span>
+        </app-empty-state>
       }
     
       <!-- Mobile card view -->
@@ -189,6 +203,16 @@ const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
                 <span class="text-[11px] text-muted/70">{{ accountLabel(tx.account) }}</span>
                 @if (tx.isInterAccount) {
                   <span class="badge bg-amber-dim text-amber text-[10px]">Inter-account</span>
+                }
+                @if ((tx.linkedPaymentCount || 0) > 0) {
+                  <app-tooltip>
+                    <span tooltip-trigger class="badge bg-sky-dim text-sky text-[10px]">{{ linkBadge(tx) }}</span>
+                    <div class="space-y-1">
+                      @for (name of tx.linkedPaymentNames || []; track name) {
+                        <div>{{ name }}</div>
+                      }
+                    </div>
+                  </app-tooltip>
                 }
               </div>
             </div>
@@ -220,6 +244,16 @@ const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
                         <span>{{ accountLabel(tx.account) }}</span>
                         @if (tx.isInterAccount) {
                           <span class="badge bg-amber-dim text-amber text-[10px]">Inter-account</span>
+                        }
+                        @if ((tx.linkedPaymentCount || 0) > 0) {
+                          <app-tooltip>
+                            <span tooltip-trigger class="badge bg-sky-dim text-sky text-[10px]">{{ linkBadge(tx) }}</span>
+                            <div class="space-y-1">
+                              @for (name of tx.linkedPaymentNames || []; track name) {
+                                <div>{{ name }}</div>
+                              }
+                            </div>
+                          </app-tooltip>
                         }
                       </div>
                     </td>
@@ -291,6 +325,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   searchText = '';
   accountFilter = '';
   transactionType: TransactionType = 'ALL';
+  transactionSign: TransactionSign = 'ALL';
   sortField: SortField = 'bookingDate';
   sortDir: SortDir = 'desc';
 
@@ -359,6 +394,12 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     this.syncUrlWithState();
   }
 
+  onTransactionSignChange(transactionSign: TransactionSign): void {
+    this.transactionSign = transactionSign;
+    this.page = 0;
+    this.syncUrlWithState();
+  }
+
   toggleSortDirection(): void {
     this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
     this.page = 0;
@@ -382,6 +423,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
       this.searchText || undefined,
       this.accountFilter || undefined,
       this.transactionType,
+      this.transactionSign,
       this.page,
       this.pageSize,
       this.sortField,
@@ -417,6 +459,11 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     return account.name || account.iban || '-';
   }
 
+  linkBadge(tx: TransactionDto): string {
+    const count = tx.linkedPaymentCount || 0;
+    return count === 1 ? '1 Link' : `${count} Links`;
+  }
+
   private loadBankAccounts(): void {
     this.bankAccountsService.getBankAccounts().subscribe({
       next: (accounts) => {
@@ -439,6 +486,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
       searchText: queryParamMap.get('search') ?? '',
       accountFilter: queryParamMap.get('account') ?? '',
       transactionType: parseEnumParam(queryParamMap.get('type'), TRANSACTION_TYPES) ?? 'ALL',
+      transactionSign: parseEnumParam(queryParamMap.get('sign'), TRANSACTION_SIGNS) ?? 'ALL',
       sortField: parseEnumParam(queryParamMap.get('sort'), SORT_FIELDS) ?? 'bookingDate',
       sortDir: parseEnumParam(queryParamMap.get('dir'), SORT_DIRS) ?? 'desc',
       page: parseNonNegativeIntParam(queryParamMap.get('page')) ?? 0,
@@ -451,6 +499,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     this.searchText = state.searchText;
     this.accountFilter = state.accountFilter;
     this.transactionType = state.transactionType;
+    this.transactionSign = state.transactionSign;
     this.sortField = state.sortField;
     this.sortDir = state.sortDir;
     this.page = state.page;
@@ -473,6 +522,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
       search: this.searchText || null,
       account: this.accountFilter || null,
       type: this.transactionType !== 'ALL' ? this.transactionType : null,
+      sign: this.transactionSign === 'ALL' ? null : this.transactionSign,
       sort: this.sortField !== 'bookingDate' ? this.sortField : null,
       dir: this.sortDir !== 'desc' ? this.sortDir : null,
       page: this.page > 0 ? this.page : null,

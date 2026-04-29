@@ -42,6 +42,7 @@ class TransactionControllerTest {
     private static final String TO_PARAM = "to";
     private static final String TEXT_PARAM = "text";
     private static final String TRANSACTION_TYPE_PARAM = "transactionType";
+    private static final String TRANSACTION_SIGN_PARAM = "transactionSign";
     private static final String SORT_PARAM = "sort";
     private static final String SORT_DIR_PARAM = "sortDirection";
     private static final String MAPPING_PARAM = "mapping";
@@ -495,6 +496,28 @@ class TransactionControllerTest {
                 .andExpect(jsonPath("$.filteredSum").value(-20.00))
                 .andExpect(jsonPath("$.content", hasSize(1)))
                 .andExpect(jsonPath("$.content[0].partnerName").value(SPOTIFY));
+    }
+
+    @Test
+    void getTransactions_transactionSignFiltersByAmountSign() throws Exception {
+        seedTransaction(TransactionMother.transaction("Salary", LocalDate.now().minusDays(2), new BigDecimal("100.00")));
+        seedTransaction(TransactionMother.transaction(NETFLIX, LocalDate.now().minusDays(1), TEN));
+
+        mockMvc.perform(get(TRANSACTIONS_URL)
+                        .param(TRANSACTION_SIGN_PARAM, "POSITIVE")
+                        .with(authenticatedUser(testUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.filteredSum").value(100.00))
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].partnerName").value("Salary"));
+
+        mockMvc.perform(get(TRANSACTIONS_URL)
+                        .param(TRANSACTION_SIGN_PARAM, "NEGATIVE")
+                        .with(authenticatedUser(testUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.filteredSum").value(-10.00))
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].partnerName").value(NETFLIX));
     }
 
     @Test

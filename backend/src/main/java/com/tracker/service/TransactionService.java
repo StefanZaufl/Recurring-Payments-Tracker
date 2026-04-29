@@ -117,7 +117,7 @@ public class TransactionService {
 
     @Transactional(readOnly = true)
     public TransactionQueryResult getTransactions(LocalDate from, LocalDate to, String text, String account,
-                                                  String transactionType, int page, int size,
+                                                  String transactionType, String transactionSign, int page, int size,
                                                   String sort, String sortDirection) {
         TransactionFilter filter = new TransactionFilter(
                 userContextService.getCurrentUserId(),
@@ -125,7 +125,8 @@ public class TransactionService {
                 to,
                 text,
                 account,
-                TransactionTypeFilter.fromQueryParam(transactionType)
+                TransactionTypeFilter.fromQueryParam(transactionType),
+                com.tracker.repository.TransactionSignFilter.fromQueryParam(transactionSign)
         );
         String sortField = sort != null && ALLOWED_SORT_FIELDS.contains(sort) ? sort : "bookingDate";
         Sort.Direction direction = "asc".equalsIgnoreCase(sortDirection) ? Sort.Direction.ASC : Sort.Direction.DESC;

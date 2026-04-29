@@ -21,8 +21,12 @@ public class Rule {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "recurring_payment_id", nullable = false)
+    @JoinColumn(name = "recurring_payment_id")
     private RecurringPayment recurringPayment;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "additional_rule_group_id")
+    private AdditionalRuleGroup additionalRuleGroup;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "rule_type", nullable = false, length = 30)

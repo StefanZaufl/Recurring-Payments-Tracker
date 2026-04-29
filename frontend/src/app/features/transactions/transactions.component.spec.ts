@@ -89,7 +89,7 @@ describe('TransactionsComponent', () => {
   it('should create and load transactions on init', () => {
     expect(component).toBeTruthy();
     expect(service.getTransactions).toHaveBeenCalledWith(
-      initialRange.from, initialRange.to, undefined, undefined, 'ALL', 0, 25, 'bookingDate', 'desc'
+      initialRange.from, initialRange.to, undefined, undefined, 'ALL', 'ALL', 0, 25, 'bookingDate', 'desc'
     );
     expect(bankAccountsService.getBankAccounts).toHaveBeenCalled();
     expect(component.transactions.length).toBe(2);
@@ -312,7 +312,7 @@ describe('TransactionsComponent', () => {
     expect(newComponent.sortDir).toBe('asc');
     expect(newComponent.page).toBe(2);
     expect(serviceMock.getTransactions).toHaveBeenCalledWith(
-      '2026-01-01', '2026-01-31', 'netflix', 'DE111', 'ADDITIONAL', 2, 25, 'partnerName', 'asc'
+      '2026-01-01', '2026-01-31', 'netflix', 'DE111', 'ADDITIONAL', 'ALL', 2, 25, 'partnerName', 'asc'
     );
   });
 

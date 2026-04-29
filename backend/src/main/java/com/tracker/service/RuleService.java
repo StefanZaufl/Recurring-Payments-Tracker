@@ -11,8 +11,6 @@ import java.util.List;
 import com.tracker.controller.ResourceNotFoundException;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
 
 @Service
 public class RuleService {
@@ -20,12 +18,14 @@ public class RuleService {
     private final RuleRepository ruleRepository;
     private final RecurringPaymentRepository recurringPaymentRepository;
     private final UserContextService userContextService;
+    private final RuleValidationService ruleValidationService;
 
     public RuleService(RuleRepository ruleRepository, RecurringPaymentRepository recurringPaymentRepository,
-                       UserContextService userContextService) {
+                       UserContextService userContextService, RuleValidationService ruleValidationService) {
         this.ruleRepository = ruleRepository;
         this.recurringPaymentRepository = recurringPaymentRepository;
         this.userContextService = userContextService;
+        this.ruleValidationService = ruleValidationService;
     }
 
     @Transactional(readOnly = true)
@@ -40,17 +40,19 @@ public class RuleService {
                            BigDecimal amount, BigDecimal fluctuationRange) {
         RecurringPayment payment = requirePaymentExists(recurringPaymentId);
 
-        validateRule(ruleType, targetField, text, threshold, amount, fluctuationRange);
+        RuleValidationService.NormalizedRule normalized = ruleValidationService.normalizeAndValidate(
+                ruleType, targetField, text, strict, threshold, amount, fluctuationRange);
+        List<RuleValidationService.NormalizedRule> existing = ruleRepository
+                .findByRecurringPaymentIdAndUserId(recurringPaymentId, userContextService.getCurrentUserId())
+                .stream()
+                .map(ruleValidationService::normalizeExisting)
+                .toList();
+        ruleValidationService.validateNoDuplicates(
+                java.util.stream.Stream.concat(existing.stream(), java.util.stream.Stream.of(normalized)).toList());
 
         Rule rule = new Rule();
         rule.setRecurringPayment(payment);
-        rule.setRuleType(ruleType);
-        rule.setTargetField(targetField);
-        rule.setText(text);
-        rule.setStrict(strict != null ? strict : true);
-        rule.setThreshold(threshold);
-        rule.setAmount(amount);
-        rule.setFluctuationRange(fluctuationRange);
+        ruleValidationService.apply(rule, normalized);
         rule.setUser(userContextService.getCurrentUser());
         return ruleRepository.save(rule);
     }
@@ -63,15 +65,24 @@ public class RuleService {
         UUID currentUserId = userContextService.getCurrentUserId();
         return ruleRepository.findByIdAndRecurringPaymentIdAndUserId(ruleId, recurringPaymentId, currentUserId)
                 .map(rule -> {
-                    if (targetField != null) rule.setTargetField(targetField);
-                    if (text != null) rule.setText(text);
-                    if (strict != null) rule.setStrict(strict);
-                    if (threshold != null) rule.setThreshold(threshold);
-                    if (amount != null) rule.setAmount(amount);
-                    if (fluctuationRange != null) rule.setFluctuationRange(fluctuationRange);
+                    RuleValidationService.NormalizedRule normalized = ruleValidationService.normalizeAndValidate(
+                            rule.getRuleType(),
+                            targetField != null ? targetField : rule.getTargetField(),
+                            text != null ? text : rule.getText(),
+                            strict != null ? strict : rule.getStrict(),
+                            threshold != null ? threshold : rule.getThreshold(),
+                            amount != null ? amount : rule.getAmount(),
+                            fluctuationRange != null ? fluctuationRange : rule.getFluctuationRange());
 
-                    validateRule(rule.getRuleType(), rule.getTargetField(), rule.getText(),
-                            rule.getThreshold(), rule.getAmount(), rule.getFluctuationRange());
+                    List<RuleValidationService.NormalizedRule> siblings = ruleRepository
+                            .findByRecurringPaymentIdAndUserId(recurringPaymentId, currentUserId)
+                            .stream()
+                            .filter(existing -> !existing.getId().equals(ruleId))
+                            .map(ruleValidationService::normalizeExisting)
+                            .toList();
+                    ruleValidationService.validateNoDuplicates(
+                            java.util.stream.Stream.concat(siblings.stream(), java.util.stream.Stream.of(normalized)).toList());
+                    ruleValidationService.apply(rule, normalized);
 
                     return ruleRepository.save(rule);
                 });
@@ -97,27 +108,4 @@ public class RuleService {
                 .orElseThrow(() -> new ResourceNotFoundException("Recurring payment not found: " + recurringPaymentId));
     }
 
-    private void validateRule(RuleType ruleType, TargetField targetField, String text,
-                              Double threshold, BigDecimal amount, BigDecimal fluctuationRange) {
-        switch (ruleType) {
-            case REGEX -> {
-                if (targetField == null) throw new IllegalArgumentException("targetField is required for REGEX rules");
-                if (text == null || text.isBlank()) throw new IllegalArgumentException("text is required for REGEX rules");
-                try {
-                    Pattern.compile(text);
-                } catch (PatternSyntaxException e) {
-                    throw new IllegalArgumentException("Invalid regex pattern: " + e.getMessage(), e);
-                }
-            }
-            case JARO_WINKLER -> {
-                if (targetField == null) throw new IllegalArgumentException("targetField is required for JARO_WINKLER rules");
-                if (text == null || text.isBlank()) throw new IllegalArgumentException("text is required for JARO_WINKLER rules");
-                if (threshold == null || threshold < 0 || threshold > 1) throw new IllegalArgumentException("threshold must be between 0 and 1 for JARO_WINKLER rules");
-            }
-            case AMOUNT -> {
-                if (amount == null) throw new IllegalArgumentException("amount is required for AMOUNT rules");
-                if (fluctuationRange == null || fluctuationRange.compareTo(BigDecimal.ZERO) < 0) throw new IllegalArgumentException("fluctuationRange must be non-negative for AMOUNT rules");
-            }
-        }
-    }
 }

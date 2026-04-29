@@ -2,37 +2,43 @@ import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDe
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Params, Router, RouterLink } from '@angular/router';
-import { RecurringPaymentsService, CategoriesService } from '../../api/generated';
+import { RecurringPaymentsService, CategoriesService, AdditionalRuleGroupsService } from '../../api/generated';
 import { RecurringPaymentDto } from '../../api/generated/model/recurringPaymentDto';
 import { CategoryDto } from '../../api/generated/model/categoryDto';
+import { AdditionalRuleGroupDto } from '../../api/generated/model/additionalRuleGroupDto';
 import { LoadingSpinnerComponent } from '../../shared/loading-spinner.component';
 import { ErrorStateComponent } from '../../shared/error-state.component';
+import { EmptyStateComponent } from '../../shared/empty-state.component';
 import { FrequencyBadgeComponent } from '../../shared/frequency-badge.component';
 import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
 import { PaymentCategoryDialogComponent } from './payment-category-dialog.component';
 import { PaymentTransactionsModalComponent } from './payment-transactions-modal.component';
 import { PaymentRulesModalComponent } from './payment-rules-modal.component';
+import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
+import { ToggleSwitchComponent } from '../../shared/toggle-switch.component';
 import { parseBooleanParam, parseEnumParam } from '../../shared/query-param-utils';
 import { Subject, forkJoin, takeUntil } from 'rxjs';
 
 type RecurringSortBy = 'amount' | 'name';
-type RecurringTab = 'RECURRING' | 'GROUPED';
+type RecurringTab = 'RECURRING' | 'GROUPED' | 'ADDITIONAL';
 
 interface RecurringPaymentsUrlState {
   showInactive: boolean;
   filterFrequency: string;
+  filterCategory: string;
   sortBy: RecurringSortBy;
   selectedTab: RecurringTab;
 }
 
 const RECURRING_SORT_OPTIONS: readonly RecurringSortBy[] = ['amount', 'name'];
-const RECURRING_TAB_OPTIONS: readonly RecurringTab[] = ['RECURRING', 'GROUPED'];
+const RECURRING_TAB_OPTIONS: readonly RecurringTab[] = ['RECURRING', 'GROUPED', 'ADDITIONAL'];
 const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
+const UNCATEGORIZED_CATEGORY = 'UNCATEGORIZED';
 
 @Component({
   selector: 'app-recurring-payments-list',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RouterLink, LoadingSpinnerComponent, ErrorStateComponent, FrequencyBadgeComponent, CurrencyFormatPipe, PaymentCategoryDialogComponent, PaymentTransactionsModalComponent, PaymentRulesModalComponent],
+  imports: [CommonModule, FormsModule, RouterLink, LoadingSpinnerComponent, ErrorStateComponent, EmptyStateComponent, FrequencyBadgeComponent, CurrencyFormatPipe, ConfirmDialogComponent, ToggleSwitchComponent, PaymentCategoryDialogComponent, PaymentTransactionsModalComponent, PaymentRulesModalComponent],
   template: `
     <div class="animate-fade-in">
       <!-- Header -->
@@ -49,22 +55,24 @@ const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
             </svg>
             Add Payment
           </a>
-          <label class="flex items-center gap-2 text-xs text-muted cursor-pointer select-none">
-            <div class="relative">
-              <input type="checkbox" [(ngModel)]="showInactive"
-                class="sr-only peer"
-                (ngModelChange)="onShowInactiveChange($event)">
-              <div class="w-8 h-[18px] bg-subtle rounded-full peer-checked:bg-accent/30 transition-colors"></div>
-              <div class="absolute top-[3px] left-[3px] w-3 h-3 bg-muted rounded-full peer-checked:translate-x-3.5 peer-checked:bg-accent transition-all"></div>
-            </div>
-            Show inactive
-          </label>
+          <app-toggle-switch
+            label="Show inactive"
+            [checked]="showInactive"
+            (checkedChange)="onShowInactiveChange($event)" />
           <select [(ngModel)]="filterFrequency" (ngModelChange)="onFrequencyChange($event)"
             class="text-xs bg-card border border-card-border rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-subtle">
             <option value="">All frequencies</option>
             <option value="MONTHLY">Monthly</option>
             <option value="QUARTERLY">Quarterly</option>
             <option value="YEARLY">Yearly</option>
+          </select>
+          <select [(ngModel)]="filterCategory" (ngModelChange)="onCategoryFilterChange($event)"
+            class="text-xs bg-card border border-card-border rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-subtle">
+            <option value="">All categories</option>
+            <option [value]="UNCATEGORIZED_CATEGORY">Uncategorized</option>
+            @for (category of categories; track category.id) {
+              <option [value]="category.id">{{ category.name }}</option>
+            }
           </select>
           <select [(ngModel)]="sortBy" (ngModelChange)="onSortByChange($event)"
             class="text-xs bg-card border border-card-border rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-subtle">
@@ -109,29 +117,79 @@ const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
               <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-accent"></div>
             }
           </button>
+          <button
+            class="px-4 py-2 text-sm font-medium transition-colors relative"
+            [class.text-white]="selectedTab === 'ADDITIONAL'"
+            [class.text-muted]="selectedTab !== 'ADDITIONAL'"
+            (click)="onTabChange('ADDITIONAL')">
+            Additional
+            <span class="text-xs ml-1 text-muted">({{ additionalGroups.length }})</span>
+            @if (selectedTab === 'ADDITIONAL') {
+              <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-accent"></div>
+            }
+          </button>
         </div>
 
-        <!-- Empty state -->
-        @if (filteredPayments.length === 0) {
-          <div class="glass-card p-10 sm:p-16 text-center animate-slide-up">
-            <div class="w-16 h-16 rounded-2xl bg-violet-dim flex items-center justify-center mx-auto mb-5">
-              <svg class="w-7 h-7 text-violet" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
-              </svg>
+        @if (selectedTab === 'ADDITIONAL') {
+          <div class="glass-card overflow-hidden animate-slide-up">
+            <div class="px-5 py-4 border-b border-card-border">
+              <h2 class="text-sm font-semibold text-white">Additional Rule Groups</h2>
+              <p class="text-[11px] text-muted mt-1">A transaction is excluded if it matches any group. Within a group, all rules must match. Counts use transactions from the last 2 years.</p>
             </div>
-            @if (selectedTab === 'RECURRING') {
-              <h3 class="text-base font-semibold text-white mb-1">No recurring payments found</h3>
-              <p class="text-sm text-muted mb-5">Upload bank transactions to detect patterns or create one manually.</p>
-            } @else {
-              <h3 class="text-base font-semibold text-white mb-1">No grouped payments found</h3>
-              <p class="text-sm text-muted mb-5">Create a grouped payment to track irregular related expenses like groceries.</p>
-            }
-            <a routerLink="/recurring-payments/create" class="btn-primary">Create Payment</a>
+            <div class="divide-y divide-card-border">
+              @for (group of additionalGroups; track group.id) {
+                <div class="px-5 py-4 hover:bg-card-hover transition-colors cursor-pointer"
+                  role="button"
+                  tabindex="0"
+                  (click)="openAdditionalGroup(group.id)"
+                  (keydown.enter)="openAdditionalGroup(group.id)">
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="min-w-0">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <h3 class="text-sm font-medium text-white">{{ group.name }}</h3>
+                        <span class="badge bg-subtle text-muted text-[10px]">{{ group.rules.length }} rule{{ group.rules.length === 1 ? '' : 's' }}</span>
+                        <span class="badge bg-amber-dim text-amber text-[10px]">{{ group.excludedTransactionCount }} excluded</span>
+                      </div>
+                      <p class="text-[11px] text-muted mt-1">All rules must match</p>
+                      <div class="mt-2 flex flex-col gap-1.5">
+                        @for (rule of group.rules; track rule.id) {
+                          <div class="text-[11px] text-muted/80 bg-subtle rounded-lg px-2 py-1">{{ formatRuleType(rule.ruleType) }}: {{ formatRuleSummary(rule) }}</div>
+                        }
+                      </div>
+                    </div>
+                    <button (click)="confirmDeleteAdditionalGroup(group); $event.stopPropagation()"
+                      class="text-muted hover:text-coral transition-colors p-1"
+                      title="Delete group">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                </div>
+              }
+              <button (click)="createAdditionalGroup()"
+                class="w-full px-5 py-4 text-center text-sm text-accent hover:bg-card-hover transition-colors">
+                + Add Additional Payments Group
+              </button>
+            </div>
           </div>
         }
 
+        <!-- Empty state -->
+        @if (selectedTab !== 'ADDITIONAL' && filteredPayments.length === 0) {
+          <app-empty-state
+            [heading]="selectedTab === 'RECURRING' ? 'No recurring payments found' : 'No grouped payments found'"
+            [description]="selectedTab === 'RECURRING' ? 'Upload bank transactions to detect patterns or create one manually.' : 'Create a grouped payment to track irregular related expenses like groceries.'"
+            ctaText="Create Payment"
+            ctaRoute="/recurring-payments/create">
+            <span icon>
+              <svg class="w-7 h-7 text-violet" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
+              </svg>
+            </span>
+          </app-empty-state>
+        }
+
         <!-- Mobile card view -->
-        @if (filteredPayments.length > 0) {
+        @if (selectedTab !== 'ADDITIONAL' && filteredPayments.length > 0) {
           <div class="sm:hidden space-y-3 animate-slide-up">
             @for (payment of filteredPayments; track payment.id) {
               <div
@@ -203,7 +261,7 @@ const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
         }
 
         <!-- Desktop table view -->
-        @if (filteredPayments.length > 0) {
+        @if (selectedTab !== 'ADDITIONAL' && filteredPayments.length > 0) {
           <div class="hidden sm:block glass-card overflow-hidden animate-slide-up">
             <div class="overflow-x-auto">
               <table class="min-w-full">
@@ -298,18 +356,23 @@ const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
 
       <!-- Delete confirmation dialog -->
       @if (deletePayment) {
-        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          role="button" tabindex="0" aria-label="Close dialog"
-          (click)="deletePayment = null" (keydown.enter)="deletePayment = null" (keydown.escape)="deletePayment = null">
-          <div class="glass-card p-6 max-w-sm w-full" role="dialog" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">
-            <h3 class="text-base font-semibold text-white mb-2">Delete Payment</h3>
-            <p class="text-sm text-muted mb-4">Are you sure you want to delete <strong class="text-white">{{ deletePayment.name }}</strong>? This will unlink all associated transactions.</p>
-            <div class="flex gap-3 justify-end">
-              <button (click)="deletePayment = null" class="text-sm text-muted hover:text-white transition-colors px-3 py-1.5">Cancel</button>
-              <button (click)="executeDelete()" class="text-sm bg-coral/20 text-coral hover:bg-coral/30 transition-colors px-3 py-1.5 rounded-lg">Delete</button>
-            </div>
-          </div>
-        </div>
+        <app-confirm-dialog
+          title="Delete Payment"
+          confirmLabel="Delete"
+          (confirmed)="executeDelete()"
+          (cancelled)="deletePayment = null">
+          Are you sure you want to delete <strong class="text-white">{{ deletePayment.name }}</strong>? This will unlink all associated transactions.
+        </app-confirm-dialog>
+      }
+
+      @if (deleteAdditionalGroup) {
+        <app-confirm-dialog
+          title="Delete Additional Rule Group"
+          confirmLabel="Delete"
+          (confirmed)="executeDeleteAdditionalGroup()"
+          (cancelled)="deleteAdditionalGroup = null">
+          This will delete <strong class="text-white">{{ deleteAdditionalGroup.name }}</strong> and recalculate recurring payments. Transactions excluded only by this group may become eligible again.
+        </app-confirm-dialog>
       }
 
       <!-- Category dialog -->
@@ -340,21 +403,26 @@ const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
     `
 })
 export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
-  private recurringPaymentsService = inject(RecurringPaymentsService);
-  private categoriesService = inject(CategoriesService);
-  private route = inject(ActivatedRoute);
-  private router = inject(Router);
-  private cdr = inject(ChangeDetectorRef);
+  private readonly recurringPaymentsService = inject(RecurringPaymentsService);
+  private readonly categoriesService = inject(CategoriesService);
+  private readonly additionalRuleGroupsService = inject(AdditionalRuleGroupsService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly cdr = inject(ChangeDetectorRef);
+  protected readonly UNCATEGORIZED_CATEGORY = UNCATEGORIZED_CATEGORY;
 
-  private destroy$ = new Subject<void>();
+  private readonly destroy$ = new Subject<void>();
   private dataLoaded = false;
+  private loadedPaymentCategoryFilter = '';
   payments: RecurringPaymentDto[] = [];
   filteredPayments: RecurringPaymentDto[] = [];
+  additionalGroups: AdditionalRuleGroupDto[] = [];
   categories: CategoryDto[] = [];
   loading = false;
   error: string | null = null;
   showInactive = false;
   filterFrequency = '';
+  filterCategory = '';
   sortBy: RecurringSortBy = 'amount';
   selectedTab: RecurringTab = 'RECURRING';
   recurringCount = 0;
@@ -365,12 +433,18 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
   transactionsPayment: RecurringPaymentDto | null = null;
   rulesPayment: RecurringPaymentDto | null = null;
   deletePayment: RecurringPaymentDto | null = null;
+  deleteAdditionalGroup: AdditionalRuleGroupDto | null = null;
 
   ngOnInit(): void {
     this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe(queryParamMap => {
       this.applyUrlState(this.parseUrlState(queryParamMap));
 
       if (!this.dataLoaded) {
+        this.loadData();
+        return;
+      }
+
+      if (this.loadedPaymentCategoryFilter !== this.filterCategory) {
         this.loadData();
         return;
       }
@@ -389,13 +463,17 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
     const activeFilter = this.payments.filter(p => {
       if (!this.showInactive && !p.isActive) return false;
       if (this.filterFrequency && p.frequency !== this.filterFrequency) return false;
+      if (this.filterCategory === UNCATEGORIZED_CATEGORY && p.categoryId) return false;
+      if (this.filterCategory && this.filterCategory !== UNCATEGORIZED_CATEGORY && p.categoryId !== this.filterCategory) return false;
       return true;
     });
 
     this.recurringCount = activeFilter.filter(p => p.paymentType === 'RECURRING').length;
     this.groupedCount = activeFilter.filter(p => p.paymentType === 'GROUPED').length;
 
-    this.filteredPayments = activeFilter.filter(p => p.paymentType === this.selectedTab);
+    this.filteredPayments = this.selectedTab === 'ADDITIONAL'
+      ? []
+      : activeFilter.filter(p => p.paymentType === this.selectedTab);
 
     if (this.sortBy === 'amount') {
       this.filteredPayments.sort((a, b) => Math.abs(b.averageAmount) - Math.abs(a.averageAmount));
@@ -411,6 +489,11 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
 
   onFrequencyChange(frequency: string): void {
     this.filterFrequency = frequency;
+    this.syncUrlWithState();
+  }
+
+  onCategoryFilterChange(category: string): void {
+    this.filterCategory = category;
     this.syncUrlWithState();
   }
 
@@ -459,6 +542,30 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
           this.cdr.markForCheck();
         }
       });
+  }
+
+  confirmDeleteAdditionalGroup(group: AdditionalRuleGroupDto): void {
+    this.deleteAdditionalGroup = group;
+  }
+
+  executeDeleteAdditionalGroup(): void {
+    if (!this.deleteAdditionalGroup) return;
+    const id = this.deleteAdditionalGroup.id;
+    this.additionalRuleGroupsService.deleteAdditionalRuleGroup(id)
+      .pipe(takeUntil(this.destroy$)).subscribe({
+        next: () => {
+          this.deleteAdditionalGroup = null;
+          this.loadData();
+        }
+      });
+  }
+
+  openAdditionalGroup(id: string): void {
+    this.router.navigate(['/recurring-payments/additional'], { queryParams: { group: id } });
+  }
+
+  createAdditionalGroup(): void {
+    this.router.navigate(['/recurring-payments/additional'], { queryParams: { new: 'true' } });
   }
 
   // Category dialog
@@ -527,13 +634,16 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
     this.loading = true;
     this.error = null;
     forkJoin({
-      payments: this.recurringPaymentsService.getRecurringPayments(),
-      categories: this.categoriesService.getCategories()
+      payments: this.recurringPaymentsService.getRecurringPayments(this.filterCategory || undefined),
+      categories: this.categoriesService.getCategories(),
+      additionalGroups: this.additionalRuleGroupsService.getAdditionalRuleGroups()
     }).pipe(takeUntil(this.destroy$)).subscribe({
-      next: ({ payments, categories }) => {
+      next: ({ payments, categories, additionalGroups }) => {
         this.payments = payments;
         this.categories = categories;
+        this.additionalGroups = additionalGroups;
         this.dataLoaded = true;
+        this.loadedPaymentCategoryFilter = this.filterCategory;
         this.applyFilter();
         this.loading = false;
         this.cdr.markForCheck();
@@ -550,6 +660,7 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
     return {
       showInactive: parseBooleanParam(queryParamMap.get('showInactive')) ?? false,
       filterFrequency: parseEnumParam(queryParamMap.get('frequency'), FREQUENCY_OPTIONS) ?? '',
+      filterCategory: queryParamMap.get('category') ?? '',
       sortBy: parseEnumParam(queryParamMap.get('sort'), RECURRING_SORT_OPTIONS) ?? 'amount',
       selectedTab: parseEnumParam(queryParamMap.get('tab'), RECURRING_TAB_OPTIONS) ?? 'RECURRING',
     };
@@ -558,6 +669,7 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
   private applyUrlState(state: RecurringPaymentsUrlState): void {
     this.showInactive = state.showInactive;
     this.filterFrequency = state.filterFrequency;
+    this.filterCategory = state.filterCategory;
     this.sortBy = state.sortBy;
     this.selectedTab = state.selectedTab;
   }
@@ -573,8 +685,31 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
     return {
       showInactive: this.showInactive ? 'true' : null,
       frequency: this.filterFrequency || null,
+      category: this.filterCategory || null,
       sort: this.sortBy !== 'amount' ? this.sortBy : null,
       tab: this.selectedTab !== 'RECURRING' ? this.selectedTab : null,
     };
+  }
+
+  formatRuleType(type: string): string {
+    switch (type) {
+      case 'JARO_WINKLER': return 'Jaro-Winkler';
+      case 'REGEX': return 'Regex';
+      case 'AMOUNT': return 'Amount';
+      default: return type;
+    }
+  }
+
+  formatRuleSummary(rule: { ruleType: string; targetField?: string; text?: string; strict?: boolean; threshold?: number; amount?: number; fluctuationRange?: number }): string {
+    switch (rule.ruleType) {
+      case 'JARO_WINKLER':
+        return `${rule.targetField}: "${rule.text}" (threshold: ${rule.threshold})${rule.strict ? ' [strict]' : ''}`;
+      case 'REGEX':
+        return `${rule.targetField}: /${rule.text}/${rule.strict ? ' [strict]' : ''}`;
+      case 'AMOUNT':
+        return `${rule.amount} +/- ${rule.fluctuationRange}`;
+      default:
+        return '';
+    }
   }
 }
