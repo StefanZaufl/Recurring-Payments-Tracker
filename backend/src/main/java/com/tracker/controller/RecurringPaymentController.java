@@ -53,7 +53,16 @@ public class RecurringPaymentController implements RecurringPaymentsApi {
     @Override
     public ResponseEntity<RecurringPaymentDto> updateRecurringPayment(UUID id,
                                                                        RecurringPaymentUpdateRequest request) {
-        return recurringPaymentService.update(id, request.getName(), request.getCategoryId(), request.getIsActive())
+        return recurringPaymentService.update(
+                        id,
+                        request.getName(),
+                        request.getCategoryId(),
+                        request.getIsActive(),
+                        request.getStartDate(),
+                        request.getEndDate() != null && request.getEndDate().isPresent()
+                                ? request.getEndDate().get()
+                                : null,
+                        Boolean.TRUE.equals(request.getClearEndDate()))
                 .map(recurringPaymentMapper::toDto)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());

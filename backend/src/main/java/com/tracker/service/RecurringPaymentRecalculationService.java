@@ -89,21 +89,22 @@ public class RecurringPaymentRecalculationService {
 
         int recurringPaymentsDeleted = 0;
         for (RecurringPayment payment : sortPayments(existingPayments)) {
-            List<Rule> rules = payment.getRules() == null ? List.of() : payment.getRules();
-            List<Transaction> matchedTransactions = rules.isEmpty()
-                    ? List.of()
-                    : ruleEvaluationService.findMatchingTransactions(rules, remainingCandidates);
+            if (payment.getEndDate() == null) {
+                List<Rule> rules = payment.getRules() == null ? List.of() : payment.getRules();
+                List<Transaction> matchedTransactions = rules.isEmpty()
+                        ? List.of()
+                        : ruleEvaluationService.findMatchingTransactions(rules, remainingCandidates);
 
-            if (matchedTransactions.isEmpty()) {
-                linkRepository.deleteByRecurringPaymentId(payment.getId());
-                paymentPeriodHistoryRepository.deleteByRecurringPaymentId(payment.getId());
-                recurringPaymentRepository.delete(payment);
-                recurringPaymentsDeleted += 1;
-                continue;
+                if (matchedTransactions.isEmpty()) {
+                    linkRepository.deleteByRecurringPaymentId(payment.getId());
+                    paymentPeriodHistoryRepository.deleteByRecurringPaymentId(payment.getId());
+                    recurringPaymentRepository.delete(payment);
+                    recurringPaymentsDeleted += 1;
+                } else {
+                    detectionService.rebuildRecurringPayment(payment, matchedTransactions);
+                    remainingCandidates.removeAll(matchedTransactions);
+                }
             }
-
-            detectionService.rebuildRecurringPayment(payment, matchedTransactions);
-            remainingCandidates.removeAll(matchedTransactions);
         }
 
         List<RecurringPayment> recalculatedPayments = detectionService.detectRecurringPayments(remainingCandidates);
@@ -171,6 +172,7 @@ public class RecurringPaymentRecalculationService {
         }
 
         recomputePaymentFacts(payment, matchedTransactions);
+        detectionService.refreshLifecycleDates(payment, matchedTransactions);
         paymentPeriodHistoryService.recomputeHistory(payment);
         BigDecimal rollingAverage = paymentPeriodHistoryService.getRollingAverage(payment.getId(), 4);
         if (rollingAverage != null) {

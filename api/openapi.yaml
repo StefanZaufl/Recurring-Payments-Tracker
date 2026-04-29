@@ -1545,6 +1545,12 @@ components:
           type: boolean
         isActive:
           type: boolean
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
         ruleCount:
           type: integer
 
@@ -1557,6 +1563,15 @@ components:
         name:
           type: string
         isActive:
+          type: boolean
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+          nullable: true
+        clearEndDate:
           type: boolean
 
     AnnualOverview:

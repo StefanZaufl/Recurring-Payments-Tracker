@@ -124,7 +124,7 @@ Planned change:
   - if no transactions match after a rule edit, keep the recurring payment with zero links and inactive/needs-attention status, rather than silently deleting it during a user-driven rule edit.
 - Add tests for rule create/update/delete that prove stale links are removed and new matches are added.
 
-## Phase 4: Recurring Payment Lifecycle and Cancellation Detection
+## Phase 4: Recurring Payment Lifecycle and Cancellation Detection - Complete
 
 ### 6. Add start/end dates to recurring payments
 
@@ -138,6 +138,14 @@ Planned change:
 - Allow users to edit start/end dates in the recurring payment UI.
 - Keep `isActive` as a user-controlled flag, but make `end_date` the temporal boundary for summaries and predictions.
 - Update DTOs, OpenAPI, generated frontend client, mapper, and tests.
+
+Completed:
+- Added `start_date` and `end_date` columns with Flyway migration `V11__add_recurring_payment_lifecycle_dates.sql`.
+- Exposed lifecycle dates through the backend entity, OpenAPI schema, backend update request, and generated Angular API models.
+- Populated `startDate` from the earliest linked transaction during detection, re-evaluation, full rebuild, and targeted rule recalculation.
+- Added recurring payment lifecycle editing in the recurring payments list, including start/end date save and explicit end-date clearing.
+- Added an `Ended` status in the recurring payments list for payments whose end date is before the current date.
+- Added backend lifecycle tests and frontend lifecycle editor tests.
 
 ### 7. Detect recurring payments that no longer match transactions
 
@@ -154,6 +162,23 @@ Planned change:
 - Expose stale/ended status in the recurring payments list so the user can confirm or override.
 - Ensure recalculation does not delete ended/stale recurring payments.
 - Add tests for active, overdue, manually ended, and reactivated payments.
+
+Completed:
+- Added stale detection after CSV imports using the latest imported booking date as the reference date.
+- Marked active payments with no end date as ended at their last linked transaction when they are overdue beyond frequency-specific grace windows.
+- Cleared an existing end date when a later linked transaction is found, allowing newly matched activity to reactivate the lifecycle boundary.
+- Preserved ended payments during broad recalculation instead of deleting them when no current-window matches are found.
+- Kept `isActive` user-controlled; lifecycle ending is represented by `endDate`.
+- Verified with:
+  - `mvn -Dmaven.repo.local=/tmp/.m2 test -Dtest=RecurringPaymentDetectionServiceTest,RecurringPaymentControllerTest,RecurringPaymentRecalculationServiceTest`
+  - `npm --workspace=frontend run api:generate`
+  - `npm --workspace=frontend test -- --runTestsByPath src/app/features/recurring-payments/recurring-payments-list.component.spec.ts`
+  - `npm --workspace=frontend run build`
+  - `mvn -Dmaven.repo.local=/tmp/.m2 test`
+  - `npm --workspace=frontend test -- --watch=false`
+  - `backend/runSonar.sh`
+  - `frontend/runSonar.sh`
+  - `tooling/query-sonar-issues.sh`
 
 ## Phase 5: Prediction Improvements
 

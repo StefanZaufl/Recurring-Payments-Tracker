@@ -219,6 +219,42 @@ describe('RecurringPaymentsListComponent', () => {
     expect(recurringService.updateRecurringPayment).toHaveBeenCalledWith('1', { isActive: false });
   });
 
+  it('should save lifecycle dates and update the payment', () => {
+    fixture.detectChanges();
+    const netflix = component.payments.find(p => p.name === 'Netflix')!;
+    const updatedNetflix = { ...netflix, startDate: '2025-01-15', endDate: '2025-12-15' };
+    recurringService.updateRecurringPayment.mockReturnValue(of(updatedNetflix));
+
+    component.openLifecycleDialog(netflix);
+    component.lifecycleStartDate = '2025-01-15';
+    component.lifecycleEndDate = '2025-12-15';
+    component.saveLifecycleDates();
+
+    expect(recurringService.updateRecurringPayment).toHaveBeenCalledWith('1', {
+      startDate: '2025-01-15',
+      endDate: '2025-12-15',
+      clearEndDate: false,
+    });
+    expect(component.lifecyclePayment).toBeNull();
+    expect(component.payments.find(p => p.id === '1')?.endDate).toBe('2025-12-15');
+  });
+
+  it('should request end date clearing when lifecycle end date is empty', () => {
+    fixture.detectChanges();
+    const netflix = { ...component.payments.find(p => p.name === 'Netflix')!, endDate: '2025-12-15' };
+    recurringService.updateRecurringPayment.mockReturnValue(of({ ...netflix, endDate: undefined }));
+
+    component.openLifecycleDialog(netflix);
+    component.clearLifecycleEndDate();
+    component.saveLifecycleDates();
+
+    expect(recurringService.updateRecurringPayment).toHaveBeenCalledWith('1', {
+      startDate: undefined,
+      endDate: undefined,
+      clearEndDate: true,
+    });
+  });
+
   it('should open category dialog for a payment', () => {
     fixture.detectChanges();
     const netflix = component.filteredPayments.find(p => p.name === 'Netflix')!;

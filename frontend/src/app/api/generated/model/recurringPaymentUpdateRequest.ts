@@ -13,5 +13,8 @@ export interface RecurringPaymentUpdateRequest {
     categoryId?: string;
     name?: string;
     isActive?: boolean;
+    startDate?: string;
+    endDate?: string | null;
+    clearEndDate?: boolean;
 }
 

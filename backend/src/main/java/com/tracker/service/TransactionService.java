@@ -86,6 +86,10 @@ public class TransactionService {
                 .map(RecurringPayment::getId)
                 .collect(java.util.stream.Collectors.toSet())
                 .size();
+        savedTransactions.stream()
+                .map(Transaction::getBookingDate)
+                .max(LocalDate::compareTo)
+                .ifPresent(detectionService::markStalePayments);
 
         Integer transactionsMarkedInterAccount = null;
         Integer transactionLinksRemoved = null;

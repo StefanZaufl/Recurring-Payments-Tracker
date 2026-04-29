@@ -215,6 +215,10 @@ const UNCATEGORIZED_CATEGORY = 'UNCATEGORIZED';
                         class="badge cursor-pointer bg-subtle text-muted hover:bg-card-hover transition-colors">
                         {{ payment.ruleCount }} rule{{ payment.ruleCount === 1 ? '' : 's' }}
                       </button>
+                      <button (click)="openLifecycleDialog(payment); $event.stopPropagation()"
+                        class="badge cursor-pointer bg-subtle text-muted hover:bg-card-hover transition-colors">
+                        {{ formatLifecycle(payment) }}
+                      </button>
                     </div>
                   </div>
                   <p class="font-mono text-sm font-semibold shrink-0 ml-3"
@@ -228,10 +232,11 @@ const UNCATEGORIZED_CATEGORY = 'UNCATEGORIZED';
                     <button (click)="toggleActive(payment); $event.stopPropagation()"
                       class="badge cursor-pointer transition-colors"
                         [ngClass]="{
-                          'bg-accent-dim text-accent': payment.isActive,
-                          'bg-subtle text-muted': !payment.isActive
+                          'bg-coral-dim text-coral': isEnded(payment),
+                          'bg-accent-dim text-accent': payment.isActive && !isEnded(payment),
+                          'bg-subtle text-muted': !payment.isActive && !isEnded(payment)
                         }">
-                      {{ payment.isActive ? 'Active' : 'Inactive' }}
+                      {{ statusLabel(payment) }}
                     </button>
                     <button (click)="openCategoryDialog(payment); $event.stopPropagation()"
                       class="badge cursor-pointer transition-colors hover:bg-card-hover"
@@ -270,6 +275,7 @@ const UNCATEGORIZED_CATEGORY = 'UNCATEGORIZED';
                     <th class="table-header">Name</th>
                     <th class="table-header">Category</th>
                     <th class="table-header">Frequency</th>
+                    <th class="table-header">Lifecycle</th>
                     <th class="table-header text-right">Amount</th>
                     <th class="table-header">Type</th>
                     <th class="table-header">Status</th>
@@ -303,6 +309,12 @@ const UNCATEGORIZED_CATEGORY = 'UNCATEGORIZED';
                       <td class="table-cell">
                         <app-frequency-badge [frequency]="payment.frequency" />
                       </td>
+                      <td class="table-cell">
+                        <button (click)="openLifecycleDialog(payment); $event.stopPropagation()"
+                          class="badge cursor-pointer bg-subtle text-muted hover:bg-card-hover transition-colors">
+                          {{ formatLifecycle(payment) }}
+                        </button>
+                      </td>
                       <td class="table-cell text-right font-mono text-xs font-medium"
                         [class.text-accent]="payment.isIncome"
                         [class.text-coral]="!payment.isIncome">
@@ -321,10 +333,11 @@ const UNCATEGORIZED_CATEGORY = 'UNCATEGORIZED';
                         <button (click)="toggleActive(payment); $event.stopPropagation()"
                           class="badge cursor-pointer transition-colors"
                             [ngClass]="{
-                              'bg-accent-dim text-accent': payment.isActive,
-                              'bg-subtle text-muted': !payment.isActive
+                              'bg-coral-dim text-coral': isEnded(payment),
+                              'bg-accent-dim text-accent': payment.isActive && !isEnded(payment),
+                              'bg-subtle text-muted': !payment.isActive && !isEnded(payment)
                             }">
-                          <span class="inline-block w-1.5 h-1.5 rounded-full mr-1" [ngClass]="{'bg-accent': payment.isActive, 'bg-muted': !payment.isActive}"></span>{{ payment.isActive ? 'Active' : 'Inactive' }}
+                          <span class="inline-block w-1.5 h-1.5 rounded-full mr-1" [ngClass]="{'bg-coral': isEnded(payment), 'bg-accent': payment.isActive && !isEnded(payment), 'bg-muted': !payment.isActive && !isEnded(payment)}"></span>{{ statusLabel(payment) }}
                         </button>
                       </td>
                       <td class="table-cell">
@@ -385,6 +398,44 @@ const UNCATEGORIZED_CATEGORY = 'UNCATEGORIZED';
           (closed)="closeCategoryDialog()" />
       }
 
+      @if (lifecyclePayment) {
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true">
+          <div class="glass-card w-full max-w-md p-5">
+            <div class="flex items-start justify-between gap-4 mb-5">
+              <div class="min-w-0">
+                <h2 class="text-base font-semibold text-white truncate">{{ lifecyclePayment.name }}</h2>
+                <p class="text-xs text-muted mt-1">Lifecycle dates</p>
+              </div>
+              <button type="button" (click)="closeLifecycleDialog()" class="text-muted hover:text-white transition-colors p-1">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div class="space-y-4">
+              <label class="block">
+                <span class="block text-xs font-medium text-muted mb-1.5">Start date</span>
+                <input type="date" [(ngModel)]="lifecycleStartDate"
+                  class="w-full bg-card border border-card-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-subtle">
+              </label>
+              <label class="block">
+                <span class="block text-xs font-medium text-muted mb-1.5">End date</span>
+                <input type="date" [(ngModel)]="lifecycleEndDate"
+                  class="w-full bg-card border border-card-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-subtle">
+              </label>
+            </div>
+            <div class="mt-6 flex justify-end gap-2">
+              <button type="button" (click)="clearLifecycleEndDate()"
+                class="btn-secondary text-xs">Clear end</button>
+              <button type="button" (click)="closeLifecycleDialog()"
+                class="btn-secondary text-xs">Cancel</button>
+              <button type="button" (click)="saveLifecycleDates()"
+                class="btn-primary text-xs">Save</button>
+            </div>
+          </div>
+        </div>
+      }
+
       <!-- Transactions modal -->
       @if (transactionsPayment) {
         <app-payment-transactions-modal
@@ -434,6 +485,9 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
   rulesPayment: RecurringPaymentDto | null = null;
   deletePayment: RecurringPaymentDto | null = null;
   deleteAdditionalGroup: AdditionalRuleGroupDto | null = null;
+  lifecyclePayment: RecurringPaymentDto | null = null;
+  lifecycleStartDate = '';
+  lifecycleEndDate = '';
 
   ngOnInit(): void {
     this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe(queryParamMap => {
@@ -594,6 +648,40 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
     });
   }
 
+  openLifecycleDialog(payment: RecurringPaymentDto): void {
+    this.lifecyclePayment = payment;
+    this.lifecycleStartDate = payment.startDate ?? '';
+    this.lifecycleEndDate = payment.endDate ?? '';
+  }
+
+  closeLifecycleDialog(): void {
+    this.lifecyclePayment = null;
+    this.lifecycleStartDate = '';
+    this.lifecycleEndDate = '';
+  }
+
+  clearLifecycleEndDate(): void {
+    this.lifecycleEndDate = '';
+  }
+
+  saveLifecycleDates(): void {
+    if (!this.lifecyclePayment) return;
+    const payment = this.lifecyclePayment;
+    this.recurringPaymentsService.updateRecurringPayment(payment.id, {
+      startDate: this.lifecycleStartDate || undefined,
+      endDate: this.lifecycleEndDate || undefined,
+      clearEndDate: !this.lifecycleEndDate,
+    }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (updated) => {
+        const idx = this.payments.findIndex(p => p.id === payment.id);
+        if (idx >= 0) this.payments[idx] = { ...this.payments[idx], ...updated };
+        this.closeLifecycleDialog();
+        this.applyFilter();
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
   onDialogCategoryCreated(category: CategoryDto): void {
     this.categories = [...this.categories, category];
     this.onCategorySelected(category.id);
@@ -711,5 +799,30 @@ export class RecurringPaymentsListComponent implements OnInit, OnDestroy {
       default:
         return '';
     }
+  }
+
+  formatLifecycle(payment: RecurringPaymentDto): string {
+    if (payment.startDate && payment.endDate) {
+      return `${payment.startDate} to ${payment.endDate}`;
+    }
+    if (payment.startDate) {
+      return `Since ${payment.startDate}`;
+    }
+    if (payment.endDate) {
+      return `Ends ${payment.endDate}`;
+    }
+    return 'Set dates';
+  }
+
+  isEnded(payment: RecurringPaymentDto): boolean {
+    const today = new Date().toISOString().slice(0, 10);
+    return Boolean(payment.endDate && payment.endDate < today);
+  }
+
+  statusLabel(payment: RecurringPaymentDto): string {
+    if (this.isEnded(payment)) {
+      return 'Ended';
+    }
+    return payment.isActive ? 'Active' : 'Inactive';
   }
 }

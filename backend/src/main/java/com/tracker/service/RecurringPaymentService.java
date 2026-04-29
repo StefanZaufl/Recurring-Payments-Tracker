@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -59,7 +60,8 @@ public class RecurringPaymentService {
     }
 
     @Transactional
-    public Optional<RecurringPayment> update(UUID id, String name, UUID categoryId, Boolean isActive) {
+    public Optional<RecurringPayment> update(UUID id, String name, UUID categoryId, Boolean isActive,
+                                             LocalDate startDate, LocalDate endDate, boolean clearEndDate) {
         UUID currentUserId = userContextService.getCurrentUserId();
         return recurringPaymentRepository.findByIdAndUserId(id, currentUserId).map(payment -> {
             if (name != null) {
@@ -70,6 +72,14 @@ public class RecurringPaymentService {
             }
             if (isActive != null) {
                 payment.setIsActive(isActive);
+            }
+            if (startDate != null) {
+                payment.setStartDate(startDate);
+            }
+            if (clearEndDate) {
+                payment.setEndDate(null);
+            } else if (endDate != null) {
+                payment.setEndDate(endDate);
             }
             return recurringPaymentRepository.save(payment);
         });

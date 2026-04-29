@@ -1,6 +1,7 @@
 package com.tracker.service;
 
 import com.tracker.model.entity.Frequency;
+import com.tracker.model.entity.RecurringPayment;
 import com.tracker.model.entity.Transaction;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -224,6 +225,53 @@ class RecurringPaymentDetectionServiceTest {
                     tx("Weekly", LocalDate.of(2025, 1, 8), "-10"),
                     tx("Weekly", LocalDate.of(2025, 1, 15), "-10"));
             assertThat(service.detectFrequency(txs)).isNull();
+        }
+    }
+
+    @Nested
+    class LifecycleTests {
+
+        private final RecurringPaymentDetectionService service = createService();
+
+        @Test
+        void refreshLifecycleDatesUsesFirstLinkedTransactionAsStartDate() {
+            RecurringPayment payment = new RecurringPayment();
+
+            service.refreshLifecycleDates(payment, List.of(
+                    tx("A", LocalDate.of(2025, 3, 15), "-10"),
+                    tx("A", LocalDate.of(2025, 1, 15), "-10"),
+                    tx("A", LocalDate.of(2025, 2, 15), "-10")));
+
+            assertThat(payment.getStartDate()).isEqualTo(LocalDate.of(2025, 1, 15));
+        }
+
+        @Test
+        void refreshLifecycleDatesClearsEndDateWhenANewerLinkedTransactionAppears() {
+            RecurringPayment payment = new RecurringPayment();
+            payment.setEndDate(LocalDate.of(2025, 2, 15));
+
+            service.refreshLifecycleDates(payment, List.of(
+                    tx("A", LocalDate.of(2025, 1, 15), "-10"),
+                    tx("A", LocalDate.of(2025, 3, 15), "-10")));
+
+            assertThat(payment.getEndDate()).isNull();
+        }
+
+        @Test
+        void monthlyPaymentIsStaleOnlyAfterExpectedDateAndGraceWindow() {
+            LocalDate lastLinkedDate = LocalDate.of(2025, 1, 15);
+
+            assertThat(service.isStale(lastLinkedDate, Frequency.MONTHLY, LocalDate.of(2025, 3, 1))).isFalse();
+            assertThat(service.isStale(lastLinkedDate, Frequency.MONTHLY, LocalDate.of(2025, 3, 3))).isTrue();
+        }
+
+        @Test
+        void staleDeadlineUsesFrequencySpecificGraceWindows() {
+            LocalDate lastLinkedDate = LocalDate.of(2025, 1, 15);
+
+            assertThat(service.staleDeadline(lastLinkedDate, Frequency.MONTHLY)).isEqualTo(LocalDate.of(2025, 3, 2));
+            assertThat(service.staleDeadline(lastLinkedDate, Frequency.QUARTERLY)).isEqualTo(LocalDate.of(2025, 5, 30));
+            assertThat(service.staleDeadline(lastLinkedDate, Frequency.YEARLY)).isEqualTo(LocalDate.of(2026, 3, 16));
         }
     }
 

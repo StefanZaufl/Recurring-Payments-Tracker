@@ -22,6 +22,8 @@ export interface RecurringPaymentDto {
     paymentType: PaymentType;
     isIncome: boolean;
     isActive: boolean;
+    startDate?: string;
+    endDate?: string;
     ruleCount: number;
 }
 
