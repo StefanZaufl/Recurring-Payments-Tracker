@@ -139,6 +139,28 @@ import { TransactionMatchPreviewComponent } from './transaction-match-preview.co
             </div>
           }
 
+          @if (rules.length > 0 && omittedAdditionalMatchCount > 0) {
+            <div class="bg-amber-dim border border-amber/20 rounded-2xl p-4 animate-fade-in">
+              <div class="flex items-start gap-3">
+                <svg class="w-4 h-4 text-amber shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+                <div>
+                  <p class="text-xs font-medium text-amber mb-1">Additional payment overlap detected</p>
+                  <p class="text-[11px] text-amber/80">
+                    {{ omittedAdditionalMatchCount }} matching transaction{{ omittedAdditionalMatchCount === 1 ? '' : 's' }} already excluded by Additional rule groups
+                    @if (omittedAdditionalGroupNames.length > 0) {
+                      :
+                      @for (name of omittedAdditionalGroupNames; track name; let last = $last) {
+                        <strong class="text-amber">{{ name }}</strong>{{ last ? '' : ', ' }}
+                      }
+                    }
+                  </p>
+                </div>
+              </div>
+            </div>
+          }
+
           <!-- Submit -->
           <div class="flex items-center gap-3">
             <button (click)="submitPayment()" [disabled]="submitting || !canSubmit()"
@@ -201,6 +223,8 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
 
   // Simulation results
   overlappingPayments: OverlappingPaymentDto[] = [];
+  omittedAdditionalMatchCount = 0;
+  omittedAdditionalGroupNames: string[] = [];
   omittedAdditionalIds = new Set<string>();
 
   // Submit
@@ -264,7 +288,10 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
         this.matchingIds = new Set(result.matchingTransactions.map(t => t.id));
         this.matchingTransactionDtos = result.matchingTransactions;
         this.overlappingPayments = result.overlappingPayments;
-        this.omittedAdditionalIds = new Set((result.omittedAdditionalMatches || []).map(match => match.transactionId));
+        const omittedAdditionalMatches = result.omittedAdditionalMatches || [];
+        this.omittedAdditionalMatchCount = result.omittedAdditionalMatchCount || omittedAdditionalMatches.length;
+        this.omittedAdditionalGroupNames = this.toGroupNames(omittedAdditionalMatches);
+        this.omittedAdditionalIds = new Set(omittedAdditionalMatches.map(match => match.transactionId));
         this.additionalFiltersLoaded = true;
         this.cdr.markForCheck();
       },
@@ -309,6 +336,14 @@ export class CreatePaymentComponent implements OnInit, OnDestroy {
       return transactions;
     }
     return transactions.filter(transaction => !this.omittedAdditionalIds.has(transaction.id));
+  }
+
+  private toGroupNames(matches: { groups?: { name?: string }[] }[]): string[] {
+    return Array.from(new Set(matches
+      .flatMap(match => match.groups || [])
+      .map(group => group.name)
+      .filter((name): name is string => !!name)))
+      .sort((left, right) => left.localeCompare(right));
   }
 
   onRulesChange(rules: LocalRule[]): void {

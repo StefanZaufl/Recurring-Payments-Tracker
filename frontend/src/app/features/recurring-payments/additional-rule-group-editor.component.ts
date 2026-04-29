@@ -87,6 +87,28 @@ import { TransactionMatchPreviewComponent } from './transaction-match-preview.co
               title="Rules"
               [rules]="rules"
               (rulesChange)="onRulesChange($event)" />
+
+            @if (overlappingAdditionalMatchCount > 0) {
+              <div class="bg-amber-dim border border-amber/20 rounded-2xl p-4 animate-fade-in">
+                <div class="flex items-start gap-3">
+                  <svg class="w-4 h-4 text-amber shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                  </svg>
+                  <div>
+                    <p class="text-xs font-medium text-amber mb-1">Additional payment overlap detected</p>
+                    <p class="text-[11px] text-amber/80">
+                      {{ overlappingAdditionalMatchCount }} matching transaction{{ overlappingAdditionalMatchCount === 1 ? '' : 's' }} already excluded by other Additional rule groups
+                      @if (overlappingAdditionalGroupNames.length > 0) {
+                        :
+                        @for (name of overlappingAdditionalGroupNames; track name; let last = $last) {
+                          <strong class="text-amber">{{ name }}</strong>{{ last ? '' : ', ' }}
+                        }
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
+            }
           </div>
         </div>
       }
@@ -144,6 +166,8 @@ export class AdditionalRuleGroupEditorComponent implements OnInit, OnDestroy {
   simulationError: string | null = null;
   totalMatchCount = 0;
   uniqueExclusionCount = 0;
+  overlappingAdditionalMatchCount = 0;
+  overlappingAdditionalGroupNames: string[] = [];
 
   get displayedTransactions(): TransactionDto[] {
     return this.showOnlyMatches && this.simulationActive ? this.matchingTransactions : this.allTransactions;
@@ -245,7 +269,10 @@ export class AdditionalRuleGroupEditorComponent implements OnInit, OnDestroy {
         this.matchingIds = new Set(result.matchingTransactions.map(tx => tx.id));
         this.totalMatchCount = result.totalMatchCount;
         this.uniqueExclusionCount = result.uniqueExclusionCount || 0;
-        this.otherGroupMatches = this.toGroupMatchMap(result.otherAdditionalGroupMatches || []);
+        const otherAdditionalGroupMatches = result.otherAdditionalGroupMatches || [];
+        this.otherGroupMatches = this.toGroupMatchMap(otherAdditionalGroupMatches);
+        this.overlappingAdditionalMatchCount = Math.max(0, result.totalMatchCount - this.uniqueExclusionCount);
+        this.overlappingAdditionalGroupNames = this.toOverlappingGroupNames(otherAdditionalGroupMatches);
         this.cdr.markForCheck();
       },
       error: () => {
@@ -392,6 +419,15 @@ export class AdditionalRuleGroupEditorComponent implements OnInit, OnDestroy {
     return new Map(matches.map(match => [match.transactionId, match.groups.map(group => group.name)]));
   }
 
+  private toOverlappingGroupNames(matches: AdditionalGroupTransactionMatchDto[]): string[] {
+    return Array.from(new Set(matches
+      .filter(match => this.matchingIds.has(match.transactionId))
+      .flatMap(match => match.groups || [])
+      .map(group => group.name)
+      .filter((name): name is string => !!name)))
+      .sort((left, right) => left.localeCompare(right));
+  }
+
   private clearSimulation(): void {
     this.simulationActive = false;
     this.matchingTransactions = [];
@@ -399,6 +435,8 @@ export class AdditionalRuleGroupEditorComponent implements OnInit, OnDestroy {
     this.otherGroupMatches = new Map<string, string[]>();
     this.totalMatchCount = 0;
     this.uniqueExclusionCount = 0;
+    this.overlappingAdditionalMatchCount = 0;
+    this.overlappingAdditionalGroupNames = [];
   }
 
   private validateName(): void {

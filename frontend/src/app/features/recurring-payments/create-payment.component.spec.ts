@@ -121,14 +121,16 @@ describe('CreatePaymentComponent', () => {
     expect(text).not.toContain('Amazon Marketplace');
   });
 
-  it('should not render a message for omitted additional transactions', () => {
-    component.omittedAdditionalIds = new Set(['tx-1']);
+  it('should render a warning for omitted additional transactions', () => {
+    component.rules = [{ id: 'rule-1', ruleType: 'JARO_WINKLER', targetField: 'PARTNER_NAME', text: 'amazon' }];
+    component.omittedAdditionalMatchCount = 1;
+    component.omittedAdditionalGroupNames = ['Ignore Amazon'];
 
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent || '';
-    expect(text).not.toContain('excluded by Additional rule groups');
-    expect(text).not.toContain('Groups in preview');
-    expect(text).not.toContain('Transaction details unavailable');
+    expect(text).toContain('Additional payment overlap detected');
+    expect(text).toContain('1 matching transaction already excluded by Additional rule groups');
+    expect(text).toContain('Ignore Amazon');
   });
 });
