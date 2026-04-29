@@ -180,7 +180,7 @@ Completed:
   - `frontend/runSonar.sh`
   - `tooling/query-sonar-issues.sh`
 
-## Phase 5: Prediction Improvements
+## Phase 5: Prediction Improvements - Complete
 
 ### 8. Respect recurring payment start/end dates in predictions
 
@@ -193,6 +193,11 @@ Planned change:
 - Stop upcoming individual payment generation at `end_date`.
 - For monthly prediction totals, include only payments active during that prediction month.
 - Add tests for future starts, ended subscriptions, and payments ending within the prediction window.
+
+Completed:
+- Monthly prediction totals now include only recurring payments whose `startDate`/`endDate` overlap the predicted month.
+- Upcoming individual payment generation now excludes predicted occurrences before `startDate` or after `endDate`.
+- Added backend tests for future-starting payments, ended payments, and payments ending within the prediction window.
 
 ### 9. Forecast additional payments from the last three months
 
@@ -212,6 +217,25 @@ Planned change:
   - fewer than three months available,
   - current partial month exclusion,
   - positive and negative additional transactions.
+
+Completed:
+- Added a repository query for additional baseline transactions using non-inter-account, unlinked transactions over the last three complete months.
+- Split monthly prediction results into recurring income/expenses and additional income/expenses while keeping the existing expected total fields.
+- Averaged additional income and expenses over complete months that have additional transactions, excluding the current partial month.
+- Updated OpenAPI and the generated Angular model for the new monthly prediction component fields.
+- Updated the predictions UI table and chart to show recurring and additional forecast components separately.
+- Added backend tests for exactly three months of additional transactions, fewer available months, current partial month exclusion, and positive/negative additional transactions.
+- Added frontend prediction component coverage for the new chart datasets and generated model shape.
+- Verified with:
+  - `mvn -Dmaven.repo.local=/tmp/.m2 test -Dtest=AnalyticsServiceTest,AnalyticsControllerTest`
+  - `npm --workspace=frontend run api:generate`
+  - `npm --workspace=frontend test -- --runTestsByPath src/app/features/predictions/upcoming-payments.component.spec.ts`
+  - `npm --workspace=frontend run build`
+  - `mvn -Dmaven.repo.local=/tmp/.m2 test`
+  - `npm --workspace=frontend test -- --watch=false`
+  - `backend/runSonar.sh`
+  - `frontend/runSonar.sh`
+  - `tooling/query-sonar-issues.sh`
 
 ## Cross-Cutting Work
 

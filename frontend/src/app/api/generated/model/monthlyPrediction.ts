@@ -14,5 +14,9 @@ export interface MonthlyPrediction {
     expectedIncome: number;
     expectedExpenses: number;
     expectedSurplus: number;
+    recurringIncome: number;
+    recurringExpenses: number;
+    additionalIncome: number;
+    additionalExpenses: number;
 }
 

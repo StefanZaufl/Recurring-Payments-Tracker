@@ -1677,7 +1677,7 @@ components:
 
     MonthlyPrediction:
       type: object
-      required: [month, expectedIncome, expectedExpenses, expectedSurplus]
+      required: [month, expectedIncome, expectedExpenses, expectedSurplus, recurringIncome, recurringExpenses, additionalIncome, additionalExpenses]
       properties:
         month:
           type: string
@@ -1688,6 +1688,18 @@ components:
           type: number
           format: double
         expectedSurplus:
+          type: number
+          format: double
+        recurringIncome:
+          type: number
+          format: double
+        recurringExpenses:
+          type: number
+          format: double
+        additionalIncome:
+          type: number
+          format: double
+        additionalExpenses:
           type: number
           format: double
 

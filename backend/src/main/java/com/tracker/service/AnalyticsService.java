@@ -16,7 +16,6 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class AnalyticsService {
@@ -61,53 +60,80 @@ public class AnalyticsService {
 
     @Transactional(readOnly = true)
     public PredictionResult getPredictions(int months) {
-        List<RecurringPayment> activePayments = recurringPaymentRepository.findByUserIdAndIsActiveTrue(userContextService.getCurrentUserId());
+        UUID currentUserId = userContextService.getCurrentUserId();
+        List<RecurringPayment> activePayments = recurringPaymentRepository.findByUserIdAndIsActiveTrue(currentUserId);
         LocalDate today = LocalDate.now();
+        AdditionalBaseline additionalBaseline = additionalBaseline(currentUserId, today);
 
-        // Generate upcoming individual payments
+        return new PredictionResult(
+                buildMonthlyPredictions(activePayments, additionalBaseline, today, months),
+                buildUpcomingPayments(activePayments, today, months));
+    }
+
+    private List<UpcomingPaymentResult> buildUpcomingPayments(List<RecurringPayment> activePayments, LocalDate today, int months) {
         List<UpcomingPaymentResult> upcomingPayments = new ArrayList<>();
         for (RecurringPayment payment : activePayments) {
             List<TransactionRecurringLink> links = linkRepository.findWithTransactionByRecurringPaymentId(payment.getId());
-            if (links.isEmpty()) continue;
-
-            LocalDate lastDate = links.stream()
-                    .map(link -> link.getTransaction().getBookingDate())
-                    .max(LocalDate::compareTo)
-                    .orElse(today);
-
-            List<LocalDate> nextDates = predictNextDates(lastDate, payment.getFrequency(), months);
-            for (LocalDate nextDate : nextDates) {
-                if (!nextDate.isAfter(today.plusMonths(months))) {
-                    upcomingPayments.add(new UpcomingPaymentResult(
-                            payment.getName(), nextDate, payment.getAverageAmount()));
-                }
+            if (!links.isEmpty()) {
+                addUpcomingPaymentDates(upcomingPayments, payment, links, today, months);
             }
         }
         upcomingPayments.sort(Comparator.comparing(UpcomingPaymentResult::date));
+        return upcomingPayments;
+    }
 
-        // Generate monthly predictions
+    private void addUpcomingPaymentDates(List<UpcomingPaymentResult> upcomingPayments, RecurringPayment payment,
+                                         List<TransactionRecurringLink> links, LocalDate today, int months) {
+        LocalDate lastDate = links.stream()
+                .map(link -> link.getTransaction().getBookingDate())
+                .max(LocalDate::compareTo)
+                .orElse(today);
+
+        for (LocalDate nextDate : predictNextDates(lastDate, payment.getFrequency(), months)) {
+            if (!nextDate.isAfter(today.plusMonths(months)) && isOccurrenceWithinLifecycle(payment, nextDate)) {
+                upcomingPayments.add(new UpcomingPaymentResult(payment.getName(), nextDate, payment.getAverageAmount()));
+            }
+        }
+    }
+
+    private List<MonthlyPredictionResult> buildMonthlyPredictions(List<RecurringPayment> activePayments,
+                                                                  AdditionalBaseline additionalBaseline,
+                                                                  LocalDate today,
+                                                                  int months) {
         List<MonthlyPredictionResult> predictions = new ArrayList<>();
         for (int i = 0; i < months; i++) {
             YearMonth ym = YearMonth.from(today).plusMonths(i + 1);
-            String monthLabel = ym.toString(); // e.g. "2026-05"
-
-            BigDecimal expectedIncome = BigDecimal.ZERO;
-            BigDecimal expectedExpenses = BigDecimal.ZERO;
-
-            for (RecurringPayment payment : activePayments) {
-                BigDecimal monthlyEquivalent = monthlyEquivalent(payment.getAverageAmount().abs(), payment.getFrequency());
-                if (Boolean.TRUE.equals(payment.getIsIncome())) {
-                    expectedIncome = expectedIncome.add(monthlyEquivalent);
-                } else {
-                    expectedExpenses = expectedExpenses.add(monthlyEquivalent);
-                }
-            }
+            RecurringPredictionAmounts recurring = recurringPredictionAmounts(activePayments, ym);
+            BigDecimal expectedIncome = recurring.income().add(additionalBaseline.income());
+            BigDecimal expectedExpenses = recurring.expenses().add(additionalBaseline.expenses());
 
             predictions.add(new MonthlyPredictionResult(
-                    monthLabel, expectedIncome, expectedExpenses, expectedIncome.subtract(expectedExpenses)));
+                    ym.toString(),
+                    expectedIncome,
+                    expectedExpenses,
+                    expectedIncome.subtract(expectedExpenses),
+                    recurring.income(),
+                    recurring.expenses(),
+                    additionalBaseline.income(),
+                    additionalBaseline.expenses()));
         }
+        return predictions;
+    }
 
-        return new PredictionResult(predictions, upcomingPayments);
+    private RecurringPredictionAmounts recurringPredictionAmounts(List<RecurringPayment> activePayments, YearMonth month) {
+        BigDecimal income = BigDecimal.ZERO;
+        BigDecimal expenses = BigDecimal.ZERO;
+        for (RecurringPayment payment : activePayments) {
+            if (isActiveDuringMonth(payment, month)) {
+                BigDecimal amount = monthlyEquivalent(payment.getAverageAmount().abs(), payment.getFrequency());
+                if (Boolean.TRUE.equals(payment.getIsIncome())) {
+                    income = income.add(amount);
+                } else {
+                    expenses = expenses.add(amount);
+                }
+            }
+        }
+        return new RecurringPredictionAmounts(income, expenses);
     }
 
     private BigDecimal annualizeAmount(BigDecimal amount, Frequency frequency) {
@@ -378,6 +404,46 @@ public class AnalyticsService {
         };
     }
 
+    private AdditionalBaseline additionalBaseline(UUID userId, LocalDate today) {
+        YearMonth currentMonth = YearMonth.from(today);
+        YearMonth firstBaselineMonth = currentMonth.minusMonths(3);
+        LocalDate from = firstBaselineMonth.atDay(1);
+        LocalDate to = currentMonth.minusMonths(1).atEndOfMonth();
+        List<Transaction> additionalTransactions = transactionRepository.findUnlinkedTransactionsBetweenForUser(from, to, userId);
+        if (additionalTransactions.isEmpty()) {
+            return new AdditionalBaseline(BigDecimal.ZERO, BigDecimal.ZERO);
+        }
+
+        BigDecimal income = BigDecimal.ZERO;
+        BigDecimal expenses = BigDecimal.ZERO;
+        Set<YearMonth> monthsWithData = new HashSet<>();
+        for (Transaction transaction : additionalTransactions) {
+            monthsWithData.add(YearMonth.from(transaction.getBookingDate()));
+            if (transaction.getAmount().compareTo(BigDecimal.ZERO) > 0) {
+                income = income.add(transaction.getAmount());
+            } else if (transaction.getAmount().compareTo(BigDecimal.ZERO) < 0) {
+                expenses = expenses.add(transaction.getAmount().abs());
+            }
+        }
+
+        BigDecimal divisor = BigDecimal.valueOf(monthsWithData.size());
+        return new AdditionalBaseline(
+                income.divide(divisor, 2, RoundingMode.HALF_UP),
+                expenses.divide(divisor, 2, RoundingMode.HALF_UP));
+    }
+
+    private boolean isActiveDuringMonth(RecurringPayment payment, YearMonth month) {
+        LocalDate monthStart = month.atDay(1);
+        LocalDate monthEnd = month.atEndOfMonth();
+        return (payment.getStartDate() == null || !payment.getStartDate().isAfter(monthEnd))
+                && (payment.getEndDate() == null || !payment.getEndDate().isBefore(monthStart));
+    }
+
+    private boolean isOccurrenceWithinLifecycle(RecurringPayment payment, LocalDate occurrenceDate) {
+        return (payment.getStartDate() == null || !occurrenceDate.isBefore(payment.getStartDate()))
+                && (payment.getEndDate() == null || !occurrenceDate.isAfter(payment.getEndDate()));
+    }
+
     private List<LocalDate> predictNextDates(LocalDate lastDate, Frequency frequency, int monthsAhead) {
         List<LocalDate> dates = new ArrayList<>();
         LocalDate next = lastDate;
@@ -425,7 +491,16 @@ public class AnalyticsService {
                                     List<UpcomingPaymentResult> upcomingPayments) {}
 
     public record MonthlyPredictionResult(String month, BigDecimal expectedIncome,
-                                           BigDecimal expectedExpenses, BigDecimal expectedSurplus) {}
+                                           BigDecimal expectedExpenses,
+                                           BigDecimal expectedSurplus,
+                                           BigDecimal recurringIncome,
+                                           BigDecimal recurringExpenses,
+                                           BigDecimal additionalIncome,
+                                           BigDecimal additionalExpenses) {}
 
     public record UpcomingPaymentResult(String name, LocalDate date, BigDecimal amount) {}
+
+    private record AdditionalBaseline(BigDecimal income, BigDecimal expenses) {}
+
+    private record RecurringPredictionAmounts(BigDecimal income, BigDecimal expenses) {}
 }

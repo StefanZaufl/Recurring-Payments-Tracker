@@ -9,9 +9,36 @@ import { PredictionResponse } from '../../api/generated/model/predictionResponse
 
 const mockPredictions: PredictionResponse = {
   predictions: [
-    { month: '2026-05', expectedIncome: 3000, expectedExpenses: 500, expectedSurplus: 2500 },
-    { month: '2026-06', expectedIncome: 3000, expectedExpenses: 500, expectedSurplus: 2500 },
-    { month: '2026-07', expectedIncome: 3000, expectedExpenses: 650, expectedSurplus: 2350 },
+    {
+      month: '2026-05',
+      expectedIncome: 3200,
+      expectedExpenses: 620,
+      expectedSurplus: 2580,
+      recurringIncome: 3000,
+      recurringExpenses: 500,
+      additionalIncome: 200,
+      additionalExpenses: 120,
+    },
+    {
+      month: '2026-06',
+      expectedIncome: 3200,
+      expectedExpenses: 620,
+      expectedSurplus: 2580,
+      recurringIncome: 3000,
+      recurringExpenses: 500,
+      additionalIncome: 200,
+      additionalExpenses: 120,
+    },
+    {
+      month: '2026-07',
+      expectedIncome: 3200,
+      expectedExpenses: 770,
+      expectedSurplus: 2430,
+      recurringIncome: 3000,
+      recurringExpenses: 650,
+      additionalIncome: 200,
+      additionalExpenses: 120,
+    },
   ],
   upcomingPayments: [
     { name: 'Netflix', date: '2026-05-15', amount: -12.99 },
@@ -98,11 +125,15 @@ describe('UpcomingPaymentsComponent', () => {
   it('should build forecast chart data from predictions', () => {
     fixture.detectChanges();
 
-    expect(component.forecastChartData.datasets.length).toBe(2);
-    expect(component.forecastChartData.datasets[0].label).toBe('Expected Income');
-    expect(component.forecastChartData.datasets[1].label).toBe('Expected Expenses');
+    expect(component.forecastChartData.datasets.length).toBe(4);
+    expect(component.forecastChartData.datasets[0].label).toBe('Recurring Income');
+    expect(component.forecastChartData.datasets[1].label).toBe('Additional Income');
+    expect(component.forecastChartData.datasets[2].label).toBe('Recurring Expenses');
+    expect(component.forecastChartData.datasets[3].label).toBe('Additional Expenses');
     expect(component.forecastChartData.datasets[0].data).toEqual([3000, 3000, 3000]);
-    expect(component.forecastChartData.datasets[1].data).toEqual([500, 500, 650]);
+    expect(component.forecastChartData.datasets[1].data).toEqual([200, 200, 200]);
+    expect(component.forecastChartData.datasets[2].data).toEqual([500, 500, 650]);
+    expect(component.forecastChartData.datasets[3].data).toEqual([120, 120, 120]);
     expect(component.forecastChartData.labels!.length).toBe(3);
   });
 

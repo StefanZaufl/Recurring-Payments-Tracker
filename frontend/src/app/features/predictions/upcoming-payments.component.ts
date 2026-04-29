@@ -82,8 +82,22 @@ import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
                     @for (pred of predictions.predictions; track pred) {
                       <tr class="hover:bg-card-hover transition-colors">
                         <td class="table-cell font-medium text-white text-xs">{{ formatMonth(pred.month) }}</td>
-                        <td class="table-cell text-right font-mono text-xs text-accent">{{ pred.expectedIncome | appCurrency }}</td>
-                        <td class="table-cell text-right font-mono text-xs text-coral">{{ pred.expectedExpenses | appCurrency }}</td>
+                        <td class="table-cell text-right">
+                          <div class="font-mono text-xs text-accent">{{ pred.expectedIncome | appCurrency }}</div>
+                          <div class="mt-1 text-[10px] text-muted font-mono leading-4">
+                            <span>Recurring {{ pred.recurringIncome | appCurrency }}</span>
+                            <span class="mx-1">/</span>
+                            <span>Additional {{ pred.additionalIncome | appCurrency }}</span>
+                          </div>
+                        </td>
+                        <td class="table-cell text-right">
+                          <div class="font-mono text-xs text-coral">{{ pred.expectedExpenses | appCurrency }}</div>
+                          <div class="mt-1 text-[10px] text-muted font-mono leading-4">
+                            <span>Recurring {{ pred.recurringExpenses | appCurrency }}</span>
+                            <span class="mx-1">/</span>
+                            <span>Additional {{ pred.additionalExpenses | appCurrency }}</span>
+                          </div>
+                        </td>
                         <td class="table-cell text-right font-mono text-xs font-medium"
                           [class.text-accent]="pred.expectedSurplus >= 0"
                           [class.text-coral]="pred.expectedSurplus < 0">
@@ -212,16 +226,30 @@ export class UpcomingPaymentsComponent implements OnInit, OnDestroy {
       labels: data.predictions.map(p => this.formatMonth(p.month)),
       datasets: [
         {
-          label: 'Expected Income',
-          data: data.predictions.map(p => p.expectedIncome),
+          label: 'Recurring Income',
+          data: data.predictions.map(p => p.recurringIncome),
           backgroundColor: CHART_THEME.incomeColor,
           borderRadius: 4,
           borderSkipped: false,
         },
         {
-          label: 'Expected Expenses',
-          data: data.predictions.map(p => p.expectedExpenses),
+          label: 'Additional Income',
+          data: data.predictions.map(p => p.additionalIncome),
+          backgroundColor: 'rgba(22, 163, 74, 0.45)',
+          borderRadius: 4,
+          borderSkipped: false,
+        },
+        {
+          label: 'Recurring Expenses',
+          data: data.predictions.map(p => p.recurringExpenses),
           backgroundColor: CHART_THEME.expenseColor,
+          borderRadius: 4,
+          borderSkipped: false,
+        },
+        {
+          label: 'Additional Expenses',
+          data: data.predictions.map(p => p.additionalExpenses),
+          backgroundColor: 'rgba(244, 63, 94, 0.45)',
           borderRadius: 4,
           borderSkipped: false,
         }

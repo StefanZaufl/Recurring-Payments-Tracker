@@ -46,4 +46,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID>,
            "(SELECT trl.transaction.id FROM TransactionRecurringLink trl)")
     @EntityGraph(attributePaths = "upload")
     Page<Transaction> findUnlinkedTransactionsAfterForUserPaged(@Param("cutoff") LocalDate cutoff, @Param("userId") UUID userId, Pageable pageable);
+
+    @Query("SELECT t FROM Transaction t WHERE t.bookingDate BETWEEN :from AND :to AND t.user.id = :userId AND t.isInterAccount = false AND t.id NOT IN " +
+           "(SELECT trl.transaction.id FROM TransactionRecurringLink trl)")
+    List<Transaction> findUnlinkedTransactionsBetweenForUser(@Param("from") LocalDate from, @Param("to") LocalDate to, @Param("userId") UUID userId);
 }
