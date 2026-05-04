@@ -60,6 +60,8 @@ class RecurringPaymentRecalculationServiceTest {
     private AdditionalMatchingService additionalMatchingService;
     @Mock
     private RuleRepository ruleRepository;
+    @Mock
+    private RecurringPaymentLifecycleService lifecycleService;
 
     private RecurringPaymentRecalculationService service;
     private UUID userId;
@@ -79,7 +81,8 @@ class RecurringPaymentRecalculationServiceTest {
                 userContextService,
                 entityManager,
                 additionalMatchingService,
-                ruleRepository
+                ruleRepository,
+                lifecycleService
         );
         userId = UUID.randomUUID();
         user = new User();
@@ -183,6 +186,7 @@ class RecurringPaymentRecalculationServiceTest {
         verify(linkRepository, never()).delete(retainedLink);
         verify(linkRepository).save(any(TransactionRecurringLink.class));
         verify(paymentPeriodHistoryService).recomputeHistory(payment);
+        verify(lifecycleService).refreshLifecycleDates(payment, List.of(retained, newlyMatched));
         verify(recurringPaymentRepository).save(payment);
         assertThat(payment.getAverageAmount()).isEqualByComparingTo("-20.00");
         assertThat(payment.getIsIncome()).isFalse();

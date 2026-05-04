@@ -43,6 +43,7 @@ public class RecurringPaymentRecalculationService {
     private final EntityManager entityManager;
     private final AdditionalMatchingService additionalMatchingService;
     private final RuleRepository ruleRepository;
+    private final RecurringPaymentLifecycleService lifecycleService;
 
     public RecurringPaymentRecalculationService(InterAccountService interAccountService,
                                                TransactionRepository transactionRepository,
@@ -55,7 +56,8 @@ public class RecurringPaymentRecalculationService {
                                                UserContextService userContextService,
                                                EntityManager entityManager,
                                                AdditionalMatchingService additionalMatchingService,
-                                               RuleRepository ruleRepository) {
+                                               RuleRepository ruleRepository,
+                                               RecurringPaymentLifecycleService lifecycleService) {
         this.interAccountService = interAccountService;
         this.transactionRepository = transactionRepository;
         this.linkRepository = linkRepository;
@@ -68,6 +70,7 @@ public class RecurringPaymentRecalculationService {
         this.entityManager = entityManager;
         this.additionalMatchingService = additionalMatchingService;
         this.ruleRepository = ruleRepository;
+        this.lifecycleService = lifecycleService;
     }
 
     @Transactional
@@ -172,7 +175,7 @@ public class RecurringPaymentRecalculationService {
         }
 
         recomputePaymentFacts(payment, matchedTransactions);
-        detectionService.refreshLifecycleDates(payment, matchedTransactions);
+        lifecycleService.refreshLifecycleDates(payment, matchedTransactions);
         paymentPeriodHistoryService.recomputeHistory(payment);
         BigDecimal rollingAverage = paymentPeriodHistoryService.getRollingAverage(payment.getId(), 4);
         if (rollingAverage != null) {
