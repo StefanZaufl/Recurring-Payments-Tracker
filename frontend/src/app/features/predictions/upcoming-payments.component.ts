@@ -64,7 +64,7 @@ import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
           </div>
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
             <!-- Monthly predictions -->
-            <div class="glass-card overflow-hidden">
+            <div class="glass-card overflow-hidden lg:h-[36rem]">
               <div class="px-4 sm:px-5 py-4 border-b border-card-border">
                 <h2 class="text-sm font-semibold text-white">Monthly Breakdown</h2>
               </div>
@@ -110,7 +110,7 @@ import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
               </div>
             </div>
             <!-- Upcoming payments -->
-            <div class="glass-card overflow-hidden">
+            <div class="glass-card overflow-hidden flex flex-col min-h-0 lg:h-[36rem]">
               <div class="px-4 sm:px-5 py-4 border-b border-card-border flex items-center justify-between">
                 <h2 class="text-sm font-semibold text-white">Upcoming Payments</h2>
                 <span class="text-xs text-muted font-mono">{{ predictions.upcomingPayments.length }}</span>
@@ -121,7 +121,7 @@ import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
                 </div>
               }
               @if (predictions.upcomingPayments.length > 0) {
-                <ul class="divide-y divide-card-border max-h-[400px] overflow-y-auto">
+                <ul class="divide-y divide-card-border flex-1 min-h-0 overflow-y-auto">
                   @for (payment of predictions.upcomingPayments; track payment) {
                     <li
                       class="px-4 sm:px-5 py-3 flex items-center justify-between hover:bg-card-hover transition-colors">
