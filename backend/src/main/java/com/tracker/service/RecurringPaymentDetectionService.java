@@ -32,7 +32,6 @@ public class RecurringPaymentDetectionService {
     static final long YEARLY_MIN_DAYS = 340;
     static final long YEARLY_MAX_DAYS = 395;
     static final int LOOKBACK_DAYS = 730;
-
     private final TransactionRepository transactionRepository;
     private final RecurringPaymentRepository recurringPaymentRepository;
     private final TransactionRecurringLinkRepository linkRepository;
@@ -41,6 +40,7 @@ public class RecurringPaymentDetectionService {
     private final UserContextService userContextService;
     private final PaymentPeriodHistoryService historyService;
     private final AdditionalMatchingService additionalMatchingService;
+    private final RecurringPaymentLifecycleService lifecycleService;
 
     public RecurringPaymentDetectionService(TransactionRepository transactionRepository,
                                             RecurringPaymentRepository recurringPaymentRepository,
@@ -49,7 +49,8 @@ public class RecurringPaymentDetectionService {
                                             RuleEvaluationService ruleEvaluationService,
                                             UserContextService userContextService,
                                             PaymentPeriodHistoryService historyService,
-                                            AdditionalMatchingService additionalMatchingService) {
+                                            AdditionalMatchingService additionalMatchingService,
+                                            RecurringPaymentLifecycleService lifecycleService) {
         this.transactionRepository = transactionRepository;
         this.recurringPaymentRepository = recurringPaymentRepository;
         this.linkRepository = linkRepository;
@@ -58,6 +59,7 @@ public class RecurringPaymentDetectionService {
         this.userContextService = userContextService;
         this.historyService = historyService;
         this.additionalMatchingService = additionalMatchingService;
+        this.lifecycleService = lifecycleService;
     }
 
     /**
@@ -175,6 +177,7 @@ public class RecurringPaymentDetectionService {
                 }
                 updateAmountRuleToNewest(rules, matched);
                 recomputeAverageAmount(rt);
+                lifecycleService.refreshLifecycleDates(rt, getLinkedTransactionsWithAdditional(rt.getId(), matched));
                 historyService.recomputeHistory(rt);
                 BigDecimal rollingAvg = historyService.getRollingAverage(rt.getId(), 4);
                 if (rollingAvg != null) {
@@ -242,6 +245,7 @@ public class RecurringPaymentDetectionService {
                 rt.setFrequency(freq);
             }
 
+            lifecycleService.refreshLifecycleDates(rt, allTxs);
             historyService.recomputeHistory(rt);
             updateRollingAverageFromHistory(rt);
             recurringPaymentRepository.save(rt);
@@ -265,6 +269,7 @@ public class RecurringPaymentDetectionService {
 
         updateAmountRuleToNewest(recurringPayment.getRules(), matchedTransactions);
         recomputeAverageAmount(recurringPayment);
+        lifecycleService.refreshLifecycleDates(recurringPayment, matchedTransactions);
 
         Frequency frequency = detectFrequency(matchedTransactions);
         if (frequency != null) {
@@ -280,6 +285,31 @@ public class RecurringPaymentDetectionService {
         return linkRepository.findWithTransactionByRecurringPaymentId(recurringPaymentId)
                 .stream().map(TransactionRecurringLink::getTransaction)
                 .collect(Collectors.toCollection(ArrayList::new));
+    }
+
+    private List<Transaction> getLinkedTransactionsWithAdditional(UUID recurringPaymentId, List<Transaction> additionalTransactions) {
+        List<Transaction> transactions = getAllLinkedTransactions(recurringPaymentId);
+        transactions.addAll(additionalTransactions);
+        return transactions;
+    }
+
+    @Transactional
+    public void markStalePayments(LocalDate referenceDate) {
+        if (referenceDate == null) {
+            return;
+        }
+        UUID currentUserId = userContextService.getCurrentUserId();
+        List<RecurringPayment> activePayments = recurringPaymentRepository.findByUserIdAndIsActiveTrue(currentUserId);
+        for (RecurringPayment payment : activePayments) {
+            if (payment.getEndDate() == null && payment.getFrequency() != null) {
+                List<Transaction> linkedTransactions = getAllLinkedTransactions(payment.getId());
+                if (!linkedTransactions.isEmpty()) {
+                    lifecycleService.refreshLifecycleDates(payment, linkedTransactions);
+                    lifecycleService.refreshEndDateFromStaleness(payment, linkedTransactions, referenceDate);
+                    recurringPaymentRepository.save(payment);
+                }
+            }
+        }
     }
 
     private void createLink(Transaction tx, RecurringPayment rt) {
@@ -371,6 +401,7 @@ public class RecurringPaymentDetectionService {
         rt.setPaymentType(PaymentType.RECURRING);
         rt.setIsActive(true);
         rt.setUser(currentUser);
+        lifecycleService.refreshLifecycleDates(rt, allMatched);
         rt = recurringPaymentRepository.save(rt);
 
         // Persist the rules

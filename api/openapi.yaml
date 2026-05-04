@@ -483,6 +483,18 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
       responses:
         '200':
           description: List of period history entries sorted by periodStart ascending
@@ -1533,6 +1545,12 @@ components:
           type: boolean
         isActive:
           type: boolean
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
         ruleCount:
           type: integer
 
@@ -1545,6 +1563,15 @@ components:
         name:
           type: string
         isActive:
+          type: boolean
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+          nullable: true
+        clearEndDate:
           type: boolean
 
     AnnualOverview:
@@ -1650,7 +1677,7 @@ components:
 
     MonthlyPrediction:
       type: object
-      required: [month, expectedIncome, expectedExpenses, expectedSurplus]
+      required: [month, expectedIncome, expectedExpenses, expectedSurplus, recurringIncome, recurringExpenses, additionalIncome, additionalExpenses]
       properties:
         month:
           type: string
@@ -1661,6 +1688,18 @@ components:
           type: number
           format: double
         expectedSurplus:
+          type: number
+          format: double
+        recurringIncome:
+          type: number
+          format: double
+        recurringExpenses:
+          type: number
+          format: double
+        additionalIncome:
+          type: number
+          format: double
+        additionalExpenses:
           type: number
           format: double
 

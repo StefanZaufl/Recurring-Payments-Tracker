@@ -79,6 +79,10 @@ public class AnalyticsController implements AnalyticsApi {
                     dto.setExpectedIncome(mp.expectedIncome().doubleValue());
                     dto.setExpectedExpenses(mp.expectedExpenses().doubleValue());
                     dto.setExpectedSurplus(mp.expectedSurplus().doubleValue());
+                    dto.setRecurringIncome(mp.recurringIncome().doubleValue());
+                    dto.setRecurringExpenses(mp.recurringExpenses().doubleValue());
+                    dto.setAdditionalIncome(mp.additionalIncome().doubleValue());
+                    dto.setAdditionalExpenses(mp.additionalExpenses().doubleValue());
                     return dto;
                 })
                 .toList();

@@ -14,6 +14,12 @@ public interface PaymentPeriodHistoryRepository extends JpaRepository<PaymentPer
 
     List<PaymentPeriodHistory> findByRecurringPaymentIdAndUserIdOrderByPeriodStartAsc(UUID recurringPaymentId, UUID userId);
 
+    List<PaymentPeriodHistory> findByRecurringPaymentIdAndUserIdAndPeriodStartLessThanEqualAndPeriodEndGreaterThanEqualOrderByPeriodStartAsc(
+            UUID recurringPaymentId,
+            UUID userId,
+            LocalDate to,
+            LocalDate from);
+
     Optional<PaymentPeriodHistory> findByRecurringPaymentIdAndPeriodStart(UUID recurringPaymentId, LocalDate periodStart);
 
     List<PaymentPeriodHistory> findTop4ByRecurringPaymentIdOrderByPeriodStartDesc(UUID recurringPaymentId);

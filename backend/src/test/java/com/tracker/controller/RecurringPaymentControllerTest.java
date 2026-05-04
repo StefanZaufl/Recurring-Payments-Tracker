@@ -741,6 +741,24 @@ class RecurringPaymentControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$", hasSize(0)));
         }
+
+        @Test
+        void filtersHistoryByPeriodOverlap() throws Exception {
+            RecurringPayment payment = seedRecurringPayment("Insurance", Frequency.QUARTERLY, "-300.00", false);
+            seedHistory(payment, LocalDate.of(2024, 10, 1), LocalDate.of(2024, 12, 31), "-300.00");
+            seedHistory(payment, LocalDate.of(2025, 1, 1), LocalDate.of(2025, 3, 31), "-300.00");
+            seedHistory(payment, LocalDate.of(2025, 10, 1), LocalDate.of(2026, 1, 15), "-300.00");
+            seedHistory(payment, LocalDate.of(2026, 2, 1), LocalDate.of(2026, 4, 30), "-300.00");
+
+            mockMvc.perform(get(RECURRING_URL + "/{id}/history", payment.getId())
+                            .param("from", "2025-01-01")
+                            .param("to", "2025-12-31")
+                            .with(authenticatedUser(testUser)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$", hasSize(2)))
+                    .andExpect(jsonPath("$[0].periodStart").value("2025-01-01"))
+                    .andExpect(jsonPath("$[1].periodStart").value("2025-10-01"));
+        }
     }
 
     // ────────────────────────────────────────────────────────────────────

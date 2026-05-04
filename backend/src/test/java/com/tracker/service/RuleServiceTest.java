@@ -1,6 +1,7 @@
 package com.tracker.service;
 
 import com.tracker.controller.ResourceNotFoundException;
+import com.tracker.model.entity.PaymentType;
 import com.tracker.model.entity.RecurringPayment;
 import com.tracker.model.entity.Rule;
 import com.tracker.model.entity.RuleType;
@@ -37,6 +38,8 @@ class RuleServiceTest {
     private RecurringPaymentRepository recurringPaymentRepository;
     @Mock
     private UserContextService userContextService;
+    @Mock
+    private RecurringPaymentRecalculationService recalculationService;
 
     private RuleService ruleService;
     private UUID userId;
@@ -45,7 +48,12 @@ class RuleServiceTest {
 
     @BeforeEach
     void setUp() {
-        ruleService = new RuleService(ruleRepository, recurringPaymentRepository, userContextService, new RuleValidationService());
+        ruleService = new RuleService(
+                ruleRepository,
+                recurringPaymentRepository,
+                userContextService,
+                new RuleValidationService(),
+                recalculationService);
         userId = UUID.randomUUID();
         user = new User();
         user.setId(userId);
@@ -101,6 +109,26 @@ class RuleServiceTest {
         assertThat(result.getText()).isEqualTo("netflix.*");
         assertThat(result.getStrict()).isTrue();
         assertThat(result.getUser()).isSameAs(user);
+        verify(recalculationService).recalculateRecurringPaymentLinks(recurringPayment.getId());
+    }
+
+    @Test
+    void createRule_recalculatesAllPaymentsWhenPaymentIsGrouped() {
+        recurringPayment.setPaymentType(PaymentType.GROUPED);
+
+        ruleService.createRule(
+                recurringPayment.getId(),
+                RuleType.REGEX,
+                TargetField.PARTNER_NAME,
+                "netflix.*",
+                null,
+                null,
+                null,
+                null
+        );
+
+        verify(recalculationService).recalculateCurrentUserRecurringPayments();
+        verify(recalculationService, never()).recalculateRecurringPaymentLinks(any());
     }
 
     @Test
@@ -210,6 +238,7 @@ class RuleServiceTest {
         assertThat(existing.getText()).isEqualTo("netflix family");
         assertThat(existing.getStrict()).isFalse();
         assertThat(existing.getThreshold()).isEqualTo(0.91);
+        verify(recalculationService).recalculateRecurringPaymentLinks(recurringPayment.getId());
     }
 
     @Test
@@ -285,6 +314,7 @@ class RuleServiceTest {
         assertThat(rule.getRecurringPayment()).isNull();
         verify(ruleRepository).delete(rule);
         verify(ruleRepository).flush();
+        verify(recalculationService).recalculateRecurringPaymentLinks(recurringPayment.getId());
     }
 
     @Test
@@ -295,6 +325,7 @@ class RuleServiceTest {
 
         assertThat(ruleService.deleteRule(recurringPayment.getId(), ruleId)).isFalse();
         verify(ruleRepository, never()).delete(any(Rule.class));
+        verify(recalculationService, never()).recalculateRecurringPaymentLinks(any());
     }
 
     @Test

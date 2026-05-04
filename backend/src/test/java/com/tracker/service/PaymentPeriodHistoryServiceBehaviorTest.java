@@ -117,6 +117,24 @@ class PaymentPeriodHistoryServiceBehaviorTest {
     }
 
     @Test
+    void getHistory_filtersByPeriodOverlapWhenRangeIsProvided() {
+        UUID recurringPaymentId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        LocalDate from = LocalDate.of(2025, 1, 1);
+        LocalDate to = LocalDate.of(2025, 12, 31);
+        List<PaymentPeriodHistory> history = List.of(history("100.00"));
+        when(userContextService.getCurrentUserId()).thenReturn(userId);
+        when(historyRepository.findByRecurringPaymentIdAndUserIdAndPeriodStartLessThanEqualAndPeriodEndGreaterThanEqualOrderByPeriodStartAsc(
+                recurringPaymentId,
+                userId,
+                to,
+                from))
+                .thenReturn(history);
+
+        assertThat(service.getHistory(recurringPaymentId, from, to)).isEqualTo(history);
+    }
+
+    @Test
     void backfillHistory_skipsWhenDataAlreadyExistsOrNoPaymentsExistAndProcessesAllPaymentsOtherwise() {
         when(historyRepository.count()).thenReturn(1L);
         service.backfillHistoryOnStartup();

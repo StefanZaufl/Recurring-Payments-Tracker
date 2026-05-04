@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -52,7 +53,16 @@ public class RecurringPaymentController implements RecurringPaymentsApi {
     @Override
     public ResponseEntity<RecurringPaymentDto> updateRecurringPayment(UUID id,
                                                                        RecurringPaymentUpdateRequest request) {
-        return recurringPaymentService.update(id, request.getName(), request.getCategoryId(), request.getIsActive())
+        return recurringPaymentService.update(
+                        id,
+                        request.getName(),
+                        request.getCategoryId(),
+                        request.getIsActive(),
+                        request.getStartDate(),
+                        request.getEndDate() != null && request.getEndDate().isPresent()
+                                ? request.getEndDate().get()
+                                : null,
+                        Boolean.TRUE.equals(request.getClearEndDate()))
                 .map(recurringPaymentMapper::toDto)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -110,8 +120,8 @@ public class RecurringPaymentController implements RecurringPaymentsApi {
     }
 
     @Override
-    public ResponseEntity<List<PaymentPeriodHistoryEntry>> getRecurringPaymentHistory(UUID id) {
-        List<PaymentPeriodHistory> history = historyService.getHistory(id);
+    public ResponseEntity<List<PaymentPeriodHistoryEntry>> getRecurringPaymentHistory(UUID id, LocalDate from, LocalDate to) {
+        List<PaymentPeriodHistory> history = historyService.getHistory(id, from, to);
         List<PaymentPeriodHistoryEntry> entries = history.stream()
                 .map(h -> {
                     PaymentPeriodHistoryEntry entry = new PaymentPeriodHistoryEntry();

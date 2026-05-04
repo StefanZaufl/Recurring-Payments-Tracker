@@ -64,7 +64,7 @@ import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
           </div>
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
             <!-- Monthly predictions -->
-            <div class="glass-card overflow-hidden">
+            <div class="glass-card overflow-hidden lg:h-[36rem]">
               <div class="px-4 sm:px-5 py-4 border-b border-card-border">
                 <h2 class="text-sm font-semibold text-white">Monthly Breakdown</h2>
               </div>
@@ -82,8 +82,22 @@ import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
                     @for (pred of predictions.predictions; track pred) {
                       <tr class="hover:bg-card-hover transition-colors">
                         <td class="table-cell font-medium text-white text-xs">{{ formatMonth(pred.month) }}</td>
-                        <td class="table-cell text-right font-mono text-xs text-accent">{{ pred.expectedIncome | appCurrency }}</td>
-                        <td class="table-cell text-right font-mono text-xs text-coral">{{ pred.expectedExpenses | appCurrency }}</td>
+                        <td class="table-cell text-right">
+                          <div class="font-mono text-xs text-accent">{{ pred.expectedIncome | appCurrency }}</div>
+                          <div class="mt-1 text-[10px] text-muted font-mono leading-4">
+                            <span>Recurring {{ pred.recurringIncome | appCurrency }}</span>
+                            <span class="mx-1">/</span>
+                            <span>Additional {{ pred.additionalIncome | appCurrency }}</span>
+                          </div>
+                        </td>
+                        <td class="table-cell text-right">
+                          <div class="font-mono text-xs text-coral">{{ pred.expectedExpenses | appCurrency }}</div>
+                          <div class="mt-1 text-[10px] text-muted font-mono leading-4">
+                            <span>Recurring {{ pred.recurringExpenses | appCurrency }}</span>
+                            <span class="mx-1">/</span>
+                            <span>Additional {{ pred.additionalExpenses | appCurrency }}</span>
+                          </div>
+                        </td>
                         <td class="table-cell text-right font-mono text-xs font-medium"
                           [class.text-accent]="pred.expectedSurplus >= 0"
                           [class.text-coral]="pred.expectedSurplus < 0">
@@ -96,7 +110,7 @@ import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
               </div>
             </div>
             <!-- Upcoming payments -->
-            <div class="glass-card overflow-hidden">
+            <div class="glass-card overflow-hidden flex flex-col min-h-0 lg:h-[36rem]">
               <div class="px-4 sm:px-5 py-4 border-b border-card-border flex items-center justify-between">
                 <h2 class="text-sm font-semibold text-white">Upcoming Payments</h2>
                 <span class="text-xs text-muted font-mono">{{ predictions.upcomingPayments.length }}</span>
@@ -107,7 +121,7 @@ import { CurrencyFormatPipe } from '../../shared/currency-format.pipe';
                 </div>
               }
               @if (predictions.upcomingPayments.length > 0) {
-                <ul class="divide-y divide-card-border max-h-[400px] overflow-y-auto">
+                <ul class="divide-y divide-card-border flex-1 min-h-0 overflow-y-auto">
                   @for (payment of predictions.upcomingPayments; track payment) {
                     <li
                       class="px-4 sm:px-5 py-3 flex items-center justify-between hover:bg-card-hover transition-colors">
@@ -212,16 +226,30 @@ export class UpcomingPaymentsComponent implements OnInit, OnDestroy {
       labels: data.predictions.map(p => this.formatMonth(p.month)),
       datasets: [
         {
-          label: 'Expected Income',
-          data: data.predictions.map(p => p.expectedIncome),
+          label: 'Recurring Income',
+          data: data.predictions.map(p => p.recurringIncome),
           backgroundColor: CHART_THEME.incomeColor,
           borderRadius: 4,
           borderSkipped: false,
         },
         {
-          label: 'Expected Expenses',
-          data: data.predictions.map(p => p.expectedExpenses),
+          label: 'Additional Income',
+          data: data.predictions.map(p => p.additionalIncome),
+          backgroundColor: 'rgba(22, 163, 74, 0.45)',
+          borderRadius: 4,
+          borderSkipped: false,
+        },
+        {
+          label: 'Recurring Expenses',
+          data: data.predictions.map(p => p.recurringExpenses),
           backgroundColor: CHART_THEME.expenseColor,
+          borderRadius: 4,
+          borderSkipped: false,
+        },
+        {
+          label: 'Additional Expenses',
+          data: data.predictions.map(p => p.additionalExpenses),
+          backgroundColor: 'rgba(244, 63, 94, 0.45)',
           borderRadius: 4,
           borderSkipped: false,
         }

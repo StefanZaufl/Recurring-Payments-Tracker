@@ -101,6 +101,21 @@ public class PaymentPeriodHistoryService {
         return historyRepository.findByRecurringPaymentIdAndUserIdOrderByPeriodStartAsc(recurringPaymentId, userId);
     }
 
+    @Transactional(readOnly = true)
+    public List<PaymentPeriodHistory> getHistory(UUID recurringPaymentId, LocalDate from, LocalDate to) {
+        UUID userId = userContextService.getCurrentUserId();
+        if (from != null || to != null) {
+            LocalDate effectiveFrom = from != null ? from : LocalDate.MIN;
+            LocalDate effectiveTo = to != null ? to : LocalDate.MAX;
+            return historyRepository.findByRecurringPaymentIdAndUserIdAndPeriodStartLessThanEqualAndPeriodEndGreaterThanEqualOrderByPeriodStartAsc(
+                    recurringPaymentId,
+                    userId,
+                    effectiveTo,
+                    effectiveFrom);
+        }
+        return historyRepository.findByRecurringPaymentIdAndUserIdOrderByPeriodStartAsc(recurringPaymentId, userId);
+    }
+
     public static LocalDate computePeriodStart(LocalDate date, Frequency frequency) {
         if (frequency == null) {
             frequency = Frequency.MONTHLY;

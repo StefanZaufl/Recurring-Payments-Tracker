@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -68,17 +69,13 @@ class AnalyticsServiceTest {
                 .thenReturn(transactions);
         when(recurringPaymentRepository.findByUserIdAndIsActiveTrue(userId))
                 .thenReturn(List.of(rent, gym, salary, orphan));
-        when(linkRepository.findWithTransactionByRecurringPaymentIdAndTransactionBookingDateBetween(
-                rent.getId(), LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31)))
+        when(linkRepository.findWithTransactionByRecurringPaymentId(rent.getId()))
                 .thenReturn(List.of(link(transaction(LocalDate.of(2025, 2, 1), "Rent", "-1200.00"))));
-        when(linkRepository.findWithTransactionByRecurringPaymentIdAndTransactionBookingDateBetween(
-                gym.getId(), LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31)))
+        when(linkRepository.findWithTransactionByRecurringPaymentId(gym.getId()))
                 .thenReturn(List.of(link(transaction(LocalDate.of(2025, 2, 10), "Gym", "-50.00"))));
-        when(linkRepository.findWithTransactionByRecurringPaymentIdAndTransactionBookingDateBetween(
-                salary.getId(), LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31)))
+        when(linkRepository.findWithTransactionByRecurringPaymentId(salary.getId()))
                 .thenReturn(List.of(link(transaction(LocalDate.of(2025, 1, 3), "Salary", "3000.00"))));
-        when(linkRepository.findWithTransactionByRecurringPaymentIdAndTransactionBookingDateBetween(
-                orphan.getId(), LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31)))
+        when(linkRepository.findWithTransactionByRecurringPaymentId(orphan.getId()))
                 .thenReturn(List.of());
 
         AnalyticsService.AnnualOverviewResult result = analyticsService.getAnnualOverview(2025);
@@ -101,10 +98,74 @@ class AnalyticsServiceTest {
                 .extracting(AnalyticsService.RecurringPaymentSummaryResult::name)
                 .containsExactly("Rent", "Gym");
         assertThat(result.recurringExpenses().get(0).annualAmount()).isEqualByComparingTo("1200.00");
-        assertThat(result.recurringExpenses().get(0).monthlyAmount()).isEqualByComparingTo("100.00");
+        assertThat(result.recurringExpenses().get(0).monthlyAmount()).isEqualByComparingTo("1200.00");
         assertThat(result.recurringIncome())
                 .extracting(AnalyticsService.RecurringPaymentSummaryResult::name)
                 .containsExactly("Salary");
+    }
+
+    @Test
+    void getAnnualOverview_averagesMonthlySummaryAcrossObservedSelectedYearCoverage() {
+        RecurringPayment payment = payment("Gym", Frequency.MONTHLY, false, "-50.00", null);
+        List<TransactionRecurringLink> links = List.of(
+                link(transaction(LocalDate.of(2025, 7, 1), "Gym", "-50.00")),
+                link(transaction(LocalDate.of(2025, 8, 1), "Gym", "-50.00")),
+                link(transaction(LocalDate.of(2025, 9, 1), "Gym", "-50.00"))
+        );
+
+        when(transactionRepository.findByUserIdAndBookingDateBetweenAndIsInterAccountFalse(
+                userId, LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31)))
+                .thenReturn(List.of());
+        when(recurringPaymentRepository.findByUserIdAndIsActiveTrue(userId)).thenReturn(List.of(payment));
+        when(linkRepository.findWithTransactionByRecurringPaymentId(payment.getId())).thenReturn(links);
+
+        AnalyticsService.AnnualOverviewResult result = analyticsService.getAnnualOverview(2025);
+
+        assertThat(result.recurringExpenses().getFirst().annualAmount()).isEqualByComparingTo("150.00");
+        assertThat(result.recurringExpenses().getFirst().monthlyAmount()).isEqualByComparingTo("50.00");
+    }
+
+    @Test
+    void getAnnualOverview_usesSelectedYearOverlapWhenPaymentHasTransactionsOutsideYear() {
+        RecurringPayment payment = payment("Internet", Frequency.MONTHLY, false, "-40.00", null);
+        List<TransactionRecurringLink> links = List.of(
+                link(transaction(LocalDate.of(2024, 12, 1), "Internet", "-40.00")),
+                link(transaction(LocalDate.of(2025, 1, 1), "Internet", "-40.00")),
+                link(transaction(LocalDate.of(2025, 2, 1), "Internet", "-40.00")),
+                link(transaction(LocalDate.of(2025, 3, 1), "Internet", "-40.00")),
+                link(transaction(LocalDate.of(2026, 1, 1), "Internet", "-40.00"))
+        );
+
+        when(transactionRepository.findByUserIdAndBookingDateBetweenAndIsInterAccountFalse(
+                userId, LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31)))
+                .thenReturn(List.of());
+        when(recurringPaymentRepository.findByUserIdAndIsActiveTrue(userId)).thenReturn(List.of(payment));
+        when(linkRepository.findWithTransactionByRecurringPaymentId(payment.getId())).thenReturn(links);
+
+        AnalyticsService.AnnualOverviewResult result = analyticsService.getAnnualOverview(2025);
+
+        assertThat(result.recurringExpenses().getFirst().annualAmount()).isEqualByComparingTo("120.00");
+        assertThat(result.recurringExpenses().getFirst().monthlyAmount()).isEqualByComparingTo("10.00");
+    }
+
+    @Test
+    void getAnnualOverview_usesFrequencyPeriodCoverageForQuarterlySummaries() {
+        RecurringPayment payment = payment("Insurance", Frequency.QUARTERLY, false, "-300.00", null);
+        List<TransactionRecurringLink> links = List.of(
+                link(transaction(LocalDate.of(2025, 2, 1), "Insurance", "-300.00")),
+                link(transaction(LocalDate.of(2025, 5, 1), "Insurance", "-300.00"))
+        );
+
+        when(transactionRepository.findByUserIdAndBookingDateBetweenAndIsInterAccountFalse(
+                userId, LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31)))
+                .thenReturn(List.of());
+        when(recurringPaymentRepository.findByUserIdAndIsActiveTrue(userId)).thenReturn(List.of(payment));
+        when(linkRepository.findWithTransactionByRecurringPaymentId(payment.getId())).thenReturn(links);
+
+        AnalyticsService.AnnualOverviewResult result = analyticsService.getAnnualOverview(2025);
+
+        assertThat(result.recurringExpenses().getFirst().annualAmount()).isEqualByComparingTo("600.00");
+        assertThat(result.recurringExpenses().getFirst().monthlyAmount()).isEqualByComparingTo("100.00");
     }
 
     @Test
@@ -124,6 +185,7 @@ class AnalyticsServiceTest {
                 .thenReturn(List.of(link(transaction(LocalDate.now().minusMonths(2), "Insurance", "-1200.00"))));
         when(linkRepository.findWithTransactionByRecurringPaymentId(withoutLinks.getId()))
                 .thenReturn(List.of());
+        stubNoAdditionalBaseline();
 
         AnalyticsService.PredictionResult result = analyticsService.getPredictions(14);
 
@@ -142,6 +204,97 @@ class AnalyticsServiceTest {
                 .isSorted();
     }
 
+    @Test
+    void getPredictions_respectsRecurringPaymentLifecycleDates() {
+        YearMonth firstPredictionMonth = YearMonth.from(LocalDate.now()).plusMonths(1);
+        RecurringPayment futureStart = payment("Future", Frequency.MONTHLY, false, "-40.00", null);
+        futureStart.setStartDate(firstPredictionMonth.plusMonths(1).atDay(1));
+        RecurringPayment ended = payment("Ended", Frequency.MONTHLY, false, "-50.00", null);
+        ended.setEndDate(firstPredictionMonth.atDay(1).minusDays(1));
+        RecurringPayment endingAfterFirstMonth = payment("Ending", Frequency.MONTHLY, false, "-60.00", null);
+        endingAfterFirstMonth.setEndDate(firstPredictionMonth.atEndOfMonth());
+
+        when(recurringPaymentRepository.findByUserIdAndIsActiveTrue(userId))
+                .thenReturn(List.of(futureStart, ended, endingAfterFirstMonth));
+        when(linkRepository.findWithTransactionByRecurringPaymentId(futureStart.getId()))
+                .thenReturn(List.of(link(transaction(LocalDate.now().minusDays(3), "Future", "-40.00"))));
+        when(linkRepository.findWithTransactionByRecurringPaymentId(ended.getId()))
+                .thenReturn(List.of(link(transaction(LocalDate.now().minusDays(3), "Ended", "-50.00"))));
+        when(linkRepository.findWithTransactionByRecurringPaymentId(endingAfterFirstMonth.getId()))
+                .thenReturn(List.of(link(transaction(LocalDate.now().minusDays(3), "Ending", "-60.00"))));
+        stubNoAdditionalBaseline();
+
+        AnalyticsService.PredictionResult result = analyticsService.getPredictions(3);
+
+        assertThat(result.predictions().get(0).expectedExpenses()).isEqualByComparingTo("60.00");
+        assertThat(result.predictions().get(1).expectedExpenses()).isEqualByComparingTo("40.00");
+        assertThat(result.predictions().get(2).expectedExpenses()).isEqualByComparingTo("40.00");
+        assertThat(result.upcomingPayments())
+                .extracting(AnalyticsService.UpcomingPaymentResult::name)
+                .contains("Future", "Ending")
+                .doesNotContain("Ended");
+        assertThat(result.upcomingPayments())
+                .filteredOn(payment -> payment.name().equals("Ending"))
+                .allSatisfy(payment -> assertThat(payment.date()).isBeforeOrEqualTo(firstPredictionMonth.atEndOfMonth()));
+    }
+
+    @Test
+    void getPredictions_forecastsAdditionalPaymentsFromLastThreeCompleteMonths() {
+        YearMonth currentMonth = YearMonth.from(LocalDate.now());
+        when(recurringPaymentRepository.findByUserIdAndIsActiveTrue(userId)).thenReturn(List.of());
+        when(transactionRepository.findUnlinkedTransactionsBetweenForUser(
+                currentMonth.minusMonths(3).atDay(1), currentMonth.minusMonths(1).atEndOfMonth(), userId))
+                .thenReturn(List.of(
+                        transaction(currentMonth.minusMonths(3).atDay(3), "Freelance", "300.00"),
+                        transaction(currentMonth.minusMonths(3).atDay(4), "Groceries", "-30.00"),
+                        transaction(currentMonth.minusMonths(2).atDay(3), "Freelance", "600.00"),
+                        transaction(currentMonth.minusMonths(2).atDay(4), "Groceries", "-60.00"),
+                        transaction(currentMonth.minusMonths(1).atDay(3), "Freelance", "900.00"),
+                        transaction(currentMonth.minusMonths(1).atDay(4), "Groceries", "-90.00")
+                ));
+
+        AnalyticsService.PredictionResult result = analyticsService.getPredictions(2);
+
+        assertThat(result.predictions()).hasSize(2).allSatisfy(prediction -> {
+            assertThat(prediction.additionalIncome()).isEqualByComparingTo("600.00");
+            assertThat(prediction.additionalExpenses()).isEqualByComparingTo("60.00");
+            assertThat(prediction.expectedIncome()).isEqualByComparingTo("600.00");
+            assertThat(prediction.expectedExpenses()).isEqualByComparingTo("60.00");
+            assertThat(prediction.expectedSurplus()).isEqualByComparingTo("540.00");
+        });
+    }
+
+    @Test
+    void getPredictions_averagesAdditionalPaymentsOverAvailableCompleteMonths() {
+        YearMonth currentMonth = YearMonth.from(LocalDate.now());
+        when(recurringPaymentRepository.findByUserIdAndIsActiveTrue(userId)).thenReturn(List.of());
+        when(transactionRepository.findUnlinkedTransactionsBetweenForUser(
+                currentMonth.minusMonths(3).atDay(1), currentMonth.minusMonths(1).atEndOfMonth(), userId))
+                .thenReturn(List.of(
+                        transaction(currentMonth.minusMonths(1).atDay(3), "Reimbursement", "90.00"),
+                        transaction(currentMonth.minusMonths(1).atDay(4), "Supplies", "-30.00")
+                ));
+
+        AnalyticsService.PredictionResult result = analyticsService.getPredictions(1);
+
+        assertThat(result.predictions().getFirst().additionalIncome()).isEqualByComparingTo("90.00");
+        assertThat(result.predictions().getFirst().additionalExpenses()).isEqualByComparingTo("30.00");
+    }
+
+    @Test
+    void getPredictions_excludesCurrentPartialMonthFromAdditionalBaseline() {
+        YearMonth currentMonth = YearMonth.from(LocalDate.now());
+        when(recurringPaymentRepository.findByUserIdAndIsActiveTrue(userId)).thenReturn(List.of());
+        when(transactionRepository.findUnlinkedTransactionsBetweenForUser(
+                currentMonth.minusMonths(3).atDay(1), currentMonth.minusMonths(1).atEndOfMonth(), userId))
+                .thenReturn(List.of());
+
+        analyticsService.getPredictions(1);
+
+        verify(transactionRepository).findUnlinkedTransactionsBetweenForUser(
+                currentMonth.minusMonths(3).atDay(1), currentMonth.minusMonths(1).atEndOfMonth(), userId);
+    }
+
     private RecurringPayment payment(String name, Frequency frequency, boolean income, String averageAmount, Category category) {
         RecurringPayment payment = new RecurringPayment();
         payment.setId(UUID.randomUUID());
@@ -152,6 +305,13 @@ class AnalyticsServiceTest {
         payment.setCategory(category);
         payment.setIsActive(true);
         return payment;
+    }
+
+    private void stubNoAdditionalBaseline() {
+        YearMonth currentMonth = YearMonth.from(LocalDate.now());
+        when(transactionRepository.findUnlinkedTransactionsBetweenForUser(
+                currentMonth.minusMonths(3).atDay(1), currentMonth.minusMonths(1).atEndOfMonth(), userId))
+                .thenReturn(List.of());
     }
 
     private Category category(String name, String color) {
