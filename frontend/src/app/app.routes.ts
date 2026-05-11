@@ -1,7 +1,7 @@
 import { Routes } from '@angular/router';
-import { authGuard } from './core/auth.guard';
-import { adminGuard } from './core/admin.guard';
-import { setupGuard } from './core/setup.guard';
+import { authGuard } from './core/auth/auth.guard';
+import { adminGuard } from './core/auth/admin.guard';
+import { setupGuard } from './core/auth/setup.guard';
 
 export const routes: Routes = [
   {
@@ -11,61 +11,61 @@ export const routes: Routes = [
   },
   {
     path: 'login',
-    loadComponent: () => import('./features/auth/login.component').then(m => m.LoginComponent)
+    loadComponent: () => import('./features/users/auth/pages/login.component').then(m => m.LoginComponent)
   },
   {
     path: 'setup',
     canActivate: [setupGuard],
-    loadComponent: () => import('./features/setup/setup.component').then(m => m.SetupComponent)
+    loadComponent: () => import('./features/users/auth/pages/setup.component').then(m => m.SetupComponent)
   },
   {
     path: 'dashboard',
     canActivate: [authGuard],
-    loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent)
+    loadComponent: () => import('./features/dashboard/pages/dashboard.component').then(m => m.DashboardComponent)
   },
   {
     path: 'transactions',
     canActivate: [authGuard],
-    loadComponent: () => import('./features/transactions/transactions.component').then(m => m.TransactionsComponent)
+    loadComponent: () => import('./features/transactions/pages/transactions.component').then(m => m.TransactionsComponent)
   },
   {
     path: 'transactions/import',
     canActivate: [authGuard],
-    loadComponent: () => import('./features/transactions/transaction-import.component').then(m => m.TransactionImportComponent)
+    loadComponent: () => import('./features/transactions/pages/transaction-import.component').then(m => m.TransactionImportComponent)
   },
   {
     path: 'configure',
     canActivate: [authGuard],
-    loadComponent: () => import('./features/configure/configure.component').then(m => m.ConfigureComponent)
+    loadComponent: () => import('./features/configuration/pages/configure.component').then(m => m.ConfigureComponent)
   },
   {
     path: 'recurring-payments/create',
     canActivate: [authGuard],
-    loadComponent: () => import('./features/recurring-payments/create-payment.component').then(m => m.CreatePaymentComponent)
+    loadComponent: () => import('./features/recurring-payments/pages/create-payment.component').then(m => m.CreatePaymentComponent)
   },
   {
     path: 'recurring-payments/additional',
     canActivate: [authGuard],
-    loadComponent: () => import('./features/recurring-payments/additional-rule-group-editor.component').then(m => m.AdditionalRuleGroupEditorComponent)
+    loadComponent: () => import('./features/additional-rule-groups/pages/additional-rule-group-editor.component').then(m => m.AdditionalRuleGroupEditorComponent)
   },
   {
     path: 'recurring-payments',
     canActivate: [authGuard],
-    loadComponent: () => import('./features/recurring-payments/recurring-payments-list.component').then(m => m.RecurringPaymentsListComponent)
+    loadComponent: () => import('./features/recurring-payments/pages/recurring-payments-list.component').then(m => m.RecurringPaymentsListComponent)
   },
   {
     path: 'predictions',
     canActivate: [authGuard],
-    loadComponent: () => import('./features/predictions/upcoming-payments.component').then(m => m.UpcomingPaymentsComponent)
+    loadComponent: () => import('./features/analytics/pages/upcoming-payments.component').then(m => m.UpcomingPaymentsComponent)
   },
   {
     path: 'account',
     canActivate: [authGuard],
-    loadComponent: () => import('./features/account/account.component').then(m => m.AccountComponent)
+    loadComponent: () => import('./features/users/account/pages/account.component').then(m => m.AccountComponent)
   },
   {
     path: 'admin/users',
     canActivate: [authGuard, adminGuard],
-    loadComponent: () => import('./features/admin/user-management.component').then(m => m.UserManagementComponent)
+    loadComponent: () => import('./features/users/admin/pages/user-management.component').then(m => m.UserManagementComponent)
   }
 ];

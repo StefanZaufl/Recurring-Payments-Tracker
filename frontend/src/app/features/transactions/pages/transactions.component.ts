@@ -1,0 +1,576 @@
+import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Params, Router, RouterLink } from '@angular/router';
+import { BankAccountsService, TransactionsService } from '../../../api/generated';
+import { BankAccountDto } from '../../../api/generated/model/bankAccountDto';
+import { TransactionDto } from '../../../api/generated/model/transactionDto';
+import { DateRangePickerComponent, DateRange } from '../../../shared/date/date-range-picker.component';
+import { getThisMonthDateRange } from '../../../shared/date/date-range-presets';
+import { LoadingSpinnerComponent } from '../../../shared/ui/loading-spinner.component';
+import { ErrorStateComponent } from '../../../shared/ui/error-state.component';
+import { EmptyStateComponent } from '../../../shared/ui/empty-state.component';
+import { DEFAULT_PAGE_SIZE } from '../../../shared/constants';
+import { CurrencyFormatPipe } from '../../../shared/formatting/currency-format.pipe';
+import { TooltipComponent } from '../../../shared/ui/tooltip.component';
+import { parseDateParam, parseEnumParam, parseNonNegativeIntParam } from '../../../shared/date/query-param-utils';
+import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
+
+type SortField = 'bookingDate' | 'partnerName' | 'amount';
+type SortDir = 'asc' | 'desc';
+type TransactionType = 'ALL' | 'NON_INTER_ACCOUNT' | 'REGULAR' | 'ADDITIONAL';
+type TransactionSign = 'ALL' | 'POSITIVE' | 'NEGATIVE';
+
+interface TransactionsUrlState {
+  from: string | null;
+  to: string | null;
+  searchText: string;
+  accountFilter: string;
+  transactionType: TransactionType;
+  transactionSign: TransactionSign;
+  sortField: SortField;
+  sortDir: SortDir;
+  page: number;
+}
+
+const TRANSACTION_TYPES: readonly TransactionType[] = ['ALL', 'NON_INTER_ACCOUNT', 'REGULAR', 'ADDITIONAL'];
+const TRANSACTION_SIGNS: readonly TransactionSign[] = ['ALL', 'POSITIVE', 'NEGATIVE'];
+const SORT_FIELDS: readonly SortField[] = ['bookingDate', 'partnerName', 'amount'];
+const SORT_DIRS: readonly SortDir[] = ['asc', 'desc'];
+const ALL_TIME_DATE_PARAM = 'all';
+
+@Component({
+  selector: 'app-transactions',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [CommonModule, FormsModule, RouterLink, DateRangePickerComponent, LoadingSpinnerComponent, ErrorStateComponent, EmptyStateComponent, CurrencyFormatPipe, TooltipComponent],
+  template: `
+    <div class="animate-fade-in">
+      <!-- Header -->
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Transactions</h1>
+          <p class="text-sm text-muted mt-0.5">Browse and search all imported transactions</p>
+        </div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <div class="flex items-center gap-3 flex-wrap text-xs">
+            <div class="text-muted">
+              {{ totalElements }} transaction{{ totalElements === 1 ? '' : 's' }}
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="text-muted uppercase tracking-[0.12em]">Sum</span>
+              @if (filteredSum !== null) {
+                <span class="font-mono font-semibold"
+                  [class.text-accent]="filteredSum >= 0"
+                  [class.text-coral]="filteredSum < 0">
+                  {{ filteredSum | appCurrency:true }}
+                </span>
+              } @else {
+                <span class="font-mono font-semibold text-muted/60">--</span>
+              }
+            </div>
+          </div>
+          <a routerLink="/transactions/import"
+            class="btn-primary text-xs flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V4.5m0 0L7.5 9m4.5-4.5L16.5 9M4.5 15.75v2.25A1.5 1.5 0 006 19.5h12a1.5 1.5 0 001.5-1.5v-2.25" />
+            </svg>
+            Import
+          </a>
+        </div>
+      </div>
+    
+      <!-- Filter bar -->
+      <div class="bg-card border border-card-border rounded-2xl p-3 sm:p-4 mb-4 sm:mb-6">
+        <div class="flex flex-col lg:flex-row gap-3">
+          <!-- Date range picker -->
+          <app-date-range-picker
+            [from]="from"
+            [to]="to"
+            defaultPreset="thisMonth"
+            (rangeChanged)="onDateRangeChanged($event)">
+          </app-date-range-picker>
+    
+          <!-- Search -->
+          <div class="relative flex-1 min-w-0">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+            <input type="text"
+              [ngModel]="searchText"
+              (ngModelChange)="onSearchChange($event)"
+              placeholder="Search partner or details..."
+              class="w-full bg-subtle border border-card-border rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder-muted/50 focus:outline-none focus:border-accent transition-colors">
+            </div>
+
+          <!-- Sort -->
+          <div class="flex gap-3 shrink-0">
+            <select [ngModel]="sortField"
+              (ngModelChange)="onSortChange($event)"
+              class="text-xs bg-card border border-card-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-subtle shrink-0 min-w-0 flex-1 sm:flex-none">
+            <option value="bookingDate">Sort by date</option>
+            <option value="partnerName">Sort by partner</option>
+            <option value="amount">Sort by amount</option>
+          </select>
+
+          <!-- Sort direction -->
+          <button (click)="toggleSortDirection()"
+            class="w-9 h-9 flex items-center justify-center bg-card border border-card-border rounded-xl text-muted hover:text-white hover:bg-card-hover transition-colors shrink-0"
+            [attr.aria-label]="'Sort ' + (sortDir === 'asc' ? 'ascending' : 'descending')"
+            [title]="sortDir === 'asc' ? 'Ascending' : 'Descending'">
+            @if (sortDir === 'asc') {
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h5.25m5.25-.75L17.25 9m0 0L21 12.75M17.25 9v12" />
+              </svg>
+            }
+            @if (sortDir === 'desc') {
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h9.75m4.5-4.5v12m0 0l-3.75-3.75M17.25 21L21 17.25" />
+              </svg>
+            }
+          </button>
+          </div>
+        </div>
+
+        <div class="mt-3 pt-3 border-t border-card-border/70">
+          <button type="button"
+            (click)="toggleAdvancedFilters()"
+            class="flex items-center gap-2 text-xs text-muted hover:text-white transition-colors"
+            [attr.aria-expanded]="advancedFiltersExpanded">
+            <svg class="w-3.5 h-3.5 transition-transform"
+              [class.rotate-90]="advancedFiltersExpanded"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+            </svg>
+            <span>More filters</span>
+            @if (activeAdvancedFilterCount > 0) {
+              <span class="rounded-full bg-accent text-surface px-1.5 py-0.5 text-[10px] font-semibold leading-none">
+                {{ activeAdvancedFilterCount }}
+              </span>
+            }
+          </button>
+
+          @if (advancedFiltersExpanded) {
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+              <select [ngModel]="accountFilter"
+                (ngModelChange)="onAccountChange($event)"
+                aria-label="Account filter"
+                class="text-xs bg-card border border-card-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-subtle min-w-0">
+                <option value="">All accounts</option>
+                @for (account of bankAccounts; track account.id) {
+                  <option [value]="account.iban">{{ account.name || account.iban }}</option>
+                }
+              </select>
+
+              <select [ngModel]="transactionType"
+                (ngModelChange)="onTransactionTypeChange($event)"
+                aria-label="Transaction type filter"
+                class="text-xs bg-card border border-card-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-subtle min-w-0">
+                <option value="ALL">All transactions</option>
+                <option value="NON_INTER_ACCOUNT">Non-inter-account transactions</option>
+                <option value="REGULAR">Regular transactions</option>
+                <option value="ADDITIONAL">Additional transactions</option>
+              </select>
+
+              <select [ngModel]="transactionSign"
+                (ngModelChange)="onTransactionSignChange($event)"
+                aria-label="Transaction sign filter"
+                class="text-xs bg-card border border-card-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-subtle min-w-0">
+                <option value="ALL">All signs</option>
+                <option value="POSITIVE">Income only</option>
+                <option value="NEGATIVE">Expenses only</option>
+              </select>
+            </div>
+          }
+        </div>
+      </div>
+    
+      <!-- Loading -->
+      @if (loading) {
+        <app-loading-spinner message="Loading transactions..." />
+      }
+
+      <!-- Error state -->
+      @if (!loading && error) {
+        <app-error-state [message]="error" (retry)="loadTransactions()" />
+      }
+    
+      <!-- Empty state -->
+      @if (!loading && !error && transactions.length === 0) {
+        <app-empty-state
+          heading="No transactions found"
+          [description]="searchText || from || to ? 'Try adjusting your filters.' : 'Upload a CSV file to get started.'">
+          <span icon>
+            <svg class="w-7 h-7 text-violet" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+            </svg>
+          </span>
+        </app-empty-state>
+      }
+    
+      <!-- Mobile card view -->
+      @if (!loading && !error && transactions.length > 0) {
+        <div class="sm:hidden space-y-2 animate-slide-up">
+          @for (tx of transactions; track tx.id) {
+            <div class="glass-card p-3.5">
+              <div class="flex items-start justify-between gap-2 mb-1.5">
+                <p class="text-sm font-medium text-white truncate min-w-0 flex-1">{{ tx.partnerName || 'Unknown' }}</p>
+                <p class="font-mono text-sm font-semibold shrink-0"
+                  [class.text-accent]="tx.amount >= 0"
+                  [class.text-coral]="tx.amount < 0">
+                  {{ tx.amount | appCurrency:true }}
+                </p>
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-xs text-muted">{{ formatDate(tx.bookingDate) }}</span>
+                @if (tx.details) {
+                  <span class="text-xs text-muted/60 truncate max-w-[50%] text-right">{{ tx.details }}</span>
+                }
+              </div>
+              <div class="flex items-center justify-between gap-2 mt-1.5">
+                <span class="text-[11px] text-muted/70">{{ accountLabel(tx.account) }}</span>
+                @if (tx.isInterAccount) {
+                  <span class="badge bg-amber-dim text-amber text-[10px]">Inter-account</span>
+                }
+                @if ((tx.linkedPaymentCount || 0) > 0) {
+                  <app-tooltip>
+                    <span tooltip-trigger class="badge bg-sky-dim text-sky text-[10px]">{{ linkBadge(tx) }}</span>
+                    <div class="space-y-1">
+                      @for (name of tx.linkedPaymentNames || []; track name) {
+                        <div>{{ name }}</div>
+                      }
+                    </div>
+                  </app-tooltip>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+    
+      <!-- Desktop table view -->
+      @if (!loading && !error && transactions.length > 0) {
+        <div class="hidden sm:block glass-card overflow-hidden animate-slide-up">
+          <div class="overflow-x-auto">
+            <table class="min-w-full">
+              <thead>
+                <tr class="border-b border-card-border">
+                  <th class="table-header">Date</th>
+                  <th class="table-header">Partner</th>
+                  <th class="table-header">Account</th>
+                  <th class="table-header text-right">Amount</th>
+                  <th class="table-header">Details</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-card-border">
+                @for (tx of transactions; track tx.id) {
+                  <tr class="hover:bg-card-hover transition-colors">
+                    <td class="table-cell text-muted whitespace-nowrap">{{ formatDate(tx.bookingDate) }}</td>
+                    <td class="table-cell font-medium text-white">{{ tx.partnerName || 'Unknown' }}</td>
+                    <td class="table-cell text-muted/70 whitespace-nowrap">
+                      <div class="flex items-center gap-2">
+                        <span>{{ accountLabel(tx.account) }}</span>
+                        @if (tx.isInterAccount) {
+                          <span class="badge bg-amber-dim text-amber text-[10px]">Inter-account</span>
+                        }
+                        @if ((tx.linkedPaymentCount || 0) > 0) {
+                          <app-tooltip>
+                            <span tooltip-trigger class="badge bg-sky-dim text-sky text-[10px]">{{ linkBadge(tx) }}</span>
+                            <div class="space-y-1">
+                              @for (name of tx.linkedPaymentNames || []; track name) {
+                                <div>{{ name }}</div>
+                              }
+                            </div>
+                          </app-tooltip>
+                        }
+                      </div>
+                    </td>
+                    <td class="table-cell text-right font-mono text-xs font-medium whitespace-nowrap"
+                      [class.text-accent]="tx.amount >= 0"
+                      [class.text-coral]="tx.amount < 0">
+                      {{ tx.amount | appCurrency:true }}
+                    </td>
+                    <td class="table-cell text-muted/70 max-w-xs truncate">{{ tx.details || '-' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+    
+      <!-- Pagination -->
+      @if (!loading && !error && totalPages > 1) {
+        <div
+          class="flex items-center justify-between mt-4 px-1">
+          <button (click)="goToPage(page - 1)"
+            [disabled]="page === 0"
+            class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+                [ngClass]="{
+                  'text-muted/30 cursor-not-allowed': page === 0,
+                  'text-muted hover:text-white hover:bg-card': page > 0
+                }">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+            Previous
+          </button>
+          <span class="text-xs text-muted">
+            Page {{ page + 1 }} of {{ totalPages }}
+          </span>
+          <button (click)="goToPage(page + 1)"
+            [disabled]="page >= totalPages - 1"
+            class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+                [ngClass]="{
+                  'text-muted/30 cursor-not-allowed': page >= totalPages - 1,
+                  'text-muted hover:text-white hover:bg-card': page < totalPages - 1
+                }">
+            Next
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+            </svg>
+          </button>
+        </div>
+      }
+    </div>
+    `
+})
+export class TransactionsComponent implements OnInit, OnDestroy {
+  private transactionsService = inject(TransactionsService);
+  private bankAccountsService = inject(BankAccountsService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  private cdr = inject(ChangeDetectorRef);
+
+  bankAccounts: BankAccountDto[] = [];
+  transactions: TransactionDto[] = [];
+  loading = false;
+  error: string | null = null;
+
+  // Filters
+  from: string | null = getThisMonthDateRange().from;
+  to: string | null = getThisMonthDateRange().to;
+  searchText = '';
+  accountFilter = '';
+  transactionType: TransactionType = 'ALL';
+  transactionSign: TransactionSign = 'ALL';
+  advancedFiltersExpanded = false;
+  sortField: SortField = 'bookingDate';
+  sortDir: SortDir = 'desc';
+
+  // Pagination
+  page = 0;
+  pageSize = DEFAULT_PAGE_SIZE;
+  totalElements = 0;
+  totalPages = 0;
+  filteredSum: number | null = null;
+
+  private searchSubject = new Subject<string>();
+  private destroy$ = new Subject<void>();
+
+  ngOnInit(): void {
+    this.searchSubject.pipe(
+      debounceTime(400),
+      distinctUntilChanged(),
+      takeUntil(this.destroy$)
+    ).subscribe(text => {
+      this.searchText = text;
+      this.page = 0;
+      this.syncUrlWithState(true);
+      this.cdr.markForCheck();
+    });
+
+    this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe(queryParamMap => {
+      this.applyUrlState(this.parseUrlState(queryParamMap));
+      this.loadTransactions();
+      this.cdr.markForCheck();
+    });
+
+    this.loadBankAccounts();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  onDateRangeChanged(range: DateRange): void {
+    this.from = range.from;
+    this.to = range.to;
+    this.page = 0;
+    this.syncUrlWithState();
+  }
+
+  onSearchChange(text: string): void {
+    this.searchSubject.next(text);
+  }
+
+  onSortChange(field: SortField): void {
+    this.sortField = field;
+    this.page = 0;
+    this.syncUrlWithState();
+  }
+
+  onAccountChange(account: string): void {
+    this.accountFilter = account;
+    this.page = 0;
+    this.syncUrlWithState();
+  }
+
+  onTransactionTypeChange(transactionType: TransactionType): void {
+    this.transactionType = transactionType;
+    this.page = 0;
+    this.syncUrlWithState();
+  }
+
+  onTransactionSignChange(transactionSign: TransactionSign): void {
+    this.transactionSign = transactionSign;
+    this.page = 0;
+    this.syncUrlWithState();
+  }
+
+  toggleAdvancedFilters(): void {
+    this.advancedFiltersExpanded = !this.advancedFiltersExpanded;
+  }
+
+  get activeAdvancedFilterCount(): number {
+    return [
+      this.accountFilter,
+      this.transactionType !== 'ALL',
+      this.transactionSign !== 'ALL',
+    ].filter(Boolean).length;
+  }
+
+  toggleSortDirection(): void {
+    this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+    this.page = 0;
+    this.syncUrlWithState();
+  }
+
+  goToPage(p: number): void {
+    if (p < 0 || p >= this.totalPages) return;
+    this.page = p;
+    this.syncUrlWithState();
+  }
+
+  loadTransactions(): void {
+    this.loading = true;
+    this.error = null;
+    this.filteredSum = null;
+
+    this.transactionsService.getTransactions(
+      this.from || undefined,
+      this.to || undefined,
+      this.searchText || undefined,
+      this.accountFilter || undefined,
+      this.transactionType,
+      this.transactionSign,
+      this.page,
+      this.pageSize,
+      this.sortField,
+      this.sortDir
+    ).subscribe({
+      next: (result) => {
+        this.transactions = result.content;
+        this.totalElements = result.totalElements;
+        this.totalPages = result.totalPages;
+        this.filteredSum = result.filteredSum;
+        this.loading = false;
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.error = err.error?.message || 'Failed to load transactions. Please try again.';
+        this.filteredSum = null;
+        this.loading = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  formatDate(dateStr: string): string {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const d = new Date(year, month - 1, day);
+    return d.toLocaleDateString('en', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  accountLabel(account?: BankAccountDto): string {
+    if (!account) {
+      return '-';
+    }
+    return account.name || account.iban || '-';
+  }
+
+  linkBadge(tx: TransactionDto): string {
+    const count = tx.linkedPaymentCount || 0;
+    return count === 1 ? '1 Link' : `${count} Links`;
+  }
+
+  private loadBankAccounts(): void {
+    this.bankAccountsService.getBankAccounts().subscribe({
+      next: (accounts) => {
+        this.bankAccounts = accounts;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.bankAccounts = [];
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private parseUrlState(queryParamMap: { get(name: string): string | null }): TransactionsUrlState {
+    const defaultRange = getThisMonthDateRange();
+    const fromParam = queryParamMap.get('from');
+    const toParam = queryParamMap.get('to');
+    const allTime = fromParam === ALL_TIME_DATE_PARAM && toParam === ALL_TIME_DATE_PARAM;
+
+    return {
+      from: allTime ? null : parseDateParam(fromParam) ?? defaultRange.from,
+      to: allTime ? null : parseDateParam(toParam) ?? defaultRange.to,
+      searchText: queryParamMap.get('search') ?? '',
+      accountFilter: queryParamMap.get('account') ?? '',
+      transactionType: parseEnumParam(queryParamMap.get('type'), TRANSACTION_TYPES) ?? 'ALL',
+      transactionSign: parseEnumParam(queryParamMap.get('sign'), TRANSACTION_SIGNS) ?? 'ALL',
+      sortField: parseEnumParam(queryParamMap.get('sort'), SORT_FIELDS) ?? 'bookingDate',
+      sortDir: parseEnumParam(queryParamMap.get('dir'), SORT_DIRS) ?? 'desc',
+      page: parseNonNegativeIntParam(queryParamMap.get('page')) ?? 0,
+    };
+  }
+
+  private applyUrlState(state: TransactionsUrlState): void {
+    this.from = state.from;
+    this.to = state.to;
+    this.searchText = state.searchText;
+    this.accountFilter = state.accountFilter;
+    this.transactionType = state.transactionType;
+    this.transactionSign = state.transactionSign;
+    this.advancedFiltersExpanded = this.activeAdvancedFilterCount > 0;
+    this.sortField = state.sortField;
+    this.sortDir = state.sortDir;
+    this.page = state.page;
+  }
+
+  private syncUrlWithState(replaceUrl = false): void {
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: this.buildQueryParams(),
+      replaceUrl,
+    });
+  }
+
+  private buildQueryParams(): Params {
+    const defaultRange = getThisMonthDateRange();
+    const allTime = !this.from && !this.to;
+
+    return {
+      from: allTime ? ALL_TIME_DATE_PARAM : this.from !== defaultRange.from ? this.from : null,
+      to: allTime ? ALL_TIME_DATE_PARAM : this.to !== defaultRange.to ? this.to : null,
+      search: this.searchText || null,
+      account: this.accountFilter || null,
+      type: this.transactionType !== 'ALL' ? this.transactionType : null,
+      sign: this.transactionSign === 'ALL' ? null : this.transactionSign,
+      sort: this.sortField !== 'bookingDate' ? this.sortField : null,
+      dir: this.sortDir !== 'desc' ? this.sortDir : null,
+      page: this.page > 0 ? this.page : null,
+    };
+  }
+}

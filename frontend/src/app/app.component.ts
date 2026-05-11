@@ -1,7 +1,7 @@
 import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
-import { AuthStateService } from './core/auth-state.service';
+import { AuthStateService } from './core/auth/auth-state.service';
 import { filter } from 'rxjs/operators';
 
 @Component({
