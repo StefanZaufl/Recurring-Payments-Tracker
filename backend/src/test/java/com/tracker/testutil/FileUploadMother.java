@@ -1,6 +1,6 @@
 package com.tracker.testutil;
 
-import com.tracker.model.entity.FileUpload;
+import com.tracker.transactions.domain.FileUpload;
 
 public final class FileUploadMother {
 

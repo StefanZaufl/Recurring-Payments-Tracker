@@ -1,7 +1,7 @@
 package com.tracker.testutil;
 
-import com.tracker.model.entity.FileUpload;
-import com.tracker.model.entity.Transaction;
+import com.tracker.transactions.domain.FileUpload;
+import com.tracker.transactions.domain.Transaction;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

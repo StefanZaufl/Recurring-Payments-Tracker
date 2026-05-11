@@ -1,7 +1,7 @@
 package com.tracker.security;
 
-import com.tracker.model.entity.User;
-import com.tracker.repository.UserRepository;
+import com.tracker.users.domain.User;
+import com.tracker.users.persistence.UserRepository;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;

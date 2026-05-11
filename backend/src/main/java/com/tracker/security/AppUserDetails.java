@@ -1,7 +1,7 @@
 package com.tracker.security;
 
-import com.tracker.model.entity.User;
-import com.tracker.model.entity.UserRole;
+import com.tracker.users.domain.User;
+import com.tracker.users.domain.UserRole;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;

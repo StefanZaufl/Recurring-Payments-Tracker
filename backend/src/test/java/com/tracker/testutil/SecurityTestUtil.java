@@ -1,8 +1,8 @@
 package com.tracker.testutil;
 
-import com.tracker.model.entity.User;
-import com.tracker.model.entity.UserRole;
-import com.tracker.repository.UserRepository;
+import com.tracker.users.domain.User;
+import com.tracker.users.domain.UserRole;
+import com.tracker.users.persistence.UserRepository;
 import com.tracker.security.AppUserDetails;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
